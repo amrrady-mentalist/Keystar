@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">Custom Keyboard</string>
+    <string name="subtype_en">English</string>
+    <string name="subtype_ar">Arabic</string>
+    <string name="setup_title">Set up your keyboard</string>
+    <string name="setup_step1">1. Enable it in system settings</string>
+    <string name="setup_step2">2. Switch to it from any text field</string>
+    <string name="btn_enable">Open Keyboard Settings</string>
+    <string name="btn_switch">Switch Keyboard Now</string>
+    <string name="theme_label">Appearance</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+</resources>
