@@ -212,7 +212,7 @@ class CustomKeyboardService : InputMethodService() {
                         render()
                     }
                 }
-                val text = TextView(this).apply {
+                val itemLabel = TextView(this).apply {
                     text = if (item.length > 60) item.substring(0, 60) + "…" else item
                     setTextColor(textColor())
                     layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
@@ -227,7 +227,7 @@ class CustomKeyboardService : InputMethodService() {
                         render()
                     }
                 }
-                row.addView(text)
+                row.addView(itemLabel)
                 row.addView(delete)
                 list.addView(row)
             }
