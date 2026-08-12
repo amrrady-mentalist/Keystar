@@ -20,6 +20,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -35,6 +36,7 @@ class CustomKeyboardService : InputMethodService() {
     private var shiftOn = false
     private var capsLock = false
     private var lastShiftTapTime = 0L
+    private var symbolsPage = 1
     private val wordBuffer = StringBuilder()
 
     private lateinit var rootContainer: LinearLayout
@@ -49,6 +51,9 @@ class CustomKeyboardService : InputMethodService() {
     private val ROW_HEIGHT_DP = 44
     private val ROW_SPACING_DP = 4
     private val TOP_BAR_HEIGHT_DP = 36
+    private val ICON_GLYPH_DP = 26
+
+    private val commonEmojis = listOf("😀", "😂", "❤️", "👍", "🙏", "🔥", "😊", "🎉", "👀", "✅", "😉", "💯")
 
     private val systemClipListener = ClipboardManager.OnPrimaryClipChangedListener {
         val clip = clipboardManager.primaryClip
@@ -76,6 +81,7 @@ class CustomKeyboardService : InputMethodService() {
         currentMode = Mode.LETTERS
         shiftOn = false
         capsLock = false
+        symbolsPage = 1
         wordBuffer.clear()
         render()
     }
@@ -116,6 +122,12 @@ class CustomKeyboardService : InputMethodService() {
     private fun fallbackAccent() = if (isDarkMode()) Color.parseColor("#A8C7FA") else Color.parseColor("#0B57D0")
     private fun enterIconColor() = if (isDarkMode()) Color.parseColor("#062E6F") else Color.parseColor("#FFFFFF")
 
+    /** A translucent wash of the accent color, used as the shift key's background while active. */
+    private fun accentTintColor(): Int {
+        val c = accentColor()
+        return Color.argb(70, Color.red(c), Color.green(c), Color.blue(c))
+    }
+
     private fun applyWindowChrome() {
         val win = window?.window
         win?.navigationBarColor = bgColor()
@@ -150,13 +162,16 @@ class CustomKeyboardService : InputMethodService() {
             Mode.EMOJI -> {
                 rootContainer.addView(buildRow(KeyboardLayoutData.emojiRows[0], isEmoji = true))
                 rootContainer.addView(buildRow(KeyboardLayoutData.emojiRows[1], isEmoji = true))
-                rootContainer.addView(buildRow(KeyboardLayoutData.emojiRows[2], isEmoji = true))
+                // Delete stays reachable from the emoji screen too, not just letters.
+                rootContainer.addView(buildEmojiBottomRow(KeyboardLayoutData.emojiRows[2]))
             }
             Mode.SYMBOLS -> {
+                val pageRows = if (symbolsPage == 1) KeyboardLayoutData.symbolsPage1Rows else KeyboardLayoutData.symbolsPage2Rows
                 rootContainer.addView(buildRow(KeyboardLayoutData.numberRow))
-                rootContainer.addView(buildRow(KeyboardLayoutData.symbolsRows[0]))
-                rootContainer.addView(buildRow(KeyboardLayoutData.symbolsRows[1]))
-                rootContainer.addView(buildRow(KeyboardLayoutData.symbolsRows[2]))
+                rootContainer.addView(buildSymbolsRow(pageRows[0]))
+                rootContainer.addView(buildSymbolsRow(pageRows[1], prependToggle = true))
+                // Delete stays reachable from the symbols screen too, not just letters.
+                rootContainer.addView(buildSymbolsBottomRow(KeyboardLayoutData.symbolsSharedRow))
             }
             Mode.LETTERS -> {
                 val rows = if (currentLang == Lang.EN) KeyboardLayoutData.englishRows else KeyboardLayoutData.arabicRows
@@ -185,12 +200,18 @@ class CustomKeyboardService : InputMethodService() {
     private fun switchMode(mode: Mode) {
         currentMode = mode
         if (mode != Mode.LETTERS) wordBuffer.clear()
+        if (mode == Mode.SYMBOLS) symbolsPage = 1
+        render()
+    }
+
+    private fun toggleSymbolsPage() {
+        symbolsPage = if (symbolsPage == 1) 2 else 1
         render()
     }
 
     private fun dp(v: Int) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v.toFloat(), resources.displayMetrics).toInt()
 
-    // ---------- top bar: suggestions / clipboard / settings ----------
+    // ---------- top bar: suggestions / common emojis / clipboard / settings ----------
 
     private fun buildTopBar(): LinearLayout {
         val bar = LinearLayout(this).apply {
@@ -199,6 +220,9 @@ class CustomKeyboardService : InputMethodService() {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(6), 0, dp(6), dp(2))
         }
+
+        val hasSuggestions = currentLang == Lang.EN && currentMode == Mode.LETTERS &&
+            wordBuffer.isNotEmpty() && Dictionary.suggestions(wordBuffer.toString(), 1).isNotEmpty()
 
         when {
             currentMode == Mode.CLIPBOARD -> {
@@ -209,26 +233,20 @@ class CustomKeyboardService : InputMethodService() {
                     textSize = 14f
                     layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 })
+                // Delete is reachable here too, so it's always available everywhere.
+                bar.addView(iconButton("⌫") { deleteChar() })
                 bar.addView(iconButton("←") { switchMode(Mode.LETTERS) })
             }
             // Suggestions only ever get inserted when the user taps a chip - nothing here is
             // auto-applied, so typing is never silently corrected.
-            currentLang == Lang.EN && currentMode == Mode.LETTERS && wordBuffer.isNotEmpty() -> {
-                val suggestions = Dictionary.suggestions(wordBuffer.toString(), 3)
-                if (suggestions.isEmpty()) {
-                    bar.addView(View(this).apply {
-                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                    })
-                } else {
-                    suggestions.forEach { word -> bar.addView(suggestionChip(word)) }
-                }
+            hasSuggestions -> {
+                bar.addView(buildSuggestionsScroll(wordBuffer.toString()))
                 bar.addView(iconButton("⧉") { switchMode(Mode.CLIPBOARD) })
             }
             else -> {
-                bar.addView(TextView(this).apply {
-                    text = ""
-                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                })
+                // No word suggestions to show right now - surface the most commonly used
+                // emojis instead of leaving this bar empty.
+                bar.addView(buildCommonEmojiScroll())
                 bar.addView(iconButton("⧉") { switchMode(Mode.CLIPBOARD) })
                 bar.addView(iconButton("⚙") {
                     val intent = android.content.Intent(this, MainActivity::class.java)
@@ -240,6 +258,45 @@ class CustomKeyboardService : InputMethodService() {
         return bar
     }
 
+    private fun buildSuggestionsScroll(prefix: String): HorizontalScrollView {
+        val inner = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        // Backed by a ~1200-word dictionary now, so there's a much deeper pool of matches to
+        // scroll through than before - shown as a scrollable strip since they can't all fit.
+        Dictionary.suggestions(prefix, 8).forEach { word -> inner.addView(suggestionChip(word)) }
+        return HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+            addView(inner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        }
+    }
+
+    private fun buildCommonEmojiScroll(): HorizontalScrollView {
+        val inner = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        commonEmojis.forEach { emoji ->
+            inner.addView(TextView(this).apply {
+                text = emoji
+                textSize = 18f
+                gravity = Gravity.CENTER
+                setPadding(dp(8), 0, dp(8), 0)
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                applyKeyTouchBehavior(this, pressHighlightColor(), null, KEY_RADIUS_DP) {
+                    currentInputConnection?.commitText(emoji, 1)
+                }
+            })
+        }
+        return HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+            addView(inner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        }
+    }
+
     private fun suggestionChip(word: String): TextView {
         return TextView(this).apply {
             text = word
@@ -247,7 +304,8 @@ class CustomKeyboardService : InputMethodService() {
             setTypeface(Typeface.DEFAULT_BOLD)
             textSize = 15f
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+            setPadding(dp(12), 0, dp(12), 0)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT)
             applyKeyTouchBehavior(this, pressHighlightColor(), null, KEY_RADIUS_DP) {
                 // Suggestions are only ever committed by an explicit tap - never automatically.
                 currentInputConnection?.deleteSurroundingText(wordBuffer.length, 0)
@@ -381,15 +439,52 @@ class CustomKeyboardService : InputMethodService() {
             }
         }
         if (currentLang == Lang.EN) {
-            row.addView(makeSpecialKey(if (capsLock) "⇪" else "⇧", weight = 1.5f, textHighlighted = shiftOn || capsLock) {
-                onShiftTapped()
-            })
+            row.addView(makeShiftKey(weight = 1.5f))
         }
         keys.forEach { k ->
             val display = if (currentLang == Lang.EN && (shiftOn || capsLock)) k.uppercase() else k
             row.addView(makeKey(display, weight = 1f, fontSize = 24f) { commitLetter(display) })
         }
         // Swipe left on backspace to delete more than one character at a time.
+        row.addView(makeBackspaceKey(weight = 1.5f))
+        return row
+    }
+
+    private fun buildSymbolsRow(keys: List<String>, prependToggle: Boolean = false): LinearLayout {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(ROW_HEIGHT_DP)).apply {
+                topMargin = dp(ROW_SPACING_DP)
+            }
+        }
+        if (prependToggle) {
+            val label = if (symbolsPage == 1) "1/2" else "2/2"
+            row.addView(makeSpecialKey(label, weight = 1.3f) { toggleSymbolsPage() })
+        }
+        keys.forEach { k -> row.addView(makeKey(k, weight = 1f, fontSize = 20f) { commitSymbol(k) }) }
+        return row
+    }
+
+    private fun buildSymbolsBottomRow(keys: List<String>): LinearLayout {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(ROW_HEIGHT_DP)).apply {
+                topMargin = dp(ROW_SPACING_DP)
+            }
+        }
+        keys.forEach { k -> row.addView(makeKey(k, weight = 1f, fontSize = 20f) { commitSymbol(k) }) }
+        row.addView(makeBackspaceKey(weight = 1.5f))
+        return row
+    }
+
+    private fun buildEmojiBottomRow(keys: List<String>): LinearLayout {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(ROW_HEIGHT_DP)).apply {
+                topMargin = dp(ROW_SPACING_DP)
+            }
+        }
+        keys.forEach { k -> row.addView(makeKey(k, weight = 1f, fontSize = 22f) { currentInputConnection?.commitText(k, 1) }) }
         row.addView(makeBackspaceKey(weight = 1.5f))
         return row
     }
@@ -491,10 +586,35 @@ class CustomKeyboardService : InputMethodService() {
         }
         val icon = GlyphIconView(this, GlyphIconView.Glyph.RETURN).apply {
             iconColor = enterIconColor()
-            layoutParams = FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER)
+            layoutParams = FrameLayout.LayoutParams(dp(ICON_GLYPH_DP), dp(ICON_GLYPH_DP), Gravity.CENTER)
         }
         container.addView(icon)
         applyKeyTouchBehavior(container, pressHighlightColor(), resting, PILL_RADIUS_DP) { handleEnter() }
+        return container
+    }
+
+    /** Shift/caps-lock key drawn with a hand-built arrow glyph so it's crisp and sized to
+     *  match the other icon keys (a plain unicode ⇧ character renders tiny in most fonts). */
+    private fun makeShiftKey(weight: Float): View {
+        val active = shiftOn || capsLock
+        val bgColor = if (active) accentTintColor() else specialKeyColor()
+        val resting = roundedDrawable(bgColor, radiusDp = KEY_RADIUS_DP)
+        val container = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight).apply {
+                marginStart = dp(2)
+                marginEnd = dp(2)
+                topMargin = dp(3)
+                bottomMargin = dp(3)
+            }
+            background = resting
+        }
+        val icon = GlyphIconView(this, GlyphIconView.Glyph.SHIFT).apply {
+            iconColor = if (active) accentColor() else textColor()
+            locked = capsLock
+            layoutParams = FrameLayout.LayoutParams(dp(ICON_GLYPH_DP), dp(ICON_GLYPH_DP), Gravity.CENTER)
+        }
+        container.addView(icon)
+        applyKeyTouchBehavior(container, pressHighlightColor(), resting, KEY_RADIUS_DP) { onShiftTapped() }
         return container
     }
 
@@ -516,7 +636,7 @@ class CustomKeyboardService : InputMethodService() {
         }
         val icon = GlyphIconView(this, GlyphIconView.Glyph.BACKSPACE).apply {
             iconColor = textColor()
-            layoutParams = FrameLayout.LayoutParams(dp(20), dp(20), Gravity.CENTER)
+            layoutParams = FrameLayout.LayoutParams(dp(ICON_GLYPH_DP), dp(ICON_GLYPH_DP), Gravity.CENTER)
         }
         container.addView(icon)
 
@@ -781,13 +901,17 @@ class CustomKeyboardService : InputMethodService() {
 }
 
 /**
- * Small self-drawn glyph icons for the enter/return and backspace keys, so those keys use a
- * real icon instead of a text character - no external icon assets required.
+ * Small self-drawn glyph icons for the enter/return, shift, and backspace keys, so those keys
+ * use crisp, consistently-sized icons instead of unicode text characters (which render at
+ * inconsistent, often tiny sizes depending on the system font) - no external icon assets
+ * required.
  */
 private class GlyphIconView(context: Context, private val glyph: Glyph) : View(context) {
-    enum class Glyph { RETURN, BACKSPACE }
+    enum class Glyph { RETURN, BACKSPACE, SHIFT }
 
     var iconColor: Int = Color.BLACK
+    /** Only used by Glyph.SHIFT - draws an underline bar beneath the arrow to indicate caps lock. */
+    var locked: Boolean = false
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -801,14 +925,14 @@ private class GlyphIconView(context: Context, private val glyph: Glyph) : View(c
         val h = height.toFloat()
         if (w == 0f || h == 0f) return
         paint.color = iconColor
-        paint.strokeWidth = h * 0.11f
+        paint.strokeWidth = h * 0.10f
 
         when (glyph) {
             Glyph.RETURN -> {
-                val left = w * 0.26f
-                val right = w * 0.74f
-                val top = h * 0.28f
-                val bottom = h * 0.64f
+                val left = w * 0.24f
+                val right = w * 0.76f
+                val top = h * 0.26f
+                val bottom = h * 0.66f
                 canvas.drawLine(left, top, right, top, paint)
                 canvas.drawLine(right, top, right, bottom, paint)
                 canvas.drawLine(right, bottom, left, bottom, paint)
@@ -816,23 +940,39 @@ private class GlyphIconView(context: Context, private val glyph: Glyph) : View(c
                 canvas.drawLine(left, bottom, left + w * 0.18f, bottom + h * 0.16f, paint)
             }
             Glyph.BACKSPACE -> {
-                val left = w * 0.16f
-                val notch = w * 0.32f
-                val right = w * 0.84f
-                val top = h * 0.26f
-                val bottom = h * 0.74f
+                // A generously-sized arrow-box outline with a clearly-inset X, so the X never
+                // crowds the edges of the box at small key sizes.
+                val left = w * 0.10f
+                val notch = w * 0.30f
+                val right = w * 0.90f
+                val top = h * 0.16f
+                val bottom = h * 0.84f
                 val midY = h * 0.5f
                 canvas.drawLine(left, midY, notch, top, paint)
                 canvas.drawLine(notch, top, right, top, paint)
                 canvas.drawLine(right, top, right, bottom, paint)
                 canvas.drawLine(right, bottom, notch, bottom, paint)
                 canvas.drawLine(notch, bottom, left, midY, paint)
-                val xLeft = notch + w * 0.14f
-                val xRight = right - w * 0.12f
+                val xLeft = notch + w * 0.10f
+                val xRight = right - w * 0.10f
                 val xTop = top + h * 0.16f
                 val xBottom = bottom - h * 0.16f
                 canvas.drawLine(xLeft, xTop, xRight, xBottom, paint)
                 canvas.drawLine(xRight, xTop, xLeft, xBottom, paint)
+            }
+            Glyph.SHIFT -> {
+                val midX = w * 0.5f
+                val top = h * 0.14f
+                val chevronBottom = h * 0.52f
+                val leftX = w * 0.16f
+                val rightX = w * 0.84f
+                val stemBottom = h * 0.78f
+                canvas.drawLine(midX, top, leftX, chevronBottom, paint)
+                canvas.drawLine(midX, top, rightX, chevronBottom, paint)
+                canvas.drawLine(midX, chevronBottom * 0.9f, midX, stemBottom, paint)
+                if (locked) {
+                    canvas.drawLine(w * 0.22f, h * 0.90f, w * 0.78f, h * 0.90f, paint)
+                }
             }
         }
     }
