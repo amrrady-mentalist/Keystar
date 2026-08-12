@@ -8,7 +8,9 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.InsetDrawable
 import android.inputmethodservice.InputMethodService
 import android.os.Build
 import android.util.TypedValue
@@ -49,9 +51,13 @@ class CustomKeyboardService : InputMethodService() {
     private val KEY_RADIUS_DP = 8
     private val PILL_RADIUS_DP = 24
     private val ROW_HEIGHT_DP = 44
-    private val ROW_SPACING_DP = 4
     private val TOP_BAR_HEIGHT_DP = 36
     private val ICON_GLYPH_DP = 26
+    // The visual gap between keys is drawn as a cosmetic inset on the key's background, not as
+    // a real margin - a real margin would create a dead zone between keys where fast/light taps
+    // don't register on anything. Insets keep the touch target the full, contiguous cell.
+    private val KEY_INSET_H_DP = 2
+    private val KEY_INSET_V_DP = 4
 
     private val commonEmojis = listOf("😀", "😂", "❤️", "👍", "🙏", "🔥", "😊", "🎉", "👀", "✅", "😉", "💯")
 
@@ -393,9 +399,7 @@ class CustomKeyboardService : InputMethodService() {
     private fun buildRow(keys: List<String>, applyShift: Boolean = false, isEmoji: Boolean = false, isLetterRow: Boolean = false): LinearLayout {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(ROW_HEIGHT_DP)).apply {
-                topMargin = dp(ROW_SPACING_DP)
-            }
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(ROW_HEIGHT_DP))
         }
         val fontSize = when {
             isEmoji -> 22f
@@ -418,9 +422,7 @@ class CustomKeyboardService : InputMethodService() {
     private fun buildLetterRowWithShift(keys: List<String>): LinearLayout {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(ROW_HEIGHT_DP)).apply {
-                topMargin = dp(ROW_SPACING_DP)
-            }
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(ROW_HEIGHT_DP))
         }
         row.addView(spacer(0.5f))
         keys.forEach { k ->
@@ -434,9 +436,7 @@ class CustomKeyboardService : InputMethodService() {
     private fun buildLetterRowWithShiftAndBackspace(keys: List<String>): LinearLayout {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(ROW_HEIGHT_DP)).apply {
-                topMargin = dp(ROW_SPACING_DP)
-            }
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(ROW_HEIGHT_DP))
         }
         if (currentLang == Lang.EN) {
             row.addView(makeShiftKey(weight = 1.5f))
@@ -453,9 +453,7 @@ class CustomKeyboardService : InputMethodService() {
     private fun buildSymbolsRow(keys: List<String>, prependToggle: Boolean = false): LinearLayout {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(ROW_HEIGHT_DP)).apply {
-                topMargin = dp(ROW_SPACING_DP)
-            }
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(ROW_HEIGHT_DP))
         }
         if (prependToggle) {
             val label = if (symbolsPage == 1) "1/2" else "2/2"
@@ -468,9 +466,7 @@ class CustomKeyboardService : InputMethodService() {
     private fun buildSymbolsBottomRow(keys: List<String>): LinearLayout {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(ROW_HEIGHT_DP)).apply {
-                topMargin = dp(ROW_SPACING_DP)
-            }
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(ROW_HEIGHT_DP))
         }
         keys.forEach { k -> row.addView(makeKey(k, weight = 1f, fontSize = 20f) { commitSymbol(k) }) }
         row.addView(makeBackspaceKey(weight = 1.5f))
@@ -480,9 +476,7 @@ class CustomKeyboardService : InputMethodService() {
     private fun buildEmojiBottomRow(keys: List<String>): LinearLayout {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(ROW_HEIGHT_DP)).apply {
-                topMargin = dp(ROW_SPACING_DP)
-            }
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(ROW_HEIGHT_DP))
         }
         keys.forEach { k -> row.addView(makeKey(k, weight = 1f, fontSize = 22f) { currentInputConnection?.commitText(k, 1) }) }
         row.addView(makeBackspaceKey(weight = 1.5f))
@@ -492,9 +486,7 @@ class CustomKeyboardService : InputMethodService() {
     private fun buildBottomRow(): LinearLayout {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(ROW_HEIGHT_DP)).apply {
-                topMargin = dp(ROW_SPACING_DP)
-            }
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(ROW_HEIGHT_DP))
         }
 
         when (currentMode) {
@@ -528,19 +520,17 @@ class CustomKeyboardService : InputMethodService() {
     // ---------- key factories ----------
 
     private fun makeKey(label: String, weight: Float, fontSize: Float = 20f, onClick: () -> Unit): TextView {
-        val resting = roundedDrawable(keyColor(), radiusDp = KEY_RADIUS_DP)
+        val resting = keyBackground(keyColor(), KEY_RADIUS_DP)
         return TextView(this).apply {
             text = label
             gravity = Gravity.CENTER
             setTextColor(textColor())
             setTypeface(Typeface.DEFAULT_BOLD)
             textSize = fontSize
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight).apply {
-                marginStart = dp(2)
-                marginEnd = dp(2)
-                topMargin = dp(3)
-                bottomMargin = dp(3)
-            }
+            // No margins here on purpose - the touch target stays the full cell (edge-to-edge
+            // with neighboring keys) even though the painted box looks smaller, so a light or
+            // fast tap near a key's edge still registers instead of landing in a dead zone.
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
             background = resting
             applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP) { onClick() }
         }
@@ -552,19 +542,14 @@ class CustomKeyboardService : InputMethodService() {
         textHighlighted: Boolean = false,
         onClick: () -> Unit
     ): TextView {
-        val resting = roundedDrawable(specialKeyColor(), radiusDp = KEY_RADIUS_DP)
+        val resting = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
         return TextView(this).apply {
             text = label
             gravity = Gravity.CENTER
             setTextColor(if (textHighlighted) accentColor() else textColor())
             setTypeface(Typeface.DEFAULT_BOLD)
             textSize = 15f
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight).apply {
-                marginStart = dp(2)
-                marginEnd = dp(2)
-                topMargin = dp(3)
-                bottomMargin = dp(3)
-            }
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
             background = resting
             applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP) { onClick() }
         }
@@ -574,14 +559,9 @@ class CustomKeyboardService : InputMethodService() {
      *  and a Material-You-aware accent color, so it reads as part of the same design
      *  language as the rest of the keyboard instead of a plain text character. */
     private fun makeEnterKey(weight: Float): View {
-        val resting = roundedDrawable(accentColor(), radiusDp = PILL_RADIUS_DP)
+        val resting = keyBackground(accentColor(), PILL_RADIUS_DP)
         val container = FrameLayout(this).apply {
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight).apply {
-                marginStart = dp(2)
-                marginEnd = dp(2)
-                topMargin = dp(3)
-                bottomMargin = dp(3)
-            }
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
             background = resting
         }
         val icon = GlyphIconView(this, GlyphIconView.Glyph.RETURN).apply {
@@ -598,14 +578,9 @@ class CustomKeyboardService : InputMethodService() {
     private fun makeShiftKey(weight: Float): View {
         val active = shiftOn || capsLock
         val bgColor = if (active) accentTintColor() else specialKeyColor()
-        val resting = roundedDrawable(bgColor, radiusDp = KEY_RADIUS_DP)
+        val resting = keyBackground(bgColor, KEY_RADIUS_DP)
         val container = FrameLayout(this).apply {
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight).apply {
-                marginStart = dp(2)
-                marginEnd = dp(2)
-                topMargin = dp(3)
-                bottomMargin = dp(3)
-            }
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
             background = resting
         }
         val icon = GlyphIconView(this, GlyphIconView.Glyph.SHIFT).apply {
@@ -621,15 +596,10 @@ class CustomKeyboardService : InputMethodService() {
     /** Backspace key: a normal tap deletes one character, and dragging further left while
      *  held deletes progressively more characters, like a swipe-to-delete-more gesture. */
     private fun makeBackspaceKey(weight: Float): View {
-        val resting = roundedDrawable(specialKeyColor(), radiusDp = KEY_RADIUS_DP)
-        val pressedBg = roundedDrawable(pressHighlightColor(), radiusDp = KEY_RADIUS_DP)
+        val resting = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
+        val pressedBg = keyBackground(pressHighlightColor(), KEY_RADIUS_DP)
         val container = FrameLayout(this).apply {
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight).apply {
-                marginStart = dp(2)
-                marginEnd = dp(2)
-                topMargin = dp(3)
-                bottomMargin = dp(3)
-            }
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
             background = resting
             isClickable = true
             isHapticFeedbackEnabled = true
@@ -690,20 +660,15 @@ class CustomKeyboardService : InputMethodService() {
      *  the text cursor through the existing text instead of inserting anything, matching the
      *  space-bar cursor gesture found on most modern keyboards. */
     private fun makeSpaceKey(label: String, weight: Float): View {
-        val resting = roundedDrawable(specialKeyColor(), radiusDp = KEY_RADIUS_DP)
-        val pressedBg = roundedDrawable(pressHighlightColor(), radiusDp = KEY_RADIUS_DP)
+        val resting = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
+        val pressedBg = keyBackground(pressHighlightColor(), KEY_RADIUS_DP)
         val tv = TextView(this).apply {
             text = label
             gravity = Gravity.CENTER
             setTextColor(textColor())
             setTypeface(Typeface.DEFAULT_BOLD)
             textSize = 14f
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight).apply {
-                marginStart = dp(2)
-                marginEnd = dp(2)
-                topMargin = dp(3)
-                bottomMargin = dp(3)
-            }
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
             background = resting
             isClickable = true
             isHapticFeedbackEnabled = true
@@ -774,10 +739,22 @@ class CustomKeyboardService : InputMethodService() {
         }
     }
 
+    /** Builds a key's visual box as an inset drawable: the View itself stays the full,
+     *  edge-to-edge cell (so the touch target has zero dead space), while only the painted
+     *  box is shrunk inward to create the visible gap between keys. */
+    private fun keyBackground(
+        color: Int,
+        radiusDp: Int = KEY_RADIUS_DP,
+        insetHDp: Int = KEY_INSET_H_DP,
+        insetVDp: Int = KEY_INSET_V_DP
+    ): Drawable {
+        return InsetDrawable(roundedDrawable(color, radiusDp), dp(insetHDp), dp(insetVDp), dp(insetHDp), dp(insetVDp))
+    }
+
     private fun applyKeyTouchBehavior(
         view: View,
         pressColor: Int,
-        restingBackground: GradientDrawable?,
+        restingBackground: Drawable?,
         radiusDp: Int,
         onTap: () -> Unit
     ) {
@@ -789,7 +766,7 @@ class CustomKeyboardService : InputMethodService() {
                 MotionEvent.ACTION_DOWN -> {
                     pressed = true
                     v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
-                    v.background = roundedDrawable(pressColor, radiusDp)
+                    v.background = keyBackground(pressColor, radiusDp)
                     v.animate().scaleX(1.2f).scaleY(1.2f).setDuration(45).start()
                     true
                 }
