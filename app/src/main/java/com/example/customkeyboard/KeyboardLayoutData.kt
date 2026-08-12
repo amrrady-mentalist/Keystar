@@ -17,11 +17,21 @@ object KeyboardLayoutData {
         listOf("ذ", "ء", "ؤ", "ر", "لا", "ى", "ة", "و", "ز", "ظ", "د")
     )
 
-    val symbolsRows = listOf(
+    // Page 1 of punctuation/symbols (the default "?123" screen).
+    val symbolsPage1Rows = listOf(
         listOf("@", "#", "$", "_", "&", "-", "+", "(", ")", "/"),
-        listOf("*", "\"", "'", ":", ";", "!", "?", "%"),
-        listOf("~", "`", "|", "•", "√", "π", "÷", "×")
+        listOf("*", "\"", "'", ":", ";", "!", "?", "%")
     )
+
+    // Page 2 of punctuation/symbols, reached via the "1/2" <-> "2/2" toggle key,
+    // matching Gboard's two-page symbol layout.
+    val symbolsPage2Rows = listOf(
+        listOf("€", "£", "¥", "¢", "^", "°", "=", "{", "}"),
+        listOf("\\", "©", "®", "™", "✓", "[", "]", "<", ">")
+    )
+
+    // Shared bottom symbol row, shown on both pages (same as Gboard keeps a stable last row).
+    val symbolsSharedRow = listOf("~", "`", "|", "•", "√", "π", "÷", "×")
 
     val emojiRows = listOf(
         listOf("😀", "😂", "😍", "😎", "🤔", "😭", "😅", "🙏", "👍", "🔥"),
