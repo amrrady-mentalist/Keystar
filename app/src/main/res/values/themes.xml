@@ -1,9 +1,13 @@
-<resources xmlns:tools="http://schemas.android.com/tools">
+<resources>
     <style name="Theme.CustomKeyboard" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/accent</item>
-        <item name="colorPrimaryDark">@color/keyboard_bg_dark</item>
         <item name="colorAccent">@color/accent</item>
-        <item name="colorSurface">@color/key_bg_light</item>
-        <item name="colorOnSurface">@color/key_text_light</item>
+        <item name="android:statusBarColor">?android:attr/colorBackground</item>
+        <item name="android:navigationBarColor">?android:attr/colorBackground</item>
+    </style>
+
+    <style name="Theme.CustomKeyboard.Dialog" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:windowBackground">?android:attr/colorBackground</item>
     </style>
 </resources>

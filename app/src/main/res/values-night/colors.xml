@@ -1,0 +1,19 @@
+<resources>
+    <!-- Keyboard Key Colors -->
+    <color name="key_bg_light">#33363B</color>
+    <color name="key_bg_dark">#33363B</color>
+    <color name="keyboard_bg_light">#1B1C1E</color>
+    <color name="keyboard_bg_dark">#1B1C1E</color>
+    <color name="key_text_light">#F5F5F5</color>
+    <color name="key_text_dark">#F5F5F5</color>
+    <color name="special_key_light">#2B2D30</color>
+    <color name="special_key_dark">#2B2D30</color>
+    <color name="accent">#8AB4F8</color>
+    <color name="ic_launcher_background">#1B1C1E</color>
+
+    <!-- App UI & Dialog Semantic Colors -->
+    <color name="edit_bg">#23262A</color>
+    <color name="edit_stroke">#3A3E45</color>
+    <color name="edit_text_color">#F2F4F7</color>
+    <color name="edit_hint_color">#98A2B3</color>
+</resources>
