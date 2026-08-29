@@ -208,7 +208,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showNoteDialog(existing: MagicManager.PresetNote?) {
-        val view = layoutInflater.inflate(android.R.layout.simple_list_item_1, null) // simple container
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(48, 24, 48, 16)
@@ -411,6 +410,7 @@ class MainActivity : AppCompatActivity() {
                 else -> "system"
             }
             prefs.edit().putString("theme_override", value).apply()
+            Toast.makeText(this, "Keyboard theme preference updated", Toast.LENGTH_SHORT).show()
         }
     }
 }

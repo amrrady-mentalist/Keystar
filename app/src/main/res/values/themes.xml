@@ -1,7 +1,9 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <style name="Theme.CustomKeyboard" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="Theme.CustomKeyboard" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/accent</item>
         <item name="colorPrimaryDark">@color/keyboard_bg_dark</item>
         <item name="colorAccent">@color/accent</item>
+        <item name="colorSurface">@color/key_bg_light</item>
+        <item name="colorOnSurface">@color/key_text_light</item>
     </style>
 </resources>
