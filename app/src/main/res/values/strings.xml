@@ -2,7 +2,7 @@
     <string name="app_name">Custom Keyboard</string>
     <string name="subtype_en">English</string>
     <string name="subtype_ar">Arabic</string>
-    <string name="setup_title">Set up your keyboard</string>
+    <string name="setup_title">Keyboard &amp; Magic Hub</string>
     <string name="setup_step1">1. Enable it in system settings</string>
     <string name="setup_step2">2. Switch to it from any text field</string>
     <string name="btn_enable">Open Keyboard Settings</string>
@@ -11,4 +11,10 @@
     <string name="theme_system">System</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
+    <string name="magic_title">Magic Trick Engine</string>
+    <string name="magic_force_title">Progressive Force Typing</string>
+    <string name="magic_force_desc">When active, every key pressed outputs your pre-set prediction text letter by letter.</string>
+    <string name="magic_presets_title">Preset Notes &amp; Predictions</string>
+    <string name="magic_shortcuts_title">Shortcut Expansions</string>
+    <string name="sandbox_hint">Type here to test keyboard, force mode, and shortcuts...</string>
 </resources>

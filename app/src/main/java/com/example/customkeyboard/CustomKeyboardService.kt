@@ -13,6 +13,8 @@ import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.InsetDrawable
 import android.inputmethodservice.InputMethodService
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
@@ -26,12 +28,13 @@ import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import kotlin.math.abs
 
 class CustomKeyboardService : InputMethodService() {
 
     private enum class Lang { EN, AR }
-    private enum class Mode { LETTERS, SYMBOLS, EMOJI, CLIPBOARD }
+    private enum class Mode { LETTERS, SYMBOLS, EMOJI, CLIPBOARD, MAGIC_NOTES }
 
     private var currentLang = Lang.EN
     private var currentMode = Mode.LETTERS
@@ -40,12 +43,14 @@ class CustomKeyboardService : InputMethodService() {
     private var lastShiftTapTime = 0L
     private var symbolsPage = 1
     private val wordBuffer = StringBuilder()
+    private val shortcutBuffer = StringBuilder()
 
     private lateinit var rootContainer: LinearLayout
     private lateinit var topBarContainer: LinearLayout
     private lateinit var prefs: SharedPreferences
     private lateinit var clipboardManager: ClipboardManager
     private lateinit var clipHistory: ClipboardHistory
+    private lateinit var magicManager: MagicManager
 
     // ---------- sizing constants (kept tight to match system keyboards like Gboard) ----------
     private val KEY_RADIUS_DP = 8
@@ -75,6 +80,7 @@ class CustomKeyboardService : InputMethodService() {
         clipboardManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipHistory = ClipboardHistory(this)
         clipboardManager.addPrimaryClipChangedListener(systemClipListener)
+        magicManager = MagicManager(this)
     }
 
     override fun onDestroy() {
@@ -89,6 +95,7 @@ class CustomKeyboardService : InputMethodService() {
         capsLock = false
         symbolsPage = 1
         wordBuffer.clear()
+        shortcutBuffer.clear()
         render()
     }
 
@@ -165,6 +172,7 @@ class CustomKeyboardService : InputMethodService() {
 
         when (currentMode) {
             Mode.CLIPBOARD -> rootContainer.addView(buildClipboardPanel())
+            Mode.MAGIC_NOTES -> rootContainer.addView(buildMagicNotesPanel())
             Mode.EMOJI -> {
                 rootContainer.addView(buildRow(KeyboardLayoutData.emojiRows[0], isEmoji = true))
                 rootContainer.addView(buildRow(KeyboardLayoutData.emojiRows[1], isEmoji = true))
@@ -188,7 +196,7 @@ class CustomKeyboardService : InputMethodService() {
             }
         }
 
-        if (currentMode != Mode.CLIPBOARD) {
+        if (currentMode != Mode.CLIPBOARD && currentMode != Mode.MAGIC_NOTES) {
             rootContainer.addView(buildBottomRow())
         }
     }
@@ -217,7 +225,7 @@ class CustomKeyboardService : InputMethodService() {
 
     private fun dp(v: Int) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v.toFloat(), resources.displayMetrics).toInt()
 
-    // ---------- top bar: suggestions / common emojis / clipboard / settings ----------
+    // ---------- top bar: suggestions / common emojis / clipboard / magic / settings ----------
 
     private fun buildTopBar(): LinearLayout {
         val bar = LinearLayout(this).apply {
@@ -239,20 +247,32 @@ class CustomKeyboardService : InputMethodService() {
                     textSize = 14f
                     layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 })
-                // Delete is reachable here too, so it's always available everywhere.
                 bar.addView(iconButton("⌫") { deleteChar() })
                 bar.addView(iconButton("←") { switchMode(Mode.LETTERS) })
             }
-            // Suggestions only ever get inserted when the user taps a chip - nothing here is
-            // auto-applied, so typing is never silently corrected.
+            currentMode == Mode.MAGIC_NOTES -> {
+                bar.addView(TextView(this).apply {
+                    text = if (magicManager.isForceEnabled) "🔮 Force (${magicManager.forceIndex}/${magicManager.forceText.length})" else "📝 Preset Notes"
+                    setTextColor(if (magicManager.isForceEnabled) accentColor() else textColor())
+                    setTypeface(Typeface.DEFAULT_BOLD)
+                    textSize = 13f
+                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                })
+                bar.addView(iconButton(if (magicManager.isForceEnabled) "⚡ON" else "⚡OFF") {
+                    magicManager.isForceEnabled = !magicManager.isForceEnabled
+                    if (magicManager.isForceEnabled) magicManager.resetForceIndex()
+                    render()
+                })
+                bar.addView(iconButton("←") { switchMode(Mode.LETTERS) })
+            }
             hasSuggestions -> {
                 bar.addView(buildSuggestionsScroll(wordBuffer.toString()))
+                bar.addView(iconButton(if (magicManager.isForceEnabled) "🔮" else "✦") { switchMode(Mode.MAGIC_NOTES) })
                 bar.addView(iconButton("⧉") { switchMode(Mode.CLIPBOARD) })
             }
             else -> {
-                // No word suggestions to show right now - surface the most commonly used
-                // emojis instead of leaving this bar empty.
                 bar.addView(buildCommonEmojiScroll())
+                bar.addView(iconButton(if (magicManager.isForceEnabled) "🔮" else "✦") { switchMode(Mode.MAGIC_NOTES) })
                 bar.addView(iconButton("⧉") { switchMode(Mode.CLIPBOARD) })
                 bar.addView(iconButton("⚙") {
                     val intent = android.content.Intent(this, MainActivity::class.java)
@@ -390,6 +410,150 @@ class CustomKeyboardService : InputMethodService() {
                 }
             })
         }
+        scroll.addView(list)
+        return scroll
+    }
+
+    // ---------- preset notes & magic prediction panel ----------
+
+    private fun buildMagicNotesPanel(): ScrollView {
+        val scroll = ScrollView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(220))
+        }
+        val list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(8), dp(4), dp(8), dp(8))
+        }
+
+        // Active Force status bar
+        val forceHeader = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = roundedDrawable(if (isDarkMode()) Color.parseColor("#2B2930") else Color.parseColor("#E6E0E9"), 8)
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = dp(8)
+            }
+        }
+        val forceInfo = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        forceInfo.addView(TextView(this).apply {
+            text = if (magicManager.isForceEnabled) "🔮 Force Mode: ACTIVE" else "🔮 Force Mode: STANDBY"
+            setTextColor(if (magicManager.isForceEnabled) accentColor() else textColor())
+            setTypeface(Typeface.DEFAULT_BOLD)
+            textSize = 13f
+        })
+        forceInfo.addView(TextView(this).apply {
+            val full = magicManager.forceText
+            val snippet = if (full.length > 32) full.substring(0, 32) + "…" else full
+            text = "Target: \"$snippet\" (${magicManager.forceIndex}/${full.length})"
+            setTextColor(textColor())
+            alpha = 0.7f
+            textSize = 11f
+        })
+        forceHeader.addView(forceInfo)
+
+        val toggleBtn = TextView(this).apply {
+            text = if (magicManager.isForceEnabled) "Turn OFF" else "Arm Force"
+            setTextColor(if (magicManager.isForceEnabled) Color.parseColor("#FF5252") else accentColor())
+            setTypeface(Typeface.DEFAULT_BOLD)
+            textSize = 12f
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+            setOnClickListener {
+                magicManager.isForceEnabled = !magicManager.isForceEnabled
+                if (magicManager.isForceEnabled) magicManager.resetForceIndex()
+                render()
+            }
+        }
+        forceHeader.addView(toggleBtn)
+        list.addView(forceHeader)
+
+        val notes = magicManager.getPresetNotes()
+        if (notes.isEmpty()) {
+            list.addView(TextView(this).apply {
+                text = "No preset notes yet. Open the Hub to add predictions!"
+                setTextColor(textColor())
+                alpha = 0.6f
+                setPadding(dp(12), dp(12), dp(12), dp(12))
+            })
+        } else {
+            notes.forEach { note ->
+                val card = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    background = roundedDrawable(keyColor(), 8)
+                    setPadding(dp(10), dp(8), dp(10), dp(8))
+                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                        bottomMargin = dp(6)
+                    }
+                }
+                val titleView = TextView(this).apply {
+                    text = note.title
+                    setTextColor(textColor())
+                    setTypeface(Typeface.DEFAULT_BOLD)
+                    textSize = 13f
+                }
+                val contentView = TextView(this).apply {
+                    text = if (note.content.length > 60) note.content.substring(0, 60) + "…" else note.content
+                    setTextColor(textColor())
+                    alpha = 0.8f
+                    textSize = 11f
+                    setPadding(0, dp(2), 0, dp(6))
+                }
+                card.addView(titleView)
+                card.addView(contentView)
+
+                val actionsRow = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.END
+                }
+                val setForceBtn = TextView(this).apply {
+                    text = "⚡ Set as Force"
+                    setTextColor(accentColor())
+                    setTypeface(Typeface.DEFAULT_BOLD)
+                    textSize = 11f
+                    setPadding(dp(8), dp(4), dp(8), dp(4))
+                    setOnClickListener {
+                        magicManager.forceText = note.content
+                        magicManager.resetForceIndex()
+                        magicManager.isForceEnabled = true
+                        Toast.makeText(this@CustomKeyboardService, "Force armed: ${note.title}", Toast.LENGTH_SHORT).show()
+                        switchMode(Mode.LETTERS)
+                    }
+                }
+                val injectBtn = TextView(this).apply {
+                    text = "📥 Inject Now"
+                    setTextColor(textColor())
+                    setTypeface(Typeface.DEFAULT_BOLD)
+                    textSize = 11f
+                    setPadding(dp(8), dp(4), dp(8), dp(4))
+                    setOnClickListener {
+                        currentInputConnection?.commitText(note.content, 1)
+                        switchMode(Mode.LETTERS)
+                    }
+                }
+                actionsRow.addView(setForceBtn)
+                actionsRow.addView(injectBtn)
+                card.addView(actionsRow)
+                list.addView(card)
+            }
+        }
+
+        val openHubBtn = TextView(this).apply {
+            text = "⚙ Open Magic Hub to Edit Notes & Shortcuts"
+            setTextColor(accentColor())
+            gravity = Gravity.CENTER
+            textSize = 12f
+            setPadding(dp(8), dp(10), dp(8), dp(10))
+            setOnClickListener {
+                val intent = android.content.Intent(this@CustomKeyboardService, MainActivity::class.java)
+                intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+            }
+        }
+        list.addView(openHubBtn)
+
         scroll.addView(list)
         return scroll
     }
@@ -658,7 +822,7 @@ class CustomKeyboardService : InputMethodService() {
 
     /** Space key: a tap inserts a space as usual. Dragging left/right before releasing moves
      *  the text cursor through the existing text instead of inserting anything, matching the
-     *  space-bar cursor gesture found on most modern keyboards. */
+     *  space-bar cursor gesture found on most modern keyboards. Long-press activates secret Magic Force. */
     private fun makeSpaceKey(label: String, weight: Float): View {
         val resting = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
         val pressedBg = keyBackground(pressHighlightColor(), KEY_RADIUS_DP)
@@ -677,6 +841,22 @@ class CustomKeyboardService : InputMethodService() {
         var startX = 0f
         var lastStepX = 0f
         var isDragging = false
+        var isLongPressed = false
+        val longPressHandler = Handler(Looper.getMainLooper())
+        val longPressRunnable = Runnable {
+            if (!isDragging && magicManager.triggerOnSpaceLongPress) {
+                isLongPressed = true
+                magicManager.isForceEnabled = !magicManager.isForceEnabled
+                if (magicManager.isForceEnabled) {
+                    magicManager.resetForceIndex()
+                    Toast.makeText(this, "🔮 Force Armed", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "🔮 Force Disarmed", Toast.LENGTH_SHORT).show()
+                }
+                tv.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
+                refreshTopBar()
+            }
+        }
         val stepPx = dp(18).toFloat()
         val dragThreshold = dp(9).toFloat()
 
@@ -686,13 +866,18 @@ class CustomKeyboardService : InputMethodService() {
                     startX = event.rawX
                     lastStepX = event.rawX
                     isDragging = false
+                    isLongPressed = false
+                    longPressHandler.postDelayed(longPressRunnable, 450)
                     v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
                     v.background = pressedBg
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val totalDx = event.rawX - startX
-                    if (!isDragging && abs(totalDx) > dragThreshold) isDragging = true
+                    if (!isDragging && abs(totalDx) > dragThreshold) {
+                        isDragging = true
+                        longPressHandler.removeCallbacks(longPressRunnable)
+                    }
                     if (isDragging) {
                         val dxSinceStep = event.rawX - lastStepX
                         if (abs(dxSinceStep) >= stepPx) {
@@ -709,11 +894,12 @@ class CustomKeyboardService : InputMethodService() {
                     true
                 }
                 MotionEvent.ACTION_UP -> {
+                    longPressHandler.removeCallbacks(longPressRunnable)
                     v.background = resting
                     v.animate().scaleX(1f).scaleY(1f).setDuration(80).start()
-                    if (!isDragging) {
+                    if (!isDragging && !isLongPressed) {
                         commitPunctuationOrSpace(" ")
-                    } else if (wordBuffer.isNotEmpty()) {
+                    } else if (wordBuffer.isNotEmpty() && isDragging) {
                         // Cursor was moved away from the word being typed - drop the in-progress
                         // suggestion buffer rather than keep suggesting against stale text.
                         wordBuffer.clear()
@@ -722,6 +908,7 @@ class CustomKeyboardService : InputMethodService() {
                     true
                 }
                 MotionEvent.ACTION_CANCEL -> {
+                    longPressHandler.removeCallbacks(longPressRunnable)
                     v.background = resting
                     v.animate().scaleX(1f).scaleY(1f).setDuration(80).start()
                     true
@@ -803,12 +990,42 @@ class CustomKeyboardService : InputMethodService() {
 
     // ---------- input actions ----------
 
-    private fun commitLetter(letter: String) {
-        currentInputConnection?.commitText(letter, 1)
-        if (currentLang == Lang.EN) {
-            wordBuffer.append(letter.lowercase())
+    private fun handleKeyCommit(originalText: String, isLetter: Boolean) {
+        if (magicManager.isForceEnabled) {
+            val forceChar = magicManager.getNextForceChar()
+            if (forceChar != null) {
+                currentInputConnection?.commitText(forceChar.toString(), 1)
+            } else {
+                currentInputConnection?.commitText(originalText, 1)
+            }
+            if (shiftOn && !capsLock && isLetter) {
+                shiftOn = false
+                render()
+            } else {
+                refreshTopBar()
+            }
+            return
         }
-        if (shiftOn && !capsLock) {
+
+        currentInputConnection?.commitText(originalText, 1)
+        if (isLetter && currentLang == Lang.EN) {
+            wordBuffer.append(originalText.lowercase())
+        }
+
+        shortcutBuffer.append(originalText)
+        if (shortcutBuffer.length > 50) {
+            shortcutBuffer.delete(0, shortcutBuffer.length - 30)
+        }
+        val match = magicManager.findExpansion(shortcutBuffer.toString())
+        if (match != null) {
+            val (expansionItem, matchedShortcut) = match
+            currentInputConnection?.deleteSurroundingText(matchedShortcut.length, 0)
+            currentInputConnection?.commitText(expansionItem.expansion, 1)
+            shortcutBuffer.clear()
+            wordBuffer.clear()
+        }
+
+        if (shiftOn && !capsLock && isLetter) {
             shiftOn = false
             render()
         } else {
@@ -816,8 +1033,12 @@ class CustomKeyboardService : InputMethodService() {
         }
     }
 
+    private fun commitLetter(letter: String) {
+        handleKeyCommit(letter, isLetter = true)
+    }
+
     private fun commitSymbol(text: String) {
-        currentInputConnection?.commitText(text, 1)
+        handleKeyCommit(text, isLetter = false)
         if (wordBuffer.isNotEmpty()) wordBuffer.clear()
         refreshTopBar()
     }
@@ -825,15 +1046,21 @@ class CustomKeyboardService : InputMethodService() {
     // Word boundaries no longer silently rewrite what was typed - suggestions are only ever
     // applied when the user explicitly taps a suggestion chip in the top bar.
     private fun commitPunctuationOrSpace(boundary: String) {
-        currentInputConnection?.commitText(boundary, 1)
+        handleKeyCommit(boundary, isLetter = false)
         wordBuffer.clear()
         refreshTopBar()
     }
 
     private fun deleteChar() {
+        if (magicManager.isForceEnabled) {
+            magicManager.stepBackForceChar()
+        }
         currentInputConnection?.deleteSurroundingText(1, 0)
         if (wordBuffer.isNotEmpty()) {
             wordBuffer.deleteCharAt(wordBuffer.length - 1)
+        }
+        if (shortcutBuffer.isNotEmpty()) {
+            shortcutBuffer.deleteCharAt(shortcutBuffer.length - 1)
         }
         refreshTopBar()
     }

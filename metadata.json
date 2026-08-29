@@ -1,0 +1,6 @@
+{
+  "name": "Custom Keyboard",
+  "description": "A custom Android keyboard with bilingual English and Arabic support, clipboard history, and customizable appearance.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
