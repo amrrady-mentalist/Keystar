@@ -141,11 +141,10 @@ object DeletePeekMemory {
             notificationManager.createNotificationChannel(channel)
         }
 
-        // Stealth high-priority notification showing the deleted word directly
+        // Stealth high-priority notification showing ONLY the peek word
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(word)
-            .setContentText("Deleted text peek")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setSilent(false)
