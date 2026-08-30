@@ -80,6 +80,7 @@ class CustomKeyboardService : InputMethodService() {
         clipboardManager.addPrimaryClipChangedListener(systemClipListener)
         covertManager = CovertManager(this)
         TriggerManager.init(this, covertManager)
+        Dictionary.init(this)
     }
 
     override fun onDestroy() {
@@ -329,6 +330,7 @@ class CustomKeyboardService : InputMethodService() {
             if (resting != null) background = resting
             applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP) {
                 // Suggestions are only ever committed by an explicit tap - never automatically.
+                Dictionary.recordUsedWord(word)
                 currentInputConnection?.deleteSurroundingText(wordBuffer.length, 0)
                 currentInputConnection?.commitText("$word ", 1)
                 wordBuffer.clear()

@@ -53,6 +53,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         covertManager = CovertManager(this)
         TriggerManager.init(this, covertManager)
+        Dictionary.init(this)
 
         setContentView(R.layout.activity_main)
 
