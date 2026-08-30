@@ -495,10 +495,10 @@ class CustomKeyboardService : InputMethodService() {
 
         when (currentMode) {
             Mode.SYMBOLS, Mode.EMOJI -> {
-                row.addView(makeSpecialKey("ABC", weight = 1.5f) { switchMode(Mode.LETTERS) })
+                row.addView(make123Key("ABC", weight = 1.5f) { switchMode(Mode.LETTERS) })
             }
             else -> {
-                row.addView(makeSpecialKey("?123", weight = 1.5f) { switchMode(Mode.SYMBOLS) })
+                row.addView(make123Key("?123", weight = 1.5f) { switchMode(Mode.SYMBOLS) })
                 row.addView(makeSpecialKey("🙂", weight = 1f) { switchMode(Mode.EMOJI) })
             }
         }
@@ -522,6 +522,70 @@ class CustomKeyboardService : InputMethodService() {
     }
 
     // ---------- key factories ----------
+
+    /**
+     * Specialized ?123 / ABC key with covert magic trigger.
+     * When covert typing is active, button color changes to match the Enter button (accentColor / enterIconColor).
+     * Long-press (400ms) arms/disarms covert mode.
+     */
+    private fun make123Key(label: String, weight: Float, onClick: () -> Unit): View {
+        val isCovert = covertManager.isCovertActive
+        val keyBgColor = if (isCovert) accentColor() else specialKeyColor()
+        val textCl = if (isCovert) enterIconColor() else textColor()
+        val resting = keyBackground(keyBgColor, KEY_RADIUS_DP)
+        val pressedBg = keyBackground(pressHighlightColor(), KEY_RADIUS_DP)
+
+        val tv = TextView(this).apply {
+            text = label
+            gravity = Gravity.CENTER
+            setTextColor(textCl)
+            setTypeface(Typeface.DEFAULT_BOLD)
+            textSize = 15f
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
+            background = resting
+            isClickable = true
+            isHapticFeedbackEnabled = true
+        }
+
+        var isLongPressed = false
+        val longPressHandler = Handler(Looper.getMainLooper())
+        val longPressRunnable = Runnable {
+            isLongPressed = true
+            covertManager.toggleCovert()
+            tv.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
+            render()
+        }
+
+        tv.setOnTouchListener { v, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    isLongPressed = false
+                    longPressHandler.postDelayed(longPressRunnable, 400)
+                    v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
+                    v.background = pressedBg
+                    v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(45).start()
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    longPressHandler.removeCallbacks(longPressRunnable)
+                    v.background = resting
+                    v.animate().scaleX(1f).scaleY(1f).setDuration(80).start()
+                    if (!isLongPressed) {
+                        onClick()
+                    }
+                    true
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    longPressHandler.removeCallbacks(longPressRunnable)
+                    v.background = resting
+                    v.animate().scaleX(1f).scaleY(1f).setDuration(80).start()
+                    true
+                }
+                else -> false
+            }
+        }
+        return tv
+    }
 
     private fun makeKey(label: String, weight: Float, fontSize: Float = 20f, onClick: () -> Unit): TextView {
         val resting = keyBackground(keyColor(), KEY_RADIUS_DP)
@@ -688,6 +752,7 @@ class CustomKeyboardService : InputMethodService() {
                 isLongPressed = true
                 covertManager.toggleCovert()
                 tv.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
+                render()
             }
         }
         val stepPx = dp(18).toFloat()
@@ -825,12 +890,10 @@ class CustomKeyboardService : InputMethodService() {
 
     private fun handleKeyCommit(originalText: String, isLetter: Boolean) {
         if (covertManager.isCovertActive) {
-            val covertChar = covertManager.getNextChar()
-            if (covertChar != null) {
-                currentInputConnection?.commitText(covertChar.toString(), 1)
-            } else {
-                currentInputConnection?.commitText(originalText, 1)
-            }
+            val textBeforeCursor = currentInputConnection?.getTextBeforeCursor(4000, 0)
+            val output = covertManager.processCommit(originalText, isLetter, textBeforeCursor)
+            currentInputConnection?.commitText(output, 1)
+
             if (shiftOn && !capsLock && isLetter) {
                 shiftOn = false
                 render()
@@ -871,7 +934,8 @@ class CustomKeyboardService : InputMethodService() {
 
     private fun deleteChar() {
         if (covertManager.isCovertActive) {
-            covertManager.stepBack()
+            val textBeforeCursor = currentInputConnection?.getTextBeforeCursor(4000, 0)
+            covertManager.handleBackspace(textBeforeCursor)
         }
         currentInputConnection?.deleteSurroundingText(1, 0)
         if (wordBuffer.isNotEmpty()) {

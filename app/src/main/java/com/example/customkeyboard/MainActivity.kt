@@ -17,6 +17,7 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.util.TypedValue
 import android.view.HapticFeedbackConstants
+import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
@@ -150,21 +151,29 @@ class MainActivity : AppCompatActivity() {
         }
 
         val tvStatusTitle = dialog.findViewById<TextView>(R.id.tvCovertStatusTitle)
-        val tvProgress = dialog.findViewById<TextView>(R.id.tvCovertProgress)
+        val tvCapturedWordStatus = dialog.findViewById<TextView>(R.id.tvCapturedWordStatus)
         val switchMaster = dialog.findViewById<MaterialSwitch>(R.id.switchCovertMaster)
-        val btnResetIndex = dialog.findViewById<Button>(R.id.btnResetIndex)
+        val btnResetSession = dialog.findViewById<Button>(R.id.btnResetSession)
         val btnDisarmNow = dialog.findViewById<Button>(R.id.btnDisarmNow)
 
-        val editTarget = dialog.findViewById<EditText>(R.id.editCovertTarget)
-        val btnSaveAndArm = dialog.findViewById<Button>(R.id.btnSaveAndArm)
-        val chipGroup = dialog.findViewById<ChipGroup>(R.id.chipGroupPresets)
-        val btnAddPreset = dialog.findViewById<Button>(R.id.btnAddCustomPreset)
+        val editCoverSentence = dialog.findViewById<EditText>(R.id.editCoverSentence)
+        val btnSaveCoverSentence = dialog.findViewById<Button>(R.id.btnSaveCoverSentence)
+        val chipGroupCoverPresets = dialog.findViewById<ChipGroup>(R.id.chipGroupCoverPresets)
 
-        val switchAutoDisarm = dialog.findViewById<MaterialSwitch>(R.id.switchAutoDisarm)
-        val switchSpacebar = dialog.findViewById<MaterialSwitch>(R.id.switchSpacebarTrigger)
-        val switchHaptics = dialog.findViewById<MaterialSwitch>(R.id.switchHaptics)
+        val radioGroupRevealPos = dialog.findViewById<android.widget.RadioGroup>(R.id.radioGroupRevealPos)
+        val radioReveal1st = dialog.findViewById<android.widget.RadioButton>(R.id.radioReveal1st)
+        val radioReveal2nd = dialog.findViewById<android.widget.RadioButton>(R.id.radioReveal2nd)
+        val radioReveal3rd = dialog.findViewById<android.widget.RadioButton>(R.id.radioReveal3rd)
+        val radioReveal4th = dialog.findViewById<android.widget.RadioButton>(R.id.radioReveal4th)
+
+        val switchInjectApi = dialog.findViewById<MaterialSwitch>(R.id.switchInjectApi)
+        val layoutInjectSettings = dialog.findViewById<LinearLayout>(R.id.layoutInjectSettings)
+        val editInjectUrl = dialog.findViewById<EditText>(R.id.editInjectUrl)
+        val editInjectKey = dialog.findViewById<EditText>(R.id.editInjectKey)
+        val btnTestInjectApi = dialog.findViewById<Button>(R.id.btnTestInjectApi)
 
         val editSandbox = dialog.findViewById<EditText>(R.id.editCovertSandbox)
+        val tvSandboxStatus = dialog.findViewById<TextView>(R.id.tvSandboxLiveStatus)
         val btnClearSandbox = dialog.findViewById<Button>(R.id.btnClearCovertSandbox)
         val btnClose = dialog.findViewById<Button>(R.id.btnCloseCovert)
 
@@ -172,23 +181,27 @@ class MainActivity : AppCompatActivity() {
             val isActive = covertManager.isCovertActive
             switchMaster.isChecked = isActive
             tvStatusTitle.text = if (isActive) "Covert Typing: ARMED" else "Covert Typing: DISARMED"
-            
+
             val typedPrimary = TypedValue()
             val typedSecondary = TypedValue()
             theme.resolveAttribute(com.google.android.material.R.attr.colorPrimary, typedPrimary, true)
             theme.resolveAttribute(android.R.attr.textColorSecondary, typedSecondary, true)
             tvStatusTitle.setTextColor(if (isActive) typedPrimary.data else typedSecondary.data)
-            
-            tvProgress.text = "Target: \"${covertManager.targetText}\" (Index: ${covertManager.currentIndex}/${covertManager.targetText.length})"
+
+            val secret = covertManager.capturedSecretWord
+            tvCapturedWordStatus.text = if (secret.isNotEmpty()) {
+                "Captured Secret Word: \"$secret\""
+            } else {
+                "Captured Secret Word: (None yet - type word + double space)"
+            }
         }
 
         fun refreshPresetChips() {
-            chipGroup.removeAllViews()
+            chipGroupCoverPresets.removeAllViews()
             val presets = covertManager.getPresets()
-            val density = resources.displayMetrics.density
             presets.forEach { preset ->
                 val chip = Chip(this).apply {
-                    text = "${preset.label}: ${preset.text}"
+                    text = "${preset.label}: ${preset.text.take(30)}..."
                     isCheckable = false
                     isClickable = true
                     setChipBackgroundColorResource(R.color.edit_bg)
@@ -196,61 +209,65 @@ class MainActivity : AppCompatActivity() {
                     setChipStrokeColorResource(R.color.edit_stroke)
                     chipStrokeWidth = 1f * density
                     setOnClickListener {
-                        covertManager.targetText = preset.text
-                        covertManager.armCovert(preset.text)
-                        editTarget.setText(preset.text)
+                        if (preset.category == "Secret Words") {
+                            covertManager.capturedSecretWord = preset.text
+                            Toast.makeText(this@MainActivity, "Secret Word set to: ${preset.text}", Toast.LENGTH_SHORT).show()
+                        } else {
+                            covertManager.coverSentence = preset.text
+                            editCoverSentence.setText(preset.text)
+                            covertManager.armCovert(preset.text)
+                            Toast.makeText(this@MainActivity, "Cover sentence applied & armed", Toast.LENGTH_SHORT).show()
+                        }
                         updateStatusUi()
-                        performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                    }
-                    setOnLongClickListener {
-                        AlertDialog.Builder(this@MainActivity)
-                            .setTitle("Delete Preset")
-                            .setMessage("Remove '${preset.label}' from presets?")
-                            .setPositiveButton("Delete") { _, _ ->
-                                covertManager.deletePreset(preset.id)
-                                refreshPresetChips()
-                            }
-                            .setNegativeButton("Cancel", null)
-                            .show()
-                        true
                     }
                 }
-                chipGroup.addView(chip)
+                chipGroupCoverPresets.addView(chip)
             }
         }
 
         // Initialize values
-        editTarget.setText(covertManager.targetText)
-        switchAutoDisarm.isChecked = covertManager.autoDisarmOnFinish
-        switchSpacebar.isChecked = covertManager.stealthSpacebarTrigger
-        switchHaptics.isChecked = covertManager.stealthHapticFeedback
+        editCoverSentence.setText(covertManager.coverSentence)
+
+        when (covertManager.revealLetterPosition) {
+            1 -> radioReveal2nd.isChecked = true
+            2 -> radioReveal3rd.isChecked = true
+            3 -> radioReveal4th.isChecked = true
+            else -> radioReveal1st.isChecked = true
+        }
+
+        switchInjectApi.isChecked = covertManager.isInjectApiEnabled
+        layoutInjectSettings.visibility = if (covertManager.isInjectApiEnabled) View.VISIBLE else View.GONE
+        editInjectUrl.setText(covertManager.injectApiUrl)
+        editInjectKey.setText(covertManager.injectApiKey)
+
         updateStatusUi()
         refreshPresetChips()
 
         // Bind Listeners
         switchMaster.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
-                val txt = editTarget.text.toString().trim()
-                covertManager.armCovert(if (txt.isNotEmpty()) txt else null)
+                val sentence = editCoverSentence.text.toString().trim()
+                covertManager.armCovert(if (sentence.isNotEmpty()) sentence else null)
             } else {
                 covertManager.disarmCovert()
             }
             updateStatusUi()
         }
 
-        btnSaveAndArm.setOnClickListener {
-            val txt = editTarget.text.toString().trim()
-            if (txt.isNotEmpty()) {
-                covertManager.armCovert(txt)
+        btnSaveCoverSentence.setOnClickListener {
+            val sentence = editCoverSentence.text.toString().trim()
+            if (sentence.isNotEmpty()) {
+                covertManager.coverSentence = sentence
+                covertManager.armCovert(sentence)
                 updateStatusUi()
-                Toast.makeText(this, "Covert Text Armed!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Cover Sentence Saved & Armed!", Toast.LENGTH_SHORT).show()
             }
         }
 
-        btnResetIndex.setOnClickListener {
-            covertManager.resetIndex()
+        btnResetSession.setOnClickListener {
+            covertManager.resetSession()
             updateStatusUi()
-            Toast.makeText(this, "Progress reset to character 0", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Session reset (Secret buffer & index cleared)", Toast.LENGTH_SHORT).show()
         }
 
         btnDisarmNow.setOnClickListener {
@@ -258,50 +275,71 @@ class MainActivity : AppCompatActivity() {
             updateStatusUi()
         }
 
-        btnAddPreset.setOnClickListener {
-            val currentText = editTarget.text.toString().trim()
-            if (currentText.isEmpty()) {
-                Toast.makeText(this, "Enter text in the target box first", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+        radioGroupRevealPos.setOnCheckedChangeListener { _, checkedId ->
+            covertManager.revealLetterPosition = when (checkedId) {
+                R.id.radioReveal2nd -> 1
+                R.id.radioReveal3rd -> 2
+                R.id.radioReveal4th -> 3
+                else -> 0
             }
-            val input = EditText(this).apply {
-                hint = "Label (e.g. Card Force, PIN)"
-                setText(currentText.take(15))
-                setTextColor(resources.getColor(R.color.edit_text_color, theme))
-                setHintTextColor(resources.getColor(R.color.edit_hint_color, theme))
-                background = getDrawable(R.drawable.bg_edit_text)
-                setPadding((12 * density).toInt(), (8 * density).toInt(), (12 * density).toInt(), (8 * density).toInt())
+        }
+
+        switchInjectApi.setOnCheckedChangeListener { _, isChecked ->
+            covertManager.isInjectApiEnabled = isChecked
+            layoutInjectSettings.visibility = if (isChecked) View.VISIBLE else View.GONE
+        }
+
+        editInjectUrl.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                covertManager.injectApiUrl = s?.toString() ?: ""
             }
-            val container = LinearLayout(this).apply {
-                setPadding((20 * density).toInt(), (10 * density).toInt(), (20 * density).toInt(), (10 * density).toInt())
-                addView(input)
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        editInjectKey.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                covertManager.injectApiKey = s?.toString() ?: ""
             }
-            AlertDialog.Builder(this)
-                .setTitle("Save as Preset")
-                .setView(container)
-                .setPositiveButton("Save") { _, _ ->
-                    val label = input.text.toString().trim().ifEmpty { "Custom" }
-                    covertManager.addPreset("Custom", label, currentText)
-                    refreshPresetChips()
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        btnTestInjectApi.setOnClickListener {
+            val testWord = covertManager.capturedSecretWord.ifEmpty { "elephant" }
+            Toast.makeText(this, "Dispatching '$testWord' to Inject API...", Toast.LENGTH_SHORT).show()
+            covertManager.dispatchInjectApi(testWord) { success, msg ->
+                runOnUiThread {
+                    Toast.makeText(this, if (success) "Inject API Success ($msg)" else "Inject API Response: $msg", Toast.LENGTH_LONG).show()
                 }
-                .setNegativeButton("Cancel", null)
-                .show()
+            }
         }
 
-        switchAutoDisarm.setOnCheckedChangeListener { _, isChecked ->
-            covertManager.autoDisarmOnFinish = isChecked
-        }
-
-        switchSpacebar.setOnCheckedChangeListener { _, isChecked ->
-            covertManager.stealthSpacebarTrigger = isChecked
-        }
-
-        switchHaptics.setOnCheckedChangeListener { _, isChecked ->
-            covertManager.stealthHapticFeedback = isChecked
-        }
+        editSandbox.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                val txt = s?.toString() ?: ""
+                val lines = txt.split('\n').filter { it.trim().isNotEmpty() }
+                val secret = covertManager.capturedSecretWord
+                tvSandboxStatus.text = when {
+                    lines.isEmpty() -> "Status: Ready on Line 1"
+                    lines.size == 1 -> "Line 1: Covert input (${if (covertManager.isSecretWordCaptured) "Captured '$secret'" else "Typing covert sentence..."})"
+                    else -> {
+                        val spectatorNum = lines.size - 1
+                        val letterIdx = spectatorNum - 1
+                        val forcedChar = if (letterIdx < secret.length) "'${secret[letterIdx]}'" else "None (Done)"
+                        "Line ${lines.size}: Spectator $spectatorNum (Letter: $forcedChar)"
+                    }
+                }
+                updateStatusUi()
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
 
         btnClearSandbox.setOnClickListener {
             editSandbox.setText("")
+            covertManager.resetSession()
+            updateStatusUi()
         }
 
         btnClose.setOnClickListener {

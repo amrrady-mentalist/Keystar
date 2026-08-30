@@ -10,9 +10,9 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="20dp">
+        android:padding="18dp">
 
-        <!-- Covert Console Header -->
+        <!-- Header -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -28,7 +28,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Covert Engine"
+                    android:text="Covert Typing Console"
                     android:textSize="22sp"
                     android:textStyle="bold"
                     android:textColor="?android:attr/textColorPrimary" />
@@ -37,7 +37,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:text="Hidden Mentalism &amp; Covert Typing Controls"
+                    android:text="Magic Covert Input &amp; Multi-Line Spectator Reveal"
                     android:textSize="12sp"
                     android:alpha="0.7"
                     android:textColor="?android:attr/textColorSecondary" />
@@ -55,7 +55,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="14dp"
             app:cardCornerRadius="16dp"
             app:cardElevation="0dp"
             app:strokeWidth="1.5dp"
@@ -89,13 +89,23 @@
                             android:textColor="?attr/colorPrimary" />
 
                         <TextView
-                            android:id="@+id/tvCovertProgress"
+                            android:id="@+id/tvCovertTriggerHint"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
-                            android:text="Progress: Letter 0 / 15"
+                            android:text="Hold '?123' on keyboard to toggle (turns Enter-colored)"
                             android:textSize="12sp"
-                            android:alpha="0.75" />
+                            android:alpha="0.8" />
+
+                        <TextView
+                            android:id="@+id/tvCapturedWordStatus"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:text="Captured Secret Word: (None yet - type word + double space)"
+                            android:textSize="13sp"
+                            android:textStyle="bold"
+                            android:textColor="?attr/colorPrimary" />
                     </LinearLayout>
 
                     <com.google.android.material.materialswitch.MaterialSwitch
@@ -112,13 +122,13 @@
                     android:gravity="center_vertical">
 
                     <Button
-                        android:id="@+id/btnResetIndex"
+                        android:id="@+id/btnResetSession"
                         style="@style/Widget.Material3.Button.TonalButton"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:layout_marginEnd="6dp"
-                        android:text="Reset Index to 0" />
+                        android:text="Reset Session" />
 
                     <Button
                         android:id="@+id/btnDisarmNow"
@@ -133,11 +143,11 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- CARD 2: Target Text & Presets -->
+        <!-- CARD 2: Line 1 Pre-saved Cover Sentence -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="14dp"
             app:cardCornerRadius="16dp"
             app:cardElevation="0dp"
             app:strokeWidth="1dp"
@@ -152,17 +162,25 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Target Covert Text"
+                    android:text="1st Line: Pre-saved Cover Sentence"
                     android:textStyle="bold"
                     android:textSize="15sp"
                     android:textColor="?android:attr/textColorPrimary" />
 
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:text="No matter what letters you type on line 1, this sentence will display letter-by-letter while you covertly enter your secret word. Finish your secret word with double space [  ]."
+                    android:textSize="12sp"
+                    android:alpha="0.75" />
+
                 <EditText
-                    android:id="@+id/editCovertTarget"
+                    android:id="@+id/editCoverSentence"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:hint="Enter forced prediction text..."
+                    android:hint="Enter cover sentence..."
                     android:textColor="@color/edit_text_color"
                     android:textColorHint="@color/edit_hint_color"
                     android:textSize="14sp"
@@ -179,44 +197,35 @@
                     android:gravity="end">
 
                     <Button
-                        android:id="@+id/btnSaveAndArm"
+                        android:id="@+id/btnSaveCoverSentence"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Apply &amp; Arm" />
+                        android:text="Save Cover Sentence" />
                 </LinearLayout>
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:text="Quick Mentalism Presets (Tap to Arm):"
+                    android:layout_marginTop="10dp"
+                    android:text="Quick Cover Sentence Presets:"
                     android:textStyle="bold"
                     android:textSize="13sp"
                     android:alpha="0.8" />
 
                 <com.google.android.material.chip.ChipGroup
-                    android:id="@+id/chipGroupPresets"
+                    android:id="@+id/chipGroupCoverPresets"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp" />
-
-                <Button
-                    android:id="@+id/btnAddCustomPreset"
-                    style="@style/Widget.Material3.Button.TextButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="start"
-                    android:layout_marginTop="4dp"
-                    android:text="+ Add Current Text to Presets" />
+                    android:layout_marginTop="6dp" />
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- CARD 3: Stealth Execution Settings -->
+        <!-- CARD 3: Multi-Line Spectator Reveal Settings (Effect 2) -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="14dp"
             app:cardCornerRadius="16dp"
             app:cardElevation="0dp"
             app:strokeWidth="1dp"
@@ -231,54 +240,81 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Stealth Mechanics"
+                    android:text="Multi-Line Spectator Reveal Settings"
                     android:textStyle="bold"
                     android:textSize="15sp"
                     android:textColor="?android:attr/textColorPrimary" />
 
-                <!-- Auto Disarm Option -->
-                <LinearLayout
-                    android:layout_width="match_parent"
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:text="When spectators type random words on subsequent lines, their words will automatically spell out your secret word at the chosen letter position. Empty lines and spaces are ignored."
+                    android:textSize="12sp"
+                    android:alpha="0.75" />
+
+                <TextView
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
+                    android:text="Reveal Forced Letter Position:"
+                    android:textStyle="bold"
+                    android:textSize="13sp" />
 
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Auto-Disarm on Completion"
-                            android:textStyle="bold"
-                            android:textSize="14sp" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Automatically returns to 100% normal typing when target finishes"
-                            android:textSize="12sp"
-                            android:alpha="0.7" />
-                    </LinearLayout>
-
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchAutoDisarm"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
-                </LinearLayout>
-
-                <View
+                <RadioGroup
+                    android:id="@+id/radioGroupRevealPos"
                     android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginTop="10dp"
-                    android:layout_marginBottom="10dp"
-                    android:background="?attr/colorOutlineVariant" />
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp">
 
-                <!-- Spacebar Long Press Trigger -->
+                    <RadioButton
+                        android:id="@+id/radioReveal1st"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="1st Letter (Acrostic: Sjakiwie / Amjridi / Mskeooe -> SAM)"
+                        android:textSize="13sp" />
+
+                    <RadioButton
+                        android:id="@+id/radioReveal2nd"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="2nd Letter (e.g. jSakiwie / mAjerid / sMkeooe)"
+                        android:textSize="13sp" />
+
+                    <RadioButton
+                        android:id="@+id/radioReveal3rd"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="3rd Letter (e.g. jaSekiwe / mjAried / skMeooe)"
+                        android:textSize="13sp" />
+
+                    <RadioButton
+                        android:id="@+id/radioReveal4th"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="4th Letter of each random word"
+                        android:textSize="13sp" />
+                </RadioGroup>
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- CARD 4: Inject API Integration (Effect 1) -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="?attr/colorOutline">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -294,73 +330,95 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Spacebar Stealth Gesture"
+                            android:text="Inject API Dispatch"
                             android:textStyle="bold"
-                            android:textSize="14sp" />
+                            android:textSize="15sp"
+                            android:textColor="?android:attr/textColorPrimary" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Long-press spacebar (0.5s) on keyboard to silently arm/disarm"
+                            android:text="Auto-sends the secret word to Inject API upon double-space [  ]"
                             android:textSize="12sp"
                             android:alpha="0.7" />
                     </LinearLayout>
 
                     <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchSpacebarTrigger"
+                        android:id="@+id/switchInjectApi"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content" />
                 </LinearLayout>
 
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginTop="10dp"
-                    android:layout_marginBottom="10dp"
-                    android:background="?attr/colorOutlineVariant" />
-
-                <!-- Haptic Pulse -->
                 <LinearLayout
+                    android:id="@+id/layoutInjectSettings"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
+                    android:orientation="vertical"
+                    android:layout_marginTop="10dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="API Endpoint / Webhook URL:"
+                        android:textSize="12sp"
+                        android:alpha="0.8" />
+
+                    <EditText
+                        android:id="@+id/editInjectUrl"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:hint="https://api.inject.app/v1/event"
+                        android:textColor="@color/edit_text_color"
+                        android:textColorHint="@color/edit_hint_color"
+                        android:textSize="13sp"
+                        android:padding="10dp"
+                        android:background="@drawable/bg_edit_text" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="API Key / Auth Token (Optional):"
+                        android:textSize="12sp"
+                        android:alpha="0.8" />
+
+                    <EditText
+                        android:id="@+id/editInjectKey"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:hint="Bearer token or secret ID..."
+                        android:textColor="@color/edit_text_color"
+                        android:textColorHint="@color/edit_hint_color"
+                        android:textSize="13sp"
+                        android:padding="10dp"
+                        android:background="@drawable/bg_edit_text" />
 
                     <LinearLayout
-                        android:layout_width="0dp"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
+                        android:layout_marginTop="10dp"
+                        android:orientation="horizontal"
+                        android:gravity="end">
 
-                        <TextView
+                        <Button
+                            android:id="@+id/btnTestInjectApi"
+                            style="@style/Widget.Material3.Button.TonalButton"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Stealth Haptic Feedback"
-                            android:textStyle="bold"
-                            android:textSize="14sp" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Silent double-pulse vibration on arm, single pulse on finish"
-                            android:textSize="12sp"
-                            android:alpha="0.7" />
+                            android:text="Test Send Payload" />
                     </LinearLayout>
-
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchHaptics"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
                 </LinearLayout>
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- CARD 4: Live In-Console Scratchpad -->
+        <!-- CARD 5: Live Interactive Multi-Line Scratchpad -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="14dp"
             android:layout_marginBottom="24dp"
             app:cardCornerRadius="16dp"
             app:cardElevation="0dp"
@@ -376,7 +434,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="In-Menu Covert Scratchpad"
+                    android:text="Live Covert &amp; Spectator Scratchpad"
                     android:textStyle="bold"
                     android:textSize="15sp"
                     android:textColor="?android:attr/textColorPrimary" />
@@ -385,7 +443,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:text="Test your covert typing right here to verify before performing."
+                    android:text="Practice the entire effect here: Type secret word + [  ] on Line 1, then hit Enter and type random letters on subsequent lines."
                     android:textSize="12sp"
                     android:alpha="0.7" />
 
@@ -394,23 +452,39 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
-                    android:hint="Type any letters here to test covert sequence..."
+                    android:hint="Line 1: Covert sentence will type here...\nLine 2: Spectator 1 random word\nLine 3: Spectator 2 random word"
                     android:textColor="@color/edit_text_color"
                     android:textColorHint="@color/edit_hint_color"
                     android:textSize="14sp"
-                    android:minLines="2"
+                    android:minLines="4"
                     android:gravity="top|start"
                     android:padding="12dp"
                     android:background="@drawable/bg_edit_text" />
 
-                <Button
-                    android:id="@+id/btnClearCovertSandbox"
-                    style="@style/Widget.Material3.Button.TextButton"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="end"
-                    android:layout_marginTop="4dp"
-                    android:text="Clear Scratchpad" />
+                    android:layout_marginTop="6dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:id="@+id/tvSandboxLiveStatus"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Status: Ready"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:textColor="?attr/colorPrimary" />
+
+                    <Button
+                        android:id="@+id/btnClearCovertSandbox"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Clear Sandbox" />
+                </LinearLayout>
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
