@@ -42,6 +42,7 @@ class CustomKeyboardService : InputMethodService() {
     private var lastShiftTapTime = 0L
     private var symbolsPage = 1
     private val wordBuffer = StringBuilder()
+    private var lastCommittedWord = ""
 
     private lateinit var rootContainer: LinearLayout
     private lateinit var topBarContainer: LinearLayout
@@ -97,6 +98,8 @@ class CustomKeyboardService : InputMethodService() {
         capsLock = false
         symbolsPage = 1
         wordBuffer.clear()
+        val textBefore = currentInputConnection?.getTextBeforeCursor(40, 0)?.toString()?.trim() ?: ""
+        lastCommittedWord = textBefore.split(Regex("\\s+")).lastOrNull { it.isNotEmpty() } ?: ""
         render()
     }
 
@@ -236,8 +239,10 @@ class CustomKeyboardService : InputMethodService() {
         }
 
         val isArabic = currentLang == Lang.AR
-        val hasSuggestions = currentMode == Mode.LETTERS &&
-            wordBuffer.isNotEmpty() && Dictionary.suggestions(wordBuffer.toString(), isArabic, 1).isNotEmpty()
+        val currentWord = wordBuffer.toString()
+        val contextualSuggestions = if (currentMode == Mode.LETTERS) {
+            Dictionary.getContextualSuggestions(currentWord, lastCommittedWord, isArabic, limit = 16)
+        } else emptyList()
 
         when {
             currentMode == Mode.CLIPBOARD -> {
@@ -251,8 +256,8 @@ class CustomKeyboardService : InputMethodService() {
                 bar.addView(iconButton("⌫") { deleteChar() })
                 bar.addView(iconButton("←") { switchMode(Mode.LETTERS) })
             }
-            hasSuggestions -> {
-                bar.addView(buildSuggestionsScroll(wordBuffer.toString(), isArabic))
+            contextualSuggestions.isNotEmpty() -> {
+                bar.addView(buildSuggestionsScroll(contextualSuggestions))
                 bar.addView(iconButton("⧉") { switchMode(Mode.CLIPBOARD) })
                 bar.addView(iconButton("⚙") {
                     val intent = android.content.Intent(this, MainActivity::class.java)
@@ -273,19 +278,40 @@ class CustomKeyboardService : InputMethodService() {
         return bar
     }
 
-    private fun buildSuggestionsScroll(prefix: String, isArabic: Boolean): HorizontalScrollView {
+    private fun buildSuggestionsScroll(items: List<Dictionary.SuggestionItem>): HorizontalScrollView {
         val inner = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        val suggestions = Dictionary.suggestions(prefix, isArabic, 10)
-        suggestions.forEachIndexed { index, word ->
-            inner.addView(suggestionChip(word, isPrimary = (index == 0)))
+        items.forEach { item ->
+            if (item.isEmoji) {
+                inner.addView(emojiChip(item.text))
+            } else {
+                inner.addView(suggestionChip(item))
+            }
         }
         return HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
             addView(inner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        }
+    }
+
+    private fun emojiChip(emoji: String): TextView {
+        val resting = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
+        return TextView(this).apply {
+            text = emoji
+            textSize = 20f
+            gravity = Gravity.CENTER
+            setPadding(dp(10), 0, dp(10), 0)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT).apply {
+                setMargins(dp(2), dp(2), dp(2), dp(2))
+            }
+            background = resting
+            applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP) {
+                currentInputConnection?.commitText(emoji, 1)
+                refreshTopBar()
+            }
         }
     }
 
@@ -313,15 +339,16 @@ class CustomKeyboardService : InputMethodService() {
         }
     }
 
-    private fun suggestionChip(word: String, isPrimary: Boolean = false): TextView {
+    private fun suggestionChip(item: Dictionary.SuggestionItem): TextView {
+        val isPrimary = item.isPrimary
         val resting = if (isPrimary) keyBackground(specialKeyColor(), KEY_RADIUS_DP) else null
         return TextView(this).apply {
-            text = word
+            text = item.text
             setTextColor(if (isPrimary) accentColor() else textColor())
             setTypeface(if (isPrimary) Typeface.DEFAULT_BOLD else Typeface.DEFAULT)
             textSize = 15f
             gravity = Gravity.CENTER
-            setPadding(dp(14), 0, dp(14), 0)
+            setPadding(dp(13), 0, dp(13), 0)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT).apply {
                 if (isPrimary) {
                     setMargins(dp(2), dp(2), dp(2), dp(2))
@@ -329,11 +356,13 @@ class CustomKeyboardService : InputMethodService() {
             }
             if (resting != null) background = resting
             applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP) {
-                // Suggestions are only ever committed by an explicit tap - never automatically.
-                Dictionary.recordUsedWord(word)
-                currentInputConnection?.deleteSurroundingText(wordBuffer.length, 0)
-                currentInputConnection?.commitText("$word ", 1)
-                wordBuffer.clear()
+                Dictionary.recordUsedWord(item.text)
+                lastCommittedWord = item.text
+                if (wordBuffer.isNotEmpty()) {
+                    currentInputConnection?.deleteSurroundingText(wordBuffer.length, 0)
+                    wordBuffer.clear()
+                }
+                currentInputConnection?.commitText("${item.text} ", 1)
                 refreshTopBar()
             }
         }
@@ -940,6 +969,16 @@ class CustomKeyboardService : InputMethodService() {
     // Word boundaries no longer silently rewrite what was typed - suggestions are only ever
     // applied when the user explicitly taps a suggestion chip in the top bar.
     private fun commitPunctuationOrSpace(boundary: String) {
+        if (wordBuffer.isNotEmpty()) {
+            lastCommittedWord = wordBuffer.toString().trim()
+            Dictionary.recordUsedWord(lastCommittedWord)
+        } else {
+            val textBefore = currentInputConnection?.getTextBeforeCursor(40, 0)?.toString()?.trim() ?: ""
+            val prev = textBefore.split(Regex("\\s+")).lastOrNull { it.isNotEmpty() } ?: ""
+            if (prev.isNotEmpty()) {
+                lastCommittedWord = prev
+            }
+        }
         handleKeyCommit(boundary, isLetter = false)
         wordBuffer.clear()
         refreshTopBar()
