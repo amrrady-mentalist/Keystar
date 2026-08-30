@@ -990,9 +990,9 @@ class CustomKeyboardService : InputMethodService() {
         wordBuffer.clear()
         if (covertManager.isMathEnabled) {
             val textBefore = currentInputConnection?.getTextBeforeCursor(2000, 0)?.toString() ?: ""
-            val total = covertManager.evaluateMathFromText(textBefore)
-            if (total != null) {
-                TriggerManager.queueMathTotal(total, this, covertManager)
+            val payload = covertManager.extractMathPayload(textBefore)
+            if (payload != null) {
+                TriggerManager.queueMathPayload(payload, this, covertManager)
             }
         }
         val info = currentInputEditorInfo
@@ -1014,6 +1014,13 @@ class CustomKeyboardService : InputMethodService() {
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (TriggerManager.isVolumeTriggerEnabled(this) &&
             (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN)) {
+            if (covertManager.isMathEnabled && TriggerManager.pendingMathPayload == null) {
+                val textBefore = currentInputConnection?.getTextBeforeCursor(2000, 0)?.toString() ?: ""
+                val payload = covertManager.extractMathPayload(textBefore)
+                if (payload != null) {
+                    TriggerManager.pendingMathPayload = payload
+                }
+            }
             val fired = TriggerManager.fireTrigger("Volume Hardware Key (IME)", this)
             if (fired) return true
         }

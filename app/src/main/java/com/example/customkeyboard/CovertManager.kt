@@ -101,6 +101,19 @@ class CovertManager(private val context: Context) {
             prefs.edit().putBoolean("key_haptic_feedback", value).apply()
         }
 
+    // Covert typing secret word transmission toggles
+    var covertSendToInject: Boolean
+        get() = prefs.getBoolean("key_covert_send_inject", true)
+        set(value) {
+            prefs.edit().putBoolean("key_covert_send_inject", value).apply()
+        }
+
+    var covertLocalNotification: Boolean
+        get() = prefs.getBoolean("key_covert_local_notification", false)
+        set(value) {
+            prefs.edit().putBoolean("key_covert_local_notification", value).apply()
+        }
+
     // ---------- Math Magic Effect (N.list) ----------
     var isMathEnabled: Boolean
         get() = prefs.getBoolean("key_math_enabled", false)
@@ -114,16 +127,62 @@ class CovertManager(private val context: Context) {
             prefs.edit().putString("key_math_equation", value).apply()
         }
 
+    // Mode: "total" (Formula Total) or "line" (Specific Line Content)
+    var mathTargetMode: String
+        get() = prefs.getString("key_math_target_mode", "total") ?: "total"
+        set(value) {
+            prefs.edit().putString("key_math_target_mode", value).apply()
+        }
+
+    // 1-indexed target line number (e.g. 1, 2, 3, 4, 5...)
+    var mathTargetLine: Int
+        get() = prefs.getInt("key_math_target_line", 3)
+        set(value) {
+            prefs.edit().putInt("key_math_target_line", value).apply()
+        }
+
     var mathSendToInject: Boolean
         get() = prefs.getBoolean("key_math_send_inject", true)
         set(value) {
             prefs.edit().putBoolean("key_math_send_inject", value).apply()
         }
 
+    var mathLocalNotification: Boolean
+        get() = prefs.getBoolean("key_math_local_notification", false)
+        set(value) {
+            prefs.edit().putBoolean("key_math_local_notification", value).apply()
+        }
+
     fun evaluateMathFromText(text: String): Long? {
         val values = MathEquationEngine.lineValues(text)
         if (values.isEmpty()) return null
         return MathEquationEngine.evaluate(mathEquation, values)
+    }
+
+    /**
+     * Extracts either the calculated formula total or a specific line's number/content based on configured mode.
+     */
+    fun extractMathPayload(text: String): String? {
+        if (text.isBlank()) return null
+        if (mathTargetMode == "line") {
+            // First check numeric values per line
+            val numValues = MathEquationEngine.lineValues(text)
+            val targetIdx = mathTargetLine - 1
+            if (targetIdx in numValues.indices) {
+                return numValues[targetIdx].toString()
+            }
+            // Fallback to raw lines of text
+            val rawLines = text.lines().map { it.trim() }.filter { it.isNotEmpty() }
+            if (targetIdx in rawLines.indices) {
+                val line = rawLines[targetIdx]
+                val match = Regex("""-?\d+""").find(line)?.value
+                return match ?: line
+            }
+            return null
+        } else {
+            val total = evaluateMathFromText(text) ?: return null
+            return total.toString()
+        }
     }
 
     // ---------- Delete Peek Magic Effect (N.list) ----------

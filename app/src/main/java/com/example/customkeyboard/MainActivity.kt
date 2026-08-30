@@ -170,6 +170,8 @@ class MainActivity : AppCompatActivity() {
         val layoutInjectSettings = dialog.findViewById<LinearLayout>(R.id.layoutInjectSettings)
         val editInjectUrl = dialog.findViewById<EditText>(R.id.editInjectUrl)
         val editInjectKey = dialog.findViewById<EditText>(R.id.editInjectKey)
+        val switchCovertSendInject = dialog.findViewById<MaterialSwitch>(R.id.switchCovertSendInject)
+        val switchCovertSendNotif = dialog.findViewById<MaterialSwitch>(R.id.switchCovertSendNotif)
         val btnTestInjectApi = dialog.findViewById<Button>(R.id.btnTestInjectApi)
 
         val editSandbox = dialog.findViewById<EditText>(R.id.editCovertSandbox)
@@ -180,9 +182,22 @@ class MainActivity : AppCompatActivity() {
         // Math Effect Views
         val switchMathMaster = dialog.findViewById<MaterialSwitch>(R.id.switchMathMaster)
         val tvMathStatusTitle = dialog.findViewById<TextView>(R.id.tvMathStatusTitle)
+        val rgMathTargetMode = dialog.findViewById<android.widget.RadioGroup>(R.id.rgMathTargetMode)
+        val rbMathModeTotal = dialog.findViewById<android.widget.RadioButton>(R.id.rbMathModeTotal)
+        val rbMathModeLine = dialog.findViewById<android.widget.RadioButton>(R.id.rbMathModeLine)
+        val layoutMathLineTarget = dialog.findViewById<LinearLayout>(R.id.layoutMathLineTarget)
+        val tvMathTargetLineLabel = dialog.findViewById<TextView>(R.id.tvMathTargetLineLabel)
+        val btnMathLine1 = dialog.findViewById<Button>(R.id.btnMathLine1)
+        val btnMathLine2 = dialog.findViewById<Button>(R.id.btnMathLine2)
+        val btnMathLine3 = dialog.findViewById<Button>(R.id.btnMathLine3)
+        val btnMathLine4 = dialog.findViewById<Button>(R.id.btnMathLine4)
+        val btnMathLine5 = dialog.findViewById<Button>(R.id.btnMathLine5)
+
+        val layoutMathEquationSection = dialog.findViewById<LinearLayout>(R.id.layoutMathEquationSection)
         val editMathEquation = dialog.findViewById<EditText>(R.id.editMathEquation)
         val btnSaveMathEquation = dialog.findViewById<Button>(R.id.btnSaveMathEquation)
         val switchMathSendInject = dialog.findViewById<MaterialSwitch>(R.id.switchMathSendInject)
+        val switchMathSendNotif = dialog.findViewById<MaterialSwitch>(R.id.switchMathSendNotif)
         val editMathSimulator = dialog.findViewById<EditText>(R.id.editMathSimulator)
         val tvMathSimResult = dialog.findViewById<TextView>(R.id.tvMathSimResult)
 
@@ -264,15 +279,26 @@ class MainActivity : AppCompatActivity() {
 
         fun updateMathSimulator() {
             val simText = editMathSimulator.text.toString()
-            val values = MathEquationEngine.lineValues(simText)
-            val eq = editMathEquation.text.toString().trim()
-            val result = MathEquationEngine.evaluate(eq, values)
-            tvMathSimResult.text = if (result != null) {
-                "Calculated Result: $result (Values: $values)"
-            } else if (values.isEmpty()) {
-                "Calculated Result: (Enter numbers on separate lines)"
+            val isLineMode = covertManager.mathTargetMode == "line"
+            if (isLineMode) {
+                val targetLine = covertManager.mathTargetLine
+                val payload = covertManager.extractMathPayload(simText)
+                tvMathSimResult.text = if (payload != null) {
+                    "Extracted Target (Line $targetLine): $payload"
+                } else {
+                    "Extracted Target (Line $targetLine): (Enter at least $targetLine lines of numbers)"
+                }
             } else {
-                "Calculated Result: Invalid Equation"
+                val values = MathEquationEngine.lineValues(simText)
+                val eq = editMathEquation.text.toString().trim()
+                val result = MathEquationEngine.evaluate(eq, values)
+                tvMathSimResult.text = if (result != null) {
+                    "Calculated Result: $result (Values: $values)"
+                } else if (values.isEmpty()) {
+                    "Calculated Result: (Enter numbers on separate lines)"
+                } else {
+                    "Calculated Result: Invalid Equation"
+                }
             }
         }
 
@@ -290,10 +316,23 @@ class MainActivity : AppCompatActivity() {
         layoutInjectSettings.visibility = if (covertManager.isInjectApiEnabled) View.VISIBLE else View.GONE
         editInjectUrl.setText(covertManager.injectApiUrl)
         editInjectKey.setText(covertManager.injectApiKey)
+        switchCovertSendInject.isChecked = covertManager.covertSendToInject
+        switchCovertSendNotif.isChecked = covertManager.covertLocalNotification
 
         // Math init
+        if (covertManager.mathTargetMode == "line") {
+            rbMathModeLine.isChecked = true
+            layoutMathLineTarget.visibility = View.VISIBLE
+            layoutMathEquationSection.visibility = View.GONE
+        } else {
+            rbMathModeTotal.isChecked = true
+            layoutMathLineTarget.visibility = View.GONE
+            layoutMathEquationSection.visibility = View.VISIBLE
+        }
+        tvMathTargetLineLabel.text = "Target Line to Extract: Line ${covertManager.mathTargetLine}"
         editMathEquation.setText(covertManager.mathEquation)
         switchMathSendInject.isChecked = covertManager.mathSendToInject
+        switchMathSendNotif.isChecked = covertManager.mathLocalNotification
 
         // Delete Peek init
         switchDeletePeekSendInject.isChecked = covertManager.deletePeekSendToInject
@@ -355,11 +394,48 @@ class MainActivity : AppCompatActivity() {
             layoutInjectSettings.visibility = if (isChecked) View.VISIBLE else View.GONE
         }
 
+        switchCovertSendInject.setOnCheckedChangeListener { _, isChecked ->
+            covertManager.covertSendToInject = isChecked
+        }
+
+        switchCovertSendNotif.setOnCheckedChangeListener { _, isChecked ->
+            covertManager.covertLocalNotification = isChecked
+            if (isChecked && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
+            }
+        }
+
         // Math listeners
         switchMathMaster.setOnCheckedChangeListener { _, isChecked ->
             covertManager.isMathEnabled = isChecked
             updateStatusUi()
         }
+
+        rgMathTargetMode.setOnCheckedChangeListener { _, checkedId ->
+            if (checkedId == R.id.rbMathModeLine) {
+                covertManager.mathTargetMode = "line"
+                layoutMathLineTarget.visibility = View.VISIBLE
+                layoutMathEquationSection.visibility = View.GONE
+            } else {
+                covertManager.mathTargetMode = "total"
+                layoutMathLineTarget.visibility = View.GONE
+                layoutMathEquationSection.visibility = View.VISIBLE
+            }
+            updateMathSimulator()
+        }
+
+        fun selectMathLine(lineNum: Int) {
+            covertManager.mathTargetLine = lineNum
+            tvMathTargetLineLabel.text = "Target Line to Extract: Line $lineNum"
+            updateMathSimulator()
+            Toast.makeText(this, "Set Math Extraction to Line $lineNum", Toast.LENGTH_SHORT).show()
+        }
+
+        btnMathLine1.setOnClickListener { selectMathLine(1) }
+        btnMathLine2.setOnClickListener { selectMathLine(2) }
+        btnMathLine3.setOnClickListener { selectMathLine(3) }
+        btnMathLine4.setOnClickListener { selectMathLine(4) }
+        btnMathLine5.setOnClickListener { selectMathLine(5) }
 
         btnSaveMathEquation.setOnClickListener {
             val eq = editMathEquation.text.toString().trim()
@@ -370,6 +446,13 @@ class MainActivity : AppCompatActivity() {
 
         switchMathSendInject.setOnCheckedChangeListener { _, isChecked ->
             covertManager.mathSendToInject = isChecked
+        }
+
+        switchMathSendNotif.setOnCheckedChangeListener { _, isChecked ->
+            covertManager.mathLocalNotification = isChecked
+            if (isChecked && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
+            }
         }
 
         // Quick chip token insert helper
@@ -472,7 +555,7 @@ class MainActivity : AppCompatActivity() {
 
         btnClearTriggerQueue.setOnClickListener {
             TriggerManager.pendingDeletedWord = null
-            TriggerManager.pendingMathTotal = null
+            TriggerManager.pendingMathPayload = null
             TriggerManager.pendingCovertWord = null
             updateStatusUi()
             Toast.makeText(this, "Pending trigger queue cleared", Toast.LENGTH_SHORT).show()

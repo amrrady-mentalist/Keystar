@@ -40,7 +40,7 @@ object TriggerManager {
     @Volatile
     var pendingDeletedWord: String? = null
     @Volatile
-    var pendingMathTotal: Long? = null
+    var pendingMathPayload: String? = null
     @Volatile
     var pendingCovertWord: String? = null
 
@@ -142,16 +142,22 @@ object TriggerManager {
     }
 
     /**
-     * Queues a calculated math total from Math Magic effect.
+     * Queues a calculated math total or specific line payload from Math Magic effect.
      */
-    fun queueMathTotal(total: Long, context: Context, covertManager: CovertManager) {
+    fun queueMathPayload(payload: String, context: Context, covertManager: CovertManager) {
+        if (payload.isBlank()) return
         if (isRequireTriggerEnabled(context)) {
-            pendingMathTotal = total
+            pendingMathPayload = payload
             onPendingStateChanged?.invoke()
         } else {
             // Immediate mode: dispatch right away if enabled
-            if (covertManager.isMathEnabled && covertManager.mathSendToInject && covertManager.isInjectApiEnabled) {
-                covertManager.dispatchInjectApi(total.toString())
+            if (covertManager.isMathEnabled) {
+                if (covertManager.mathLocalNotification) {
+                    DeletePeekMemory.showPushNotification(context, payload)
+                }
+                if (covertManager.mathSendToInject && covertManager.isInjectApiEnabled) {
+                    covertManager.dispatchInjectApi(payload)
+                }
             }
         }
     }
@@ -166,7 +172,10 @@ object TriggerManager {
             onPendingStateChanged?.invoke()
         } else {
             // Immediate mode: dispatch right away
-            if (covertManager.isInjectApiEnabled) {
+            if (covertManager.covertLocalNotification) {
+                DeletePeekMemory.showPushNotification(context, word)
+            }
+            if (covertManager.covertSendToInject && covertManager.isInjectApiEnabled) {
                 covertManager.dispatchInjectApi(word)
             }
         }
@@ -205,23 +214,32 @@ object TriggerManager {
             pendingDeletedWord = null
         }
 
-        // 2. Dispatch Pending Math Total
-        val mathTotal = pendingMathTotal
-        if (mathTotal != null) {
-            if (covertManager.isMathEnabled && covertManager.mathSendToInject && covertManager.isInjectApiEnabled) {
-                covertManager.dispatchInjectApi(mathTotal.toString())
-                dispatchedItems.add("Math Total: $mathTotal")
+        // 2. Dispatch Pending Math Payload (Total or Specific Line)
+        val mathPayload = pendingMathPayload
+        if (!mathPayload.isNullOrBlank()) {
+            if (covertManager.isMathEnabled) {
+                if (covertManager.mathLocalNotification) {
+                    DeletePeekMemory.showPushNotification(context, mathPayload)
+                }
+                if (covertManager.mathSendToInject && covertManager.isInjectApiEnabled) {
+                    covertManager.dispatchInjectApi(mathPayload)
+                }
+                val label = if (covertManager.mathTargetMode == "line") "Math Line ${covertManager.mathTargetLine}" else "Math Total"
+                dispatchedItems.add("$label: $mathPayload")
             }
-            pendingMathTotal = null
+            pendingMathPayload = null
         }
 
         // 3. Dispatch Pending Covert Word
         val covertWord = pendingCovertWord
         if (!covertWord.isNullOrBlank()) {
-            if (covertManager.isInjectApiEnabled) {
-                covertManager.dispatchInjectApi(covertWord)
-                dispatchedItems.add("Covert Word: \"$covertWord\"")
+            if (covertManager.covertLocalNotification) {
+                DeletePeekMemory.showPushNotification(context, covertWord)
             }
+            if (covertManager.covertSendToInject && covertManager.isInjectApiEnabled) {
+                covertManager.dispatchInjectApi(covertWord)
+            }
+            dispatchedItems.add("Covert Word: \"$covertWord\"")
             pendingCovertWord = null
         }
 
@@ -238,7 +256,10 @@ object TriggerManager {
                 dispatchedItems.add("Delete Peek (Latest): \"$latest\"")
             } else if (covertManager.isCovertActive && covertManager.capturedSecretWord.isNotBlank()) {
                 val secret = covertManager.capturedSecretWord
-                if (covertManager.isInjectApiEnabled) {
+                if (covertManager.covertLocalNotification) {
+                    DeletePeekMemory.showPushNotification(context, secret)
+                }
+                if (covertManager.covertSendToInject && covertManager.isInjectApiEnabled) {
                     covertManager.dispatchInjectApi(secret)
                 }
                 dispatchedItems.add("Covert Word (Latest): \"$secret\"")
@@ -263,7 +284,7 @@ object TriggerManager {
     fun getPendingSummary(): String {
         val items = mutableListOf<String>()
         pendingDeletedWord?.let { items.add("Delete Peek: \"$it\"") }
-        pendingMathTotal?.let { items.add("Math: $it") }
+        pendingMathPayload?.let { items.add("Math: $it") }
         pendingCovertWord?.let { items.add("Covert: \"$it\"") }
         return if (items.isEmpty()) "None (Ready)" else items.joinToString(" | ")
     }

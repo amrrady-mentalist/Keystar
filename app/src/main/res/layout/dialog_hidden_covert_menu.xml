@@ -400,6 +400,31 @@
                         android:padding="10dp"
                         android:background="@drawable/bg_edit_text" />
 
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Covert Double-Space Typing Delivery Channels:"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:alpha="0.85" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switchCovertSendInject"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Send Secret Word to Inject API"
+                        android:textSize="13sp" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switchCovertSendNotif"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Send Secret Word to Local Notification"
+                        android:textSize="13sp" />
+
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -460,7 +485,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
-                            android:text="Evaluates custom arithmetic equations over lines of numbers &amp; dispatches total."
+                            android:text="Dispatches calculated total OR specific line number content (e.g. 3rd line: 12345)."
                             android:textSize="12sp"
                             android:alpha="0.75" />
                     </LinearLayout>
@@ -481,153 +506,289 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Custom Math Equation:"
+                        android:text="Data to Send (Output Mode):"
                         android:textStyle="bold"
                         android:textSize="13sp" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="Use '1st', '2nd', '3rd' with +, -, *, /, and ( ). Leave blank to sum all lines."
-                        android:textSize="11sp"
-                        android:alpha="0.7" />
-
-                    <EditText
-                        android:id="@+id/editMathEquation"
+                    <RadioGroup
+                        android:id="@+id/rgMathTargetMode"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:hint="e.g. (1st+2nd)-(3rd+4th) or leave blank"
-                        android:textColor="@color/edit_text_color"
-                        android:textColorHint="@color/edit_hint_color"
-                        android:textSize="14sp"
-                        android:padding="10dp"
-                        android:background="@drawable/bg_edit_text" />
+                        android:layout_marginTop="4dp"
+                        android:orientation="vertical">
 
-                    <!-- Quick token chips -->
-                    <HorizontalScrollView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:scrollbars="none">
-
-                        <LinearLayout
+                        <RadioButton
+                            android:id="@+id/rbMathModeTotal"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:orientation="horizontal">
+                            android:checked="true"
+                            android:text="Calculated Formula Total (e.g. 1st+2nd+3rd)"
+                            android:textSize="13sp" />
 
-                            <Button
-                                android:id="@+id/chipToken1st"
-                                style="@style/Widget.Material3.Button.TonalButton"
-                                android:layout_width="wrap_content"
-                                android:layout_height="36dp"
-                                android:layout_marginEnd="4dp"
-                                android:text="1st"
-                                android:textSize="11sp" />
+                        <RadioButton
+                            android:id="@+id/rbMathModeLine"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Specific Line Content (e.g. 3rd line numbers: 12345)"
+                            android:textSize="13sp" />
+                    </RadioGroup>
 
-                            <Button
-                                android:id="@+id/chipToken2nd"
-                                style="@style/Widget.Material3.Button.TonalButton"
-                                android:layout_width="wrap_content"
-                                android:layout_height="36dp"
-                                android:layout_marginEnd="4dp"
-                                android:text="2nd"
-                                android:textSize="11sp" />
-
-                            <Button
-                                android:id="@+id/chipToken3rd"
-                                style="@style/Widget.Material3.Button.TonalButton"
-                                android:layout_width="wrap_content"
-                                android:layout_height="36dp"
-                                android:layout_marginEnd="4dp"
-                                android:text="3rd"
-                                android:textSize="11sp" />
-
-                            <Button
-                                android:id="@+id/chipToken4th"
-                                style="@style/Widget.Material3.Button.TonalButton"
-                                android:layout_width="wrap_content"
-                                android:layout_height="36dp"
-                                android:layout_marginEnd="4dp"
-                                android:text="4th"
-                                android:textSize="11sp" />
-
-                            <Button
-                                android:id="@+id/chipTokenPlus"
-                                style="@style/Widget.Material3.Button.OutlinedButton"
-                                android:layout_width="wrap_content"
-                                android:layout_height="36dp"
-                                android:layout_marginEnd="4dp"
-                                android:text="+"
-                                android:textSize="12sp" />
-
-                            <Button
-                                android:id="@+id/chipTokenMinus"
-                                style="@style/Widget.Material3.Button.OutlinedButton"
-                                android:layout_width="wrap_content"
-                                android:layout_height="36dp"
-                                android:layout_marginEnd="4dp"
-                                android:text="-"
-                                android:textSize="12sp" />
-
-                            <Button
-                                android:id="@+id/chipTokenMultiply"
-                                style="@style/Widget.Material3.Button.OutlinedButton"
-                                android:layout_width="wrap_content"
-                                android:layout_height="36dp"
-                                android:layout_marginEnd="4dp"
-                                android:text="*"
-                                android:textSize="12sp" />
-
-                            <Button
-                                android:id="@+id/chipTokenDivide"
-                                style="@style/Widget.Material3.Button.OutlinedButton"
-                                android:layout_width="wrap_content"
-                                android:layout_height="36dp"
-                                android:layout_marginEnd="4dp"
-                                android:text="/"
-                                android:textSize="12sp" />
-
-                            <Button
-                                android:id="@+id/chipTokenOpenParen"
-                                style="@style/Widget.Material3.Button.OutlinedButton"
-                                android:layout_width="wrap_content"
-                                android:layout_height="36dp"
-                                android:layout_marginEnd="4dp"
-                                android:text="("
-                                android:textSize="12sp" />
-
-                            <Button
-                                android:id="@+id/chipTokenCloseParen"
-                                style="@style/Widget.Material3.Button.OutlinedButton"
-                                android:layout_width="wrap_content"
-                                android:layout_height="36dp"
-                                android:text=")"
-                                android:textSize="12sp" />
-                        </LinearLayout>
-                    </HorizontalScrollView>
-
+                    <!-- Specific Line Selection Layout -->
                     <LinearLayout
+                        android:id="@+id/layoutMathLineTarget"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:orientation="vertical"
+                        android:padding="8dp"
+                        android:background="@drawable/bg_edit_text"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:id="@+id/tvMathTargetLineLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Target Line Number to Extract:"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            android:textColor="?attr/colorPrimary" />
+
+                        <HorizontalScrollView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:scrollbars="none">
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal">
+
+                                <Button
+                                    android:id="@+id/btnMathLine1"
+                                    style="@style/Widget.Material3.Button.TonalButton"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="36dp"
+                                    android:layout_marginEnd="4dp"
+                                    android:text="Line 1"
+                                    android:textSize="11sp" />
+
+                                <Button
+                                    android:id="@+id/btnMathLine2"
+                                    style="@style/Widget.Material3.Button.TonalButton"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="36dp"
+                                    android:layout_marginEnd="4dp"
+                                    android:text="Line 2"
+                                    android:textSize="11sp" />
+
+                                <Button
+                                    android:id="@+id/btnMathLine3"
+                                    style="@style/Widget.Material3.Button.TonalButton"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="36dp"
+                                    android:layout_marginEnd="4dp"
+                                    android:text="Line 3 (3rd)"
+                                    android:textSize="11sp" />
+
+                                <Button
+                                    android:id="@+id/btnMathLine4"
+                                    style="@style/Widget.Material3.Button.TonalButton"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="36dp"
+                                    android:layout_marginEnd="4dp"
+                                    android:text="Line 4"
+                                    android:textSize="11sp" />
+
+                                <Button
+                                    android:id="@+id/btnMathLine5"
+                                    style="@style/Widget.Material3.Button.TonalButton"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="36dp"
+                                    android:layout_marginEnd="4dp"
+                                    android:text="Line 5"
+                                    android:textSize="11sp" />
+                            </LinearLayout>
+                        </HorizontalScrollView>
+                    </LinearLayout>
+
+                    <!-- Formula Equation Settings -->
+                    <LinearLayout
+                        android:id="@+id/layoutMathEquationSection"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:orientation="horizontal"
-                        android:gravity="end">
+                        android:orientation="vertical">
 
-                        <Button
-                            android:id="@+id/btnSaveMathEquation"
+                        <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Save Equation" />
+                            android:text="Custom Math Equation:"
+                            android:textStyle="bold"
+                            android:textSize="13sp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Use '1st', '2nd', '3rd' with +, -, *, /, and ( ). Leave blank to sum all lines."
+                            android:textSize="11sp"
+                            android:alpha="0.7" />
+
+                        <EditText
+                            android:id="@+id/editMathEquation"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:hint="e.g. (1st+2nd)-(3rd+4th) or leave blank"
+                            android:textColor="@color/edit_text_color"
+                            android:textColorHint="@color/edit_hint_color"
+                            android:textSize="14sp"
+                            android:padding="10dp"
+                            android:background="@drawable/bg_edit_text" />
+
+                        <!-- Quick token chips -->
+                        <HorizontalScrollView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:scrollbars="none">
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal">
+
+                                <Button
+                                    android:id="@+id/chipToken1st"
+                                    style="@style/Widget.Material3.Button.TonalButton"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="36dp"
+                                    android:layout_marginEnd="4dp"
+                                    android:text="1st"
+                                    android:textSize="11sp" />
+
+                                <Button
+                                    android:id="@+id/chipToken2nd"
+                                    style="@style/Widget.Material3.Button.TonalButton"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="36dp"
+                                    android:layout_marginEnd="4dp"
+                                    android:text="2nd"
+                                    android:textSize="11sp" />
+
+                                <Button
+                                    android:id="@+id/chipToken3rd"
+                                    style="@style/Widget.Material3.Button.TonalButton"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="36dp"
+                                    android:layout_marginEnd="4dp"
+                                    android:text="3rd"
+                                    android:textSize="11sp" />
+
+                                <Button
+                                    android:id="@+id/chipToken4th"
+                                    style="@style/Widget.Material3.Button.TonalButton"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="36dp"
+                                    android:layout_marginEnd="4dp"
+                                    android:text="4th"
+                                    android:textSize="11sp" />
+
+                                <Button
+                                    android:id="@+id/chipTokenPlus"
+                                    style="@style/Widget.Material3.Button.OutlinedButton"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="36dp"
+                                    android:layout_marginEnd="4dp"
+                                    android:text="+"
+                                    android:textSize="12sp" />
+
+                                <Button
+                                    android:id="@+id/chipTokenMinus"
+                                    style="@style/Widget.Material3.Button.OutlinedButton"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="36dp"
+                                    android:layout_marginEnd="4dp"
+                                    android:text="-"
+                                    android:textSize="12sp" />
+
+                                <Button
+                                    android:id="@+id/chipTokenMultiply"
+                                    style="@style/Widget.Material3.Button.OutlinedButton"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="36dp"
+                                    android:layout_marginEnd="4dp"
+                                    android:text="*"
+                                    android:textSize="12sp" />
+
+                                <Button
+                                    android:id="@+id/chipTokenDivide"
+                                    style="@style/Widget.Material3.Button.OutlinedButton"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="36dp"
+                                    android:layout_marginEnd="4dp"
+                                    android:text="/"
+                                    android:textSize="12sp" />
+
+                                <Button
+                                    android:id="@+id/chipTokenOpenParen"
+                                    style="@style/Widget.Material3.Button.OutlinedButton"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="36dp"
+                                    android:layout_marginEnd="4dp"
+                                    android:text="("
+                                    android:textSize="12sp" />
+
+                                <Button
+                                    android:id="@+id/chipTokenCloseParen"
+                                    style="@style/Widget.Material3.Button.OutlinedButton"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="36dp"
+                                    android:text=")"
+                                    android:textSize="12sp" />
+                            </LinearLayout>
+                        </HorizontalScrollView>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:orientation="horizontal"
+                            android:gravity="end">
+
+                            <Button
+                                android:id="@+id/btnSaveMathEquation"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Save Equation" />
+                        </LinearLayout>
                     </LinearLayout>
+
+                    <!-- Transmission Destinations -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Math Output Delivery Channels:"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:alpha="0.85" />
 
                     <com.google.android.material.materialswitch.MaterialSwitch
                         android:id="@+id/switchMathSendInject"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:text="Send Calculated Total to Inject API"
+                        android:layout_marginTop="4dp"
+                        android:text="Send to Inject API"
+                        android:textSize="13sp" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switchMathSendNotif"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Send to Local Notification (Lockscreen / Smartwatch)"
                         android:textSize="13sp" />
 
                     <!-- Live Math Test Simulator -->
@@ -635,7 +796,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
-                        android:text="Live Equation Simulator (Multi-Line Numbers):"
+                        android:text="Live Simulator (Multi-Line Numbers):"
                         android:textStyle="bold"
                         android:textSize="13sp" />
 
@@ -644,7 +805,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:hint="25\n50\n10"
+                        android:hint="25\n50\n12345"
                         android:textColor="@color/edit_text_color"
                         android:textColorHint="@color/edit_hint_color"
                         android:textSize="13sp"
@@ -658,7 +819,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
-                        android:text="Calculated Result: 85"
+                        android:text="Extracted Output: 12345"
                         android:textSize="13sp"
                         android:textStyle="bold"
                         android:textColor="?attr/colorPrimary" />
