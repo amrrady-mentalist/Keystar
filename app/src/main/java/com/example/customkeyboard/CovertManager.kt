@@ -174,24 +174,27 @@ class CovertManager(private val context: Context) {
             if (originalText == " ") {
                 consecutiveSpaceCount++
                 if (consecutiveSpaceCount >= 2 && !isSecretWordCaptured) {
-                    // Double space detected! Capture ONLY the fresh secret word typed
-                    val secretWord = rawSecretInputBuffer.toString().trim()
-                    rawSecretInputBuffer.clear() // Clear buffer immediately so next words don't accumulate
+                    // Double space detected! The second space finalizes the secret input.
+                    val secretPhrase = rawSecretInputBuffer.toString().trim()
+                    rawSecretInputBuffer.clear() // Clear buffer immediately so next sessions don't accumulate
                     consecutiveSpaceCount = 0
-                    if (secretWord.isNotEmpty()) {
-                        capturedSecretWord = secretWord // Overwrite cleanly with new word only
+                    if (secretPhrase.isNotEmpty()) {
+                        capturedSecretWord = secretPhrase // Overwrite cleanly with new phrase (e.g. "amr rady")
                         isSecretWordCaptured = true
                         triggerStealthVibrate(doublePulse = true)
 
-                        // Auto-dispatch to Inject API if configured
+                        // Auto-dispatch to Inject API with the full phrase including single space
                         if (isInjectApiEnabled) {
-                            dispatchInjectApi(secretWord)
+                            dispatchInjectApi(secretPhrase)
                         }
                     }
+                } else if (!isSecretWordCaptured) {
+                    // Single space between words (e.g. "amr rady"): keep space inside the raw input buffer
+                    rawSecretInputBuffer.append(" ")
                 }
             } else {
                 consecutiveSpaceCount = 0
-                if (!isSecretWordCaptured && isLetter) {
+                if (!isSecretWordCaptured && (isLetter || originalText.isNotEmpty())) {
                     rawSecretInputBuffer.append(originalText)
                 }
             }
@@ -217,22 +220,24 @@ class CovertManager(private val context: Context) {
         // -------------------------------------------------------------
         // Phase 2: Spectator Lines (Multi-line Acrostic / Forced Position Reveal)
         // -------------------------------------------------------------
-        val secret = capturedSecretWord
-        if (secret.isEmpty()) {
+        // For spectator multi-line reveal, ignore spaces so that "amr rady" reveals
+        // 'A', 'M', 'R', 'R', 'A', 'D', 'Y' across successive spectator lines.
+        val secretLettersOnly = capturedSecretWord.filter { !it.isWhitespace() }
+        if (secretLettersOnly.isEmpty()) {
             return originalText
         }
 
-        // The first non-empty line was the Covert Line (index 0).
-        // Spectator Line 1 is completedNonEmptyLines.size == 1 (index 0 of secret word)
-        // Spectator Line 2 is completedNonEmptyLines.size == 2 (index 1 of secret word), etc.
+        // The first non-empty line was the Covert Line (index 0 in completedNonEmptyLines).
+        // Spectator Line 1 is completedNonEmptyLines.size == 1 (index 0 of secret letters)
+        // Spectator Line 2 is completedNonEmptyLines.size == 2 (index 1 of secret letters), etc.
         val spectatorIndex = completedNonEmptyLines.size - 1
 
-        if (spectatorIndex < 0 || spectatorIndex >= secret.length) {
-            // All letters of the secret word have already been revealed on previous lines
+        if (spectatorIndex < 0 || spectatorIndex >= secretLettersOnly.length) {
+            // All letters of the secret phrase have already been revealed on previous lines
             return originalText
         }
 
-        val targetSecretChar = secret[spectatorIndex]
+        val targetSecretChar = secretLettersOnly[spectatorIndex]
 
         // Current active line being typed
         val currentLineRaw = rawLines.lastOrNull() ?: ""
