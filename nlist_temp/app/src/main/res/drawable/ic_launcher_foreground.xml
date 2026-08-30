@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Subtle notebook ruled lines -->
+    <path
+        android:pathData="M26,35.5 L82,35.5"
+        android:strokeColor="#323236"
+        android:strokeWidth="1.4"
+        android:strokeLineCap="round" />
+
+    <path
+        android:pathData="M26,47 L82,47"
+        android:strokeColor="#323236"
+        android:strokeWidth="1.4"
+        android:strokeLineCap="round" />
+
+    <path
+        android:pathData="M26,58.5 L82,58.5"
+        android:strokeColor="#323236"
+        android:strokeWidth="1.4"
+        android:strokeLineCap="round" />
+
+    <path
+        android:pathData="M26,70 L82,70"
+        android:strokeColor="#323236"
+        android:strokeWidth="1.4"
+        android:strokeLineCap="round" />
+
+    <!-- 3D Golden Pencil Group (Slim, Rotated 45 degrees) -->
+    <group
+        android:name="pencil_group"
+        android:pivotX="54"
+        android:pivotY="54"
+        android:rotation="45">
+
+        <!-- Pencil Soft Drop Shadow -->
+        <path
+            android:fillColor="#35000000"
+            android:pathData="M46,19
+                             C46,16 62,16 62,19
+                             L62,59
+                             L57,77
+                             L54,85.5
+                             L51,77
+                             L46,59
+                             Z" />
+
+        <!-- 1. Left Barrel Facet (Light Highlight) -->
+        <path
+            android:fillColor="#FFDC33"
+            android:pathData="M46,19
+                             C46,17 51.5,16.2 51.5,16.2
+                             L51.5,59
+                             L46,59
+                             Z" />
+
+        <!-- 2. Center Barrel Facet (Golden Body) -->
+        <path
+            android:fillColor="#F5B300"
+            android:pathData="M51.5,16.2
+                             C51.5,16.2 54,15.8 54,15.8
+                             C54,15.8 56.5,16.2 56.5,16.2
+                             L56.5,59
+                             L51.5,59
+                             Z" />
+
+        <!-- 3. Right Barrel Facet (Shadow Side) -->
+        <path
+            android:fillColor="#D98200"
+            android:pathData="M56.5,16.2
+                             C56.5,16.2 62,17 62,19
+                             L62,59
+                             L56.5,59
+                             Z" />
+
+        <!-- 4. Sharpened Wooden Cone (Left Highlight) -->
+        <path
+            android:fillColor="#F0A818"
+            android:pathData="M46,59
+                             L51.5,59
+                             L52.5,77
+                             L51,77
+                             Z" />
+
+        <!-- 5. Sharpened Wooden Cone (Center) -->
+        <path
+            android:fillColor="#DE8D00"
+            android:pathData="M51.5,59
+                             L56.5,59
+                             L55.5,77
+                             L52.5,77
+                             Z" />
+
+        <!-- 6. Sharpened Wooden Cone (Right Shadow) -->
+        <path
+            android:fillColor="#B86800"
+            android:pathData="M56.5,59
+                             L62,59
+                             L57,77
+                             L55.5,77
+                             Z" />
+
+        <!-- 7. Pencil Lead / Tip (Light Side) -->
+        <path
+            android:fillColor="#6E3905"
+            android:pathData="M51,77
+                             L54,77
+                             L54,85.5
+                             Z" />
+
+        <!-- 8. Pencil Lead / Tip (Dark Shadow Point) -->
+        <path
+            android:fillColor="#422002"
+            android:pathData="M54,77
+                             L57,77
+                             L54,85.5
+                             Z" />
+
+    </group>
+
+</vector>

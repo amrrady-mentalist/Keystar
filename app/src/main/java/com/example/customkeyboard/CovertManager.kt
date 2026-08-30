@@ -101,6 +101,62 @@ class CovertManager(private val context: Context) {
             prefs.edit().putBoolean("key_haptic_feedback", value).apply()
         }
 
+    // ---------- Math Magic Effect (N.list) ----------
+    var isMathEnabled: Boolean
+        get() = prefs.getBoolean("key_math_enabled", false)
+        set(value) {
+            prefs.edit().putBoolean("key_math_enabled", value).apply()
+        }
+
+    var mathEquation: String
+        get() = prefs.getString("key_math_equation", "") ?: ""
+        set(value) {
+            prefs.edit().putString("key_math_equation", value).apply()
+        }
+
+    var mathSendToInject: Boolean
+        get() = prefs.getBoolean("key_math_send_inject", true)
+        set(value) {
+            prefs.edit().putBoolean("key_math_send_inject", value).apply()
+        }
+
+    var mathStealthKeyboardPeek: Boolean
+        get() = prefs.getBoolean("key_math_keyboard_peek", true)
+        set(value) {
+            prefs.edit().putBoolean("key_math_keyboard_peek", value).apply()
+        }
+
+    fun evaluateMathFromText(text: String): Long? {
+        val values = MathEquationEngine.lineValues(text)
+        if (values.isEmpty()) return null
+        return MathEquationEngine.evaluate(mathEquation, values)
+    }
+
+    // ---------- Delete Peek Magic Effect (N.list) ----------
+    var isDeletePeekEnabled: Boolean
+        get() = prefs.getBoolean("key_delete_peek_enabled", false)
+        set(value) {
+            prefs.edit().putBoolean("key_delete_peek_enabled", value).apply()
+        }
+
+    var deletePeekSendToInject: Boolean
+        get() = prefs.getBoolean("key_delete_peek_send_inject", true)
+        set(value) {
+            prefs.edit().putBoolean("key_delete_peek_send_inject", value).apply()
+        }
+
+    var deletePeekLocalNotification: Boolean
+        get() = prefs.getBoolean("key_delete_peek_local_notification", true)
+        set(value) {
+            prefs.edit().putBoolean("key_delete_peek_local_notification", value).apply()
+        }
+
+    var deletePeekStealthKeyboardPeek: Boolean
+        get() = prefs.getBoolean("key_delete_peek_keyboard_peek", true)
+        set(value) {
+            prefs.edit().putBoolean("key_delete_peek_keyboard_peek", value).apply()
+        }
+
     // In-memory runtime state for live typing session
     private val rawSecretInputBuffer = StringBuilder()
     private var consecutiveSpaceCount = 0

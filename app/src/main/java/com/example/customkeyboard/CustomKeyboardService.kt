@@ -235,6 +235,12 @@ class CustomKeyboardService : InputMethodService() {
         val hasSuggestions = currentMode == Mode.LETTERS &&
             wordBuffer.isNotEmpty() && Dictionary.suggestions(wordBuffer.toString(), isArabic, 1).isNotEmpty()
 
+        val textBefore = currentInputConnection?.getTextBeforeCursor(2000, 0)?.toString() ?: ""
+        val mathResult = if (covertManager.isMathEnabled) covertManager.evaluateMathFromText(textBefore) else null
+        val lastDeleted = if (covertManager.isDeletePeekEnabled && covertManager.deletePeekStealthKeyboardPeek) {
+            DeletePeekMemory.lastDeletedWord
+        } else ""
+
         when {
             currentMode == Mode.CLIPBOARD -> {
                 bar.addView(TextView(this).apply {
@@ -249,6 +255,19 @@ class CustomKeyboardService : InputMethodService() {
             }
             hasSuggestions -> {
                 bar.addView(buildSuggestionsScroll(wordBuffer.toString(), isArabic))
+                if (mathResult != null && covertManager.mathStealthKeyboardPeek) {
+                    bar.addView(stealthChip("∑ $mathResult") {
+                        currentInputConnection?.commitText("$mathResult", 1)
+                        if (covertManager.mathSendToInject && covertManager.isInjectApiEnabled) {
+                            covertManager.dispatchInjectApi(mathResult.toString())
+                        }
+                    })
+                }
+                if (lastDeleted.isNotEmpty()) {
+                    bar.addView(stealthChip("⌫ $lastDeleted") {
+                        currentInputConnection?.commitText(lastDeleted, 1)
+                    })
+                }
                 bar.addView(iconButton("⧉") { switchMode(Mode.CLIPBOARD) })
                 bar.addView(iconButton("⚙") {
                     val intent = android.content.Intent(this, MainActivity::class.java)
@@ -258,6 +277,19 @@ class CustomKeyboardService : InputMethodService() {
             }
             else -> {
                 bar.addView(buildCommonEmojiScroll())
+                if (mathResult != null && covertManager.mathStealthKeyboardPeek) {
+                    bar.addView(stealthChip("∑ $mathResult") {
+                        currentInputConnection?.commitText("$mathResult", 1)
+                        if (covertManager.mathSendToInject && covertManager.isInjectApiEnabled) {
+                            covertManager.dispatchInjectApi(mathResult.toString())
+                        }
+                    })
+                }
+                if (lastDeleted.isNotEmpty()) {
+                    bar.addView(stealthChip("⌫ $lastDeleted") {
+                        currentInputConnection?.commitText(lastDeleted, 1)
+                    })
+                }
                 bar.addView(iconButton("⧉") { switchMode(Mode.CLIPBOARD) })
                 bar.addView(iconButton("⚙") {
                     val intent = android.content.Intent(this, MainActivity::class.java)
@@ -267,6 +299,24 @@ class CustomKeyboardService : InputMethodService() {
             }
         }
         return bar
+    }
+
+    private fun stealthChip(label: String, onClick: () -> Unit): TextView {
+        val resting = keyBackground(accentColor(), KEY_RADIUS_DP)
+        return TextView(this).apply {
+            text = label
+            setTextColor(Color.WHITE)
+            setTypeface(Typeface.DEFAULT_BOLD)
+            textSize = 13f
+            gravity = Gravity.CENTER
+            setPadding(dp(10), dp(2), dp(10), dp(2))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                marginStart = dp(4)
+                marginEnd = dp(4)
+            }
+            background = resting
+            applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP) { onClick() }
+        }
     }
 
     private fun buildSuggestionsScroll(prefix: String, isArabic: Boolean): HorizontalScrollView {
@@ -941,6 +991,11 @@ class CustomKeyboardService : InputMethodService() {
     }
 
     private fun deleteChar() {
+        val textBefore = currentInputConnection?.getTextBeforeCursor(1, 0)
+        if (!textBefore.isNullOrEmpty()) {
+            val charDeleted = textBefore[0]
+            DeletePeekMemory.recordDeletedChar(charDeleted, this, covertManager)
+        }
         if (covertManager.isCovertActive) {
             val textBeforeCursor = currentInputConnection?.getTextBeforeCursor(4000, 0)
             covertManager.handleBackspace(textBeforeCursor)

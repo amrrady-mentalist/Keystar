@@ -176,6 +176,37 @@ class MainActivity : AppCompatActivity() {
         val btnClearSandbox = dialog.findViewById<Button>(R.id.btnClearCovertSandbox)
         val btnClose = dialog.findViewById<Button>(R.id.btnCloseCovert)
 
+        // Math Effect Views
+        val switchMathMaster = dialog.findViewById<MaterialSwitch>(R.id.switchMathMaster)
+        val tvMathStatusTitle = dialog.findViewById<TextView>(R.id.tvMathStatusTitle)
+        val editMathEquation = dialog.findViewById<EditText>(R.id.editMathEquation)
+        val btnSaveMathEquation = dialog.findViewById<Button>(R.id.btnSaveMathEquation)
+        val switchMathSendInject = dialog.findViewById<MaterialSwitch>(R.id.switchMathSendInject)
+        val switchMathKeyboardPeek = dialog.findViewById<MaterialSwitch>(R.id.switchMathKeyboardPeek)
+        val editMathSimulator = dialog.findViewById<EditText>(R.id.editMathSimulator)
+        val tvMathSimResult = dialog.findViewById<TextView>(R.id.tvMathSimResult)
+
+        val chipToken1st = dialog.findViewById<Button>(R.id.chipToken1st)
+        val chipToken2nd = dialog.findViewById<Button>(R.id.chipToken2nd)
+        val chipToken3rd = dialog.findViewById<Button>(R.id.chipToken3rd)
+        val chipToken4th = dialog.findViewById<Button>(R.id.chipToken4th)
+        val chipTokenPlus = dialog.findViewById<Button>(R.id.chipTokenPlus)
+        val chipTokenMinus = dialog.findViewById<Button>(R.id.chipTokenMinus)
+        val chipTokenMultiply = dialog.findViewById<Button>(R.id.chipTokenMultiply)
+        val chipTokenDivide = dialog.findViewById<Button>(R.id.chipTokenDivide)
+        val chipTokenOpenParen = dialog.findViewById<Button>(R.id.chipTokenOpenParen)
+        val chipTokenCloseParen = dialog.findViewById<Button>(R.id.chipTokenCloseParen)
+
+        // Delete Peek Effect Views
+        val switchDeletePeekMaster = dialog.findViewById<MaterialSwitch>(R.id.switchDeletePeekMaster)
+        val tvDeletePeekStatusTitle = dialog.findViewById<TextView>(R.id.tvDeletePeekStatusTitle)
+        val tvLastDeletedWord = dialog.findViewById<TextView>(R.id.tvLastDeletedWord)
+        val switchDeletePeekSendInject = dialog.findViewById<MaterialSwitch>(R.id.switchDeletePeekSendInject)
+        val switchDeletePeekLocalNotif = dialog.findViewById<MaterialSwitch>(R.id.switchDeletePeekLocalNotif)
+        val switchDeletePeekKeyboardPeek = dialog.findViewById<MaterialSwitch>(R.id.switchDeletePeekKeyboardPeek)
+        val btnTestDeleteNotif = dialog.findViewById<Button>(R.id.btnTestDeleteNotification)
+        val btnClearDeleteMemory = dialog.findViewById<Button>(R.id.btnClearDeleteMemory)
+
         fun updateStatusUi() {
             val isActive = covertManager.isCovertActive
             switchMaster.isChecked = isActive
@@ -192,6 +223,37 @@ class MainActivity : AppCompatActivity() {
                 "Captured Secret Word: \"$secret\""
             } else {
                 "Captured Secret Word: (None yet - type word + double space)"
+            }
+
+            // Math Status
+            switchMathMaster.isChecked = covertManager.isMathEnabled
+            tvMathStatusTitle.text = if (covertManager.isMathEnabled) "Math Magic Effect: ACTIVE" else "Math Magic Effect: OFF"
+            tvMathStatusTitle.setTextColor(if (covertManager.isMathEnabled) typedPrimary.data else typedSecondary.data)
+
+            // Delete Peek Status
+            switchDeletePeekMaster.isChecked = covertManager.isDeletePeekEnabled
+            tvDeletePeekStatusTitle.text = if (covertManager.isDeletePeekEnabled) "Delete Peek Effect: ACTIVE" else "Delete Peek Effect: OFF"
+            tvDeletePeekStatusTitle.setTextColor(if (covertManager.isDeletePeekEnabled) typedPrimary.data else typedSecondary.data)
+
+            val lastDel = DeletePeekMemory.lastDeletedWord
+            tvLastDeletedWord.text = if (lastDel.isNotEmpty()) {
+                "Last Deleted Word: \"$lastDel\""
+            } else {
+                "Last Deleted Word: (None yet - backspace text in any app)"
+            }
+        }
+
+        fun updateMathSimulator() {
+            val simText = editMathSimulator.text.toString()
+            val values = MathEquationEngine.lineValues(simText)
+            val eq = editMathEquation.text.toString().trim()
+            val result = MathEquationEngine.evaluate(eq, values)
+            tvMathSimResult.text = if (result != null) {
+                "Calculated Result: $result (Values: $values)"
+            } else if (values.isEmpty()) {
+                "Calculated Result: (Enter numbers on separate lines)"
+            } else {
+                "Calculated Result: Invalid Equation"
             }
         }
 
@@ -210,7 +272,25 @@ class MainActivity : AppCompatActivity() {
         editInjectUrl.setText(covertManager.injectApiUrl)
         editInjectKey.setText(covertManager.injectApiKey)
 
+        // Math init
+        editMathEquation.setText(covertManager.mathEquation)
+        switchMathSendInject.isChecked = covertManager.mathSendToInject
+        switchMathKeyboardPeek.isChecked = covertManager.mathStealthKeyboardPeek
+
+        // Delete Peek init
+        switchDeletePeekSendInject.isChecked = covertManager.deletePeekSendToInject
+        switchDeletePeekLocalNotif.isChecked = covertManager.deletePeekLocalNotification
+        switchDeletePeekKeyboardPeek.isChecked = covertManager.deletePeekStealthKeyboardPeek
+
         updateStatusUi()
+        updateMathSimulator()
+
+        // Real-time listener for Delete Peek updates
+        DeletePeekMemory.onDeletedWordChanged = { word ->
+            runOnUiThread {
+                tvLastDeletedWord.text = "Last Deleted Word: \"$word\""
+            }
+        }
 
         // Bind Listeners
         switchMaster.setOnCheckedChangeListener { _, isChecked ->
@@ -256,6 +336,97 @@ class MainActivity : AppCompatActivity() {
         switchInjectApi.setOnCheckedChangeListener { _, isChecked ->
             covertManager.isInjectApiEnabled = isChecked
             layoutInjectSettings.visibility = if (isChecked) View.VISIBLE else View.GONE
+        }
+
+        // Math listeners
+        switchMathMaster.setOnCheckedChangeListener { _, isChecked ->
+            covertManager.isMathEnabled = isChecked
+            updateStatusUi()
+        }
+
+        btnSaveMathEquation.setOnClickListener {
+            val eq = editMathEquation.text.toString().trim()
+            covertManager.mathEquation = eq
+            updateMathSimulator()
+            Toast.makeText(this, "Math Equation Saved!", Toast.LENGTH_SHORT).show()
+        }
+
+        switchMathSendInject.setOnCheckedChangeListener { _, isChecked ->
+            covertManager.mathSendToInject = isChecked
+        }
+
+        switchMathKeyboardPeek.setOnCheckedChangeListener { _, isChecked ->
+            covertManager.mathStealthKeyboardPeek = isChecked
+        }
+
+        // Quick chip token insert helper
+        val insertToken = { token: String ->
+            val cursor = editMathEquation.selectionStart.coerceAtLeast(0)
+            val current = editMathEquation.text.toString()
+            val updated = current.substring(0, cursor) + token + current.substring(cursor)
+            editMathEquation.setText(updated)
+            editMathEquation.setSelection((cursor + token.length).coerceAtMost(updated.length))
+            updateMathSimulator()
+        }
+
+        chipToken1st.setOnClickListener { insertToken("1st") }
+        chipToken2nd.setOnClickListener { insertToken("2nd") }
+        chipToken3rd.setOnClickListener { insertToken("3rd") }
+        chipToken4th.setOnClickListener { insertToken("4th") }
+        chipTokenPlus.setOnClickListener { insertToken("+") }
+        chipTokenMinus.setOnClickListener { insertToken("-") }
+        chipTokenMultiply.setOnClickListener { insertToken("*") }
+        chipTokenDivide.setOnClickListener { insertToken("/") }
+        chipTokenOpenParen.setOnClickListener { insertToken("(") }
+        chipTokenCloseParen.setOnClickListener { insertToken(")") }
+
+        editMathEquation.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                updateMathSimulator()
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        editMathSimulator.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                updateMathSimulator()
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        // Delete Peek listeners
+        switchDeletePeekMaster.setOnCheckedChangeListener { _, isChecked ->
+            covertManager.isDeletePeekEnabled = isChecked
+            updateStatusUi()
+        }
+
+        switchDeletePeekSendInject.setOnCheckedChangeListener { _, isChecked ->
+            covertManager.deletePeekSendToInject = isChecked
+        }
+
+        switchDeletePeekLocalNotif.setOnCheckedChangeListener { _, isChecked ->
+            covertManager.deletePeekLocalNotification = isChecked
+            if (isChecked && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
+            }
+        }
+
+        switchDeletePeekKeyboardPeek.setOnCheckedChangeListener { _, isChecked ->
+            covertManager.deletePeekStealthKeyboardPeek = isChecked
+        }
+
+        btnTestDeleteNotif.setOnClickListener {
+            val testWord = DeletePeekMemory.lastDeletedWord.ifEmpty { "Magic Secret" }
+            DeletePeekMemory.showPushNotification(this, testWord)
+            Toast.makeText(this, "Sent test notification: \"$testWord\"", Toast.LENGTH_SHORT).show()
+        }
+
+        btnClearDeleteMemory.setOnClickListener {
+            DeletePeekMemory.clearBuffer()
+            updateStatusUi()
+            Toast.makeText(this, "Deleted words buffer cleared", Toast.LENGTH_SHORT).show()
         }
 
         editInjectUrl.addTextChangedListener(object : TextWatcher {

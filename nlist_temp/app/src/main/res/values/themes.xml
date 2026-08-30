@@ -1,0 +1,17 @@
+<resources>
+    <style name="Theme.NotesNative" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">#000000</item>
+        <item name="android:windowBackground">#000000</item>
+    </style>
+
+    <!-- Shown on cold start, before Compose has drawn anything. Reuses the
+         exact same bitmap as the launcher icon's foreground layer, so the
+         icon and splash are guaranteed to be the same image rather than
+         two separately-maintained assets. postSplashScreenTheme hands off
+         to the real app theme once installSplashScreen() dismisses it. -->
+    <style name="Theme.NotesNative.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#000000</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.NotesNative</item>
+    </style>
+</resources>
