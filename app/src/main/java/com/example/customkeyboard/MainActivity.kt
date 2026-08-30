@@ -158,7 +158,6 @@ class MainActivity : AppCompatActivity() {
 
         val editCoverSentence = dialog.findViewById<EditText>(R.id.editCoverSentence)
         val btnSaveCoverSentence = dialog.findViewById<Button>(R.id.btnSaveCoverSentence)
-        val chipGroupCoverPresets = dialog.findViewById<ChipGroup>(R.id.chipGroupCoverPresets)
 
         val radioGroupRevealPos = dialog.findViewById<android.widget.RadioGroup>(R.id.radioGroupRevealPos)
         val radioReveal1st = dialog.findViewById<android.widget.RadioButton>(R.id.radioReveal1st)
@@ -196,35 +195,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        fun refreshPresetChips() {
-            chipGroupCoverPresets.removeAllViews()
-            val presets = covertManager.getPresets()
-            presets.forEach { preset ->
-                val chip = Chip(this).apply {
-                    text = "${preset.label}: ${preset.text.take(30)}..."
-                    isCheckable = false
-                    isClickable = true
-                    setChipBackgroundColorResource(R.color.edit_bg)
-                    setTextColor(resources.getColor(R.color.edit_text_color, theme))
-                    setChipStrokeColorResource(R.color.edit_stroke)
-                    chipStrokeWidth = 1f * density
-                    setOnClickListener {
-                        if (preset.category == "Secret Words") {
-                            covertManager.capturedSecretWord = preset.text
-                            Toast.makeText(this@MainActivity, "Secret Word set to: ${preset.text}", Toast.LENGTH_SHORT).show()
-                        } else {
-                            covertManager.coverSentence = preset.text
-                            editCoverSentence.setText(preset.text)
-                            covertManager.armCovert(preset.text)
-                            Toast.makeText(this@MainActivity, "Cover sentence applied & armed", Toast.LENGTH_SHORT).show()
-                        }
-                        updateStatusUi()
-                    }
-                }
-                chipGroupCoverPresets.addView(chip)
-            }
-        }
-
         // Initialize values
         editCoverSentence.setText(covertManager.coverSentence)
 
@@ -241,7 +211,6 @@ class MainActivity : AppCompatActivity() {
         editInjectKey.setText(covertManager.injectApiKey)
 
         updateStatusUi()
-        refreshPresetChips()
 
         // Bind Listeners
         switchMaster.setOnCheckedChangeListener { _, isChecked ->
