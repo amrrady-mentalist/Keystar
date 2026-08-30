@@ -368,7 +368,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:hint="https://api.inject.app/v1/event"
+                        android:hint="https://your-api-endpoint.com/event"
                         android:textColor="@color/edit_text_color"
                         android:textColorHint="@color/edit_hint_color"
                         android:textSize="13sp"
@@ -379,7 +379,27 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="API Key / Auth Token (Optional):"
+                        android:text="Dispatched JSON Payload Format:"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:alpha="0.8" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:padding="8dp"
+                        android:background="@drawable/bg_edit_text"
+                        android:text='{"count":1417,"value":"&lt;secret_word&gt;","receiveCount":463,"source":"phone","thumperId":1,"ai":null}'
+                        android:fontFamily="monospace"
+                        android:textSize="11sp"
+                        android:textColor="?attr/colorPrimary" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="API Key / Auth Token (Optional - Leave blank if not needed):"
                         android:textSize="12sp"
                         android:alpha="0.8" />
 
@@ -388,7 +408,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:hint="Bearer token or secret ID..."
+                        android:hint="Optional Bearer token (leave blank if none)"
                         android:textColor="@color/edit_text_color"
                         android:textColorHint="@color/edit_hint_color"
                         android:textSize="13sp"

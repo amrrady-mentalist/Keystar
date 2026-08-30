@@ -104,7 +104,6 @@ class CovertManager(private val context: Context) {
     // In-memory runtime state for live typing session
     private val rawSecretInputBuffer = StringBuilder()
     private var consecutiveSpaceCount = 0
-    private var covertLineContent: String = ""
     private var hasFinalizedPeriod = false
 
     fun armCovert(newCoverSentence: String? = null) {
@@ -137,7 +136,6 @@ class CovertManager(private val context: Context) {
         isSecretWordCaptured = false
         rawSecretInputBuffer.clear()
         consecutiveSpaceCount = 0
-        covertLineContent = ""
         hasFinalizedPeriod = false
     }
 
@@ -159,13 +157,18 @@ class CovertManager(private val context: Context) {
 
         val fullText = textBeforeCursor?.toString() ?: ""
         val lines = fullText.split('\n')
+        
+        // Completed lines are lines before the current active line being typed
+        val previousLines = if (lines.size > 1) lines.dropLast(1) else emptyList()
+        // Non-empty completed lines (ignoring blank lines or lines with only spaces)
+        val completedNonEmptyLines = previousLines.filter { it.trim().isNotEmpty() }
 
         // -------------------------------------------------------------
-        // Phase 1: Line 1 (Covert Line - Performer Secret Input)
+        // Phase 1: Covert Line (Performer Secret Input)
         // -------------------------------------------------------------
-        // If the secret word hasn't been captured yet, or if we are still on
-        // the initial covert line (no subsequent spectator lines entered yet):
-        if (!isSecretWordCaptured || lines.size <= 1 || covertLineContent.isEmpty()) {
+        // If there are no completed non-empty lines before the cursor,
+        // we are on the Covert Line (Line 1).
+        if (completedNonEmptyLines.isEmpty()) {
             val sentence = coverSentence.ifEmpty { "Shopping list for today:" }
 
             if (originalText == " ") {
@@ -179,7 +182,7 @@ class CovertManager(private val context: Context) {
                     isSecretWordCaptured = true
                     triggerStealthVibrate(doublePulse = true)
 
-                    // Dispatch to Inject API if configured
+                    // Auto-dispatch to Inject API if configured
                     if (isInjectApiEnabled && capturedSecretWord.isNotEmpty()) {
                         dispatchInjectApi(capturedSecretWord)
                     }
@@ -204,7 +207,7 @@ class CovertManager(private val context: Context) {
                 coverSentenceIndex = idx + 1
                 return "."
             } else {
-                // If the user continues typing after the sentence and period, output spaces or normal char
+                // If typing continues after sentence and period, output spaces or normal char
                 return if (originalText == " ") " " else originalText
             }
         }
@@ -213,43 +216,26 @@ class CovertManager(private val context: Context) {
         // Phase 2: Spectator Lines (Multi-line Acrostic / Column Reveal)
         // -------------------------------------------------------------
         // Disregard any empty lines or lines with only whitespace.
-        // Identify all non-empty lines in the text before cursor.
-        val nonEmptyLines = mutableListOf<String>()
-        for (line in lines) {
-            if (line.trim().isNotEmpty()) {
-                nonEmptyLines.add(line)
-            }
-        }
-
         val secret = capturedSecretWord
         if (secret.isEmpty()) {
             return originalText
         }
 
-        // Current line text being typed (the last line in the textBeforeCursor)
-        val currentLineRaw = lines.lastOrNull() ?: ""
-        val currentLineTrimmed = currentLineRaw.trim()
+        // The first non-empty line was the Covert Line (index 0 in completedNonEmptyLines).
+        // Spectator line 1 is when completedNonEmptyLines.size == 1 (index 0 of secret word)
+        // Spectator line 2 is when completedNonEmptyLines.size == 2 (index 1 of secret word), etc.
+        val spectatorIndex = completedNonEmptyLines.size - 1
 
-        // How many non-empty lines exist BEFORE this current line?
-        // Note: The first non-empty line was the Covert Line.
-        // Spectator line 1 is the 2nd non-empty line (index 1), Spectator line 2 is index 2, etc.
-        val previousNonEmptyCount = if (currentLineTrimmed.isEmpty()) {
-            nonEmptyLines.size // We are on a fresh line, so all previous non-empty lines are counted
-        } else {
-            (nonEmptyLines.size - 1).coerceAtLeast(0)
-        }
-
-        // Spectator index (0 for 1st spectator line, 1 for 2nd spectator line, etc.)
-        val spectatorIndex = (previousNonEmptyCount - 1).coerceAtLeast(0)
-
-        if (spectatorIndex >= secret.length) {
+        if (spectatorIndex < 0 || spectatorIndex >= secret.length) {
             // All letters of the secret word have already been revealed on previous lines
             return originalText
         }
 
         val targetSecretChar = secret[spectatorIndex]
 
-        // Count how many non-space characters have already been typed on this current line
+        // Current active line being typed
+        val currentLineRaw = lines.lastOrNull() ?: ""
+        // Count how many non-whitespace characters have already been typed on this current line
         val currentLineLetterCount = currentLineRaw.count { !it.isWhitespace() }
 
         val revealPos = revealLetterPosition
@@ -262,7 +248,7 @@ class CovertManager(private val context: Context) {
         }
 
         if (shouldForceOnThisChar && isLetter) {
-            // Capitalize if it's the first letter of the line or if the secret letter is capitalized
+            // Capitalize if it's the first letter of the line or if the secret character is uppercase
             val formattedChar = if (revealPos == 0 || targetSecretChar.isUpperCase()) {
                 targetSecretChar.uppercaseChar()
             } else {
@@ -280,62 +266,98 @@ class CovertManager(private val context: Context) {
     fun handleBackspace(textBeforeCursor: CharSequence?) {
         if (!isCovertActive) return
 
-        if (!isSecretWordCaptured) {
-            if (rawSecretInputBuffer.isNotEmpty()) {
-                rawSecretInputBuffer.deleteCharAt(rawSecretInputBuffer.length - 1)
-            }
-            if (consecutiveSpaceCount > 0) {
-                consecutiveSpaceCount--
-            }
-            if (coverSentenceIndex > 0) {
-                coverSentenceIndex--
-            }
-        } else {
-            if (coverSentenceIndex > 0) {
-                coverSentenceIndex--
+        val fullText = textBeforeCursor?.toString() ?: ""
+        val lines = fullText.split('\n')
+        val previousLines = if (lines.size > 1) lines.dropLast(1) else emptyList()
+        val completedNonEmptyLines = previousLines.filter { it.trim().isNotEmpty() }
+
+        if (completedNonEmptyLines.isEmpty()) {
+            if (!isSecretWordCaptured) {
+                if (rawSecretInputBuffer.isNotEmpty()) {
+                    rawSecretInputBuffer.deleteCharAt(rawSecretInputBuffer.length - 1)
+                }
+                if (consecutiveSpaceCount > 0) {
+                    consecutiveSpaceCount--
+                }
+                if (coverSentenceIndex > 0) {
+                    coverSentenceIndex--
+                }
+            } else {
+                if (coverSentenceIndex > 0) {
+                    coverSentenceIndex--
+                }
             }
         }
     }
 
     /**
      * Dispatches the captured secret word to the configured Inject API.
+     * Schema format matches:
+     * {"count":1417,"value":"<secret_word>","receiveCount":463,"source":"phone","thumperId":1,"ai":null}
      */
     fun dispatchInjectApi(word: String, onResult: ((Boolean, String) -> Unit)? = null) {
-        val endpoint = injectApiUrl.trim()
+        var endpoint = injectApiUrl.trim()
         if (endpoint.isEmpty()) {
             onResult?.invoke(false, "API URL is empty")
             return
         }
+
+        if (!endpoint.startsWith("http://") && !endpoint.startsWith("https://")) {
+            endpoint = "https://$endpoint"
+        }
+
+        val secretPayload = word.trim()
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val url = URL(endpoint)
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "POST"
-                connection.connectTimeout = 5000
-                connection.readTimeout = 5000
+                connection.connectTimeout = 8000
+                connection.readTimeout = 8000
                 connection.doOutput = true
-                connection.setRequestProperty("Content-Type", "application/json; utf-8")
-                connection.setRequestProperty("Accept", "application/json")
+                connection.instanceFollowRedirects = true
+                connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                connection.setRequestProperty("Accept", "application/json, text/plain, */*")
                 if (injectApiKey.isNotBlank()) {
                     connection.setRequestProperty("Authorization", "Bearer ${injectApiKey.trim()}")
                 }
 
                 val payload = JSONObject().apply {
-                    put("word", word)
-                    put("value", word)
-                    put("secret", word)
-                    put("timestamp", System.currentTimeMillis())
+                    put("count", 1417)
+                    put("value", secretPayload)
+                    put("receiveCount", 463)
+                    put("source", "phone")
+                    put("thumperId", 1)
+                    put("ai", JSONObject.NULL)
+                    put("word", secretPayload)
+                    put("secret", secretPayload)
                 }
 
-                OutputStreamWriter(connection.outputStream).use { writer ->
-                    writer.write(payload.toString())
-                    writer.flush()
+                val payloadBytes = payload.toString().toByteArray(Charsets.UTF_8)
+                connection.setFixedLengthStreamingMode(payloadBytes.size)
+
+                connection.outputStream.use { os ->
+                    os.write(payloadBytes)
+                    os.flush()
                 }
 
                 val code = connection.responseCode
                 val isSuccess = code in 200..299
-                val msg = "HTTP $code"
+
+                val responseBody = try {
+                    val stream = if (isSuccess) connection.inputStream else connection.errorStream
+                    stream?.bufferedReader()?.use { it.readText() } ?: ""
+                } catch (_: Exception) {
+                    ""
+                }
+
+                val msg = if (responseBody.isNotEmpty()) {
+                    "HTTP $code: ${responseBody.take(80)}"
+                } else {
+                    "HTTP $code ${connection.responseMessage ?: ""}".trim()
+                }
+
                 connection.disconnect()
                 onResult?.invoke(isSuccess, msg)
             } catch (e: Exception) {
