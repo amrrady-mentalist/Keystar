@@ -66,15 +66,10 @@ object DeletePeekMemory {
             }
             onDeletedWordChanged?.invoke(result)
 
-            // Auto-trigger if configured in CovertManager
+            // Dispatch or queue according to TriggerManager settings
             covertManager?.let { cm ->
                 if (cm.isDeletePeekEnabled) {
-                    if (cm.deletePeekLocalNotification) {
-                        showPushNotification(context, result)
-                    }
-                    if (cm.deletePeekSendToInject && cm.isInjectApiEnabled) {
-                        cm.dispatchInjectApi(result)
-                    }
+                    TriggerManager.queueDeletedWord(result, context, cm)
                 }
             }
         }
@@ -109,12 +104,7 @@ object DeletePeekMemory {
 
             covertManager?.let { cm ->
                 if (cm.isDeletePeekEnabled) {
-                    if (cm.deletePeekLocalNotification) {
-                        showPushNotification(context, result)
-                    }
-                    if (cm.deletePeekSendToInject && cm.isInjectApiEnabled) {
-                        cm.dispatchInjectApi(result)
-                    }
+                    TriggerManager.queueDeletedWord(result, context, cm)
                 }
             }
         }

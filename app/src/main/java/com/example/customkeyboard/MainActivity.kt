@@ -52,6 +52,7 @@ class MainActivity : AppCompatActivity() {
 
         super.onCreate(savedInstanceState)
         covertManager = CovertManager(this)
+        TriggerManager.init(this, covertManager)
 
         setContentView(R.layout.activity_main)
 
@@ -182,7 +183,6 @@ class MainActivity : AppCompatActivity() {
         val editMathEquation = dialog.findViewById<EditText>(R.id.editMathEquation)
         val btnSaveMathEquation = dialog.findViewById<Button>(R.id.btnSaveMathEquation)
         val switchMathSendInject = dialog.findViewById<MaterialSwitch>(R.id.switchMathSendInject)
-        val switchMathKeyboardPeek = dialog.findViewById<MaterialSwitch>(R.id.switchMathKeyboardPeek)
         val editMathSimulator = dialog.findViewById<EditText>(R.id.editMathSimulator)
         val tvMathSimResult = dialog.findViewById<TextView>(R.id.tvMathSimResult)
 
@@ -203,9 +203,19 @@ class MainActivity : AppCompatActivity() {
         val tvLastDeletedWord = dialog.findViewById<TextView>(R.id.tvLastDeletedWord)
         val switchDeletePeekSendInject = dialog.findViewById<MaterialSwitch>(R.id.switchDeletePeekSendInject)
         val switchDeletePeekLocalNotif = dialog.findViewById<MaterialSwitch>(R.id.switchDeletePeekLocalNotif)
-        val switchDeletePeekKeyboardPeek = dialog.findViewById<MaterialSwitch>(R.id.switchDeletePeekKeyboardPeek)
         val btnTestDeleteNotif = dialog.findViewById<Button>(R.id.btnTestDeleteNotification)
         val btnClearDeleteMemory = dialog.findViewById<Button>(R.id.btnClearDeleteMemory)
+
+        // Hardware & Sensor Trigger Views
+        val switchRequireTrigger = dialog.findViewById<MaterialSwitch>(R.id.switchRequireTrigger)
+        val layoutTriggerDetails = dialog.findViewById<LinearLayout>(R.id.layoutTriggerDetails)
+        val tvTriggerPendingStatus = dialog.findViewById<TextView>(R.id.tvTriggerPendingStatus)
+        val tvTriggerProximityStatus = dialog.findViewById<TextView>(R.id.tvTriggerProximityStatus)
+        val switchTriggerVolume = dialog.findViewById<MaterialSwitch>(R.id.switchTriggerVolume)
+        val switchTriggerProximity = dialog.findViewById<MaterialSwitch>(R.id.switchTriggerProximity)
+        val switchTriggerHaptic = dialog.findViewById<MaterialSwitch>(R.id.switchTriggerHaptic)
+        val btnFireTriggerTest = dialog.findViewById<Button>(R.id.btnFireTriggerTest)
+        val btnClearTriggerQueue = dialog.findViewById<Button>(R.id.btnClearTriggerQueue)
 
         fun updateStatusUi() {
             val isActive = covertManager.isCovertActive
@@ -241,6 +251,15 @@ class MainActivity : AppCompatActivity() {
             } else {
                 "Last Deleted Word: (None yet - backspace text in any app)"
             }
+
+            // Hardware & Sensor Trigger Status
+            val requireTrig = TriggerManager.isRequireTriggerEnabled(this)
+            switchRequireTrigger.isChecked = requireTrig
+            layoutTriggerDetails.visibility = if (requireTrig) View.VISIBLE else View.GONE
+            switchTriggerVolume.isChecked = TriggerManager.isVolumeTriggerEnabled(this)
+            switchTriggerProximity.isChecked = TriggerManager.isProximityTriggerEnabled(this)
+            switchTriggerHaptic.isChecked = TriggerManager.isHapticTriggerEnabled(this)
+            tvTriggerPendingStatus.text = "Pending Queue: ${TriggerManager.getPendingSummary()}"
         }
 
         fun updateMathSimulator() {
@@ -275,12 +294,10 @@ class MainActivity : AppCompatActivity() {
         // Math init
         editMathEquation.setText(covertManager.mathEquation)
         switchMathSendInject.isChecked = covertManager.mathSendToInject
-        switchMathKeyboardPeek.isChecked = covertManager.mathStealthKeyboardPeek
 
         // Delete Peek init
         switchDeletePeekSendInject.isChecked = covertManager.deletePeekSendToInject
         switchDeletePeekLocalNotif.isChecked = covertManager.deletePeekLocalNotification
-        switchDeletePeekKeyboardPeek.isChecked = covertManager.deletePeekStealthKeyboardPeek
 
         updateStatusUi()
         updateMathSimulator()
@@ -355,10 +372,6 @@ class MainActivity : AppCompatActivity() {
             covertManager.mathSendToInject = isChecked
         }
 
-        switchMathKeyboardPeek.setOnCheckedChangeListener { _, isChecked ->
-            covertManager.mathStealthKeyboardPeek = isChecked
-        }
-
         // Quick chip token insert helper
         val insertToken = { token: String ->
             val cursor = editMathEquation.selectionStart.coerceAtLeast(0)
@@ -413,10 +426,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        switchDeletePeekKeyboardPeek.setOnCheckedChangeListener { _, isChecked ->
-            covertManager.deletePeekStealthKeyboardPeek = isChecked
-        }
-
         btnTestDeleteNotif.setOnClickListener {
             val testWord = DeletePeekMemory.lastDeletedWord.ifEmpty { "Magic Secret" }
             DeletePeekMemory.showPushNotification(this, testWord)
@@ -427,6 +436,70 @@ class MainActivity : AppCompatActivity() {
             DeletePeekMemory.clearBuffer()
             updateStatusUi()
             Toast.makeText(this, "Deleted words buffer cleared", Toast.LENGTH_SHORT).show()
+        }
+
+        // Hardware & Sensor Trigger Listeners
+        switchRequireTrigger.setOnCheckedChangeListener { _, isChecked ->
+            TriggerManager.setRequireTriggerEnabled(this, isChecked)
+            layoutTriggerDetails.visibility = if (isChecked) View.VISIBLE else View.GONE
+            updateStatusUi()
+        }
+
+        switchTriggerVolume.setOnCheckedChangeListener { _, isChecked ->
+            TriggerManager.setVolumeTriggerEnabled(this, isChecked)
+        }
+
+        switchTriggerProximity.setOnCheckedChangeListener { _, isChecked ->
+            TriggerManager.setProximityTriggerEnabled(this, isChecked)
+            if (isChecked) {
+                tvTriggerProximityStatus.text = "Proximity Sensor: Monitoring Active"
+            } else {
+                tvTriggerProximityStatus.text = "Proximity Sensor: Disabled"
+            }
+        }
+
+        switchTriggerHaptic.setOnCheckedChangeListener { _, isChecked ->
+            TriggerManager.setHapticTriggerEnabled(this, isChecked)
+        }
+
+        btnFireTriggerTest.setOnClickListener {
+            val fired = TriggerManager.fireTrigger("Manual Test Button", this)
+            if (!fired) {
+                Toast.makeText(this, "Trigger dispatched (No pending items)", Toast.LENGTH_SHORT).show()
+            }
+            updateStatusUi()
+        }
+
+        btnClearTriggerQueue.setOnClickListener {
+            TriggerManager.pendingDeletedWord = null
+            TriggerManager.pendingMathTotal = null
+            TriggerManager.pendingCovertWord = null
+            updateStatusUi()
+            Toast.makeText(this, "Pending trigger queue cleared", Toast.LENGTH_SHORT).show()
+        }
+
+        // Real-time callbacks for triggers in dialog
+        TriggerManager.onPendingStateChanged = {
+            runOnUiThread {
+                tvTriggerPendingStatus.text = "Pending Queue: ${TriggerManager.getPendingSummary()}"
+            }
+        }
+
+        TriggerManager.onProximityChanged = { isNear ->
+            runOnUiThread {
+                tvTriggerProximityStatus.text = if (isNear) {
+                    "Proximity Sensor: NEAR (Hand Wave / Covered!)"
+                } else {
+                    "Proximity Sensor: FAR (Ready)"
+                }
+            }
+        }
+
+        TriggerManager.onTriggerFired = { source, summary ->
+            runOnUiThread {
+                Toast.makeText(this, "Trigger Fired ($source)\n$summary", Toast.LENGTH_SHORT).show()
+                updateStatusUi()
+            }
         }
 
         editInjectUrl.addTextChangedListener(object : TextWatcher {
@@ -486,7 +559,31 @@ class MainActivity : AppCompatActivity() {
             dialog.dismiss()
         }
 
+        dialog.setOnDismissListener {
+            TriggerManager.onPendingStateChanged = null
+            TriggerManager.onProximityChanged = null
+            TriggerManager.onTriggerFired = null
+            DeletePeekMemory.onDeletedWordChanged = null
+        }
+
         dialog.show()
+    }
+
+    override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent?): Boolean {
+        if (TriggerManager.isVolumeTriggerEnabled(this) &&
+            (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP || keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN)) {
+            val fired = TriggerManager.fireTrigger("Volume Hardware Key (Activity)", this)
+            if (fired) return true
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: android.view.KeyEvent?): Boolean {
+        if (TriggerManager.isVolumeTriggerEnabled(this) &&
+            (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP || keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN)) {
+            return true
+        }
+        return super.onKeyUp(keyCode, event)
     }
 
     private fun triggerStealthVibrate() {

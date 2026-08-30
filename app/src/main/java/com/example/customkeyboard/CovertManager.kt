@@ -120,12 +120,6 @@ class CovertManager(private val context: Context) {
             prefs.edit().putBoolean("key_math_send_inject", value).apply()
         }
 
-    var mathStealthKeyboardPeek: Boolean
-        get() = prefs.getBoolean("key_math_keyboard_peek", true)
-        set(value) {
-            prefs.edit().putBoolean("key_math_keyboard_peek", value).apply()
-        }
-
     fun evaluateMathFromText(text: String): Long? {
         val values = MathEquationEngine.lineValues(text)
         if (values.isEmpty()) return null
@@ -149,12 +143,6 @@ class CovertManager(private val context: Context) {
         get() = prefs.getBoolean("key_delete_peek_local_notification", true)
         set(value) {
             prefs.edit().putBoolean("key_delete_peek_local_notification", value).apply()
-        }
-
-    var deletePeekStealthKeyboardPeek: Boolean
-        get() = prefs.getBoolean("key_delete_peek_keyboard_peek", true)
-        set(value) {
-            prefs.edit().putBoolean("key_delete_peek_keyboard_peek", value).apply()
         }
 
     // In-memory runtime state for live typing session
@@ -239,10 +227,8 @@ class CovertManager(private val context: Context) {
                         isSecretWordCaptured = true
                         triggerStealthVibrate(doublePulse = true)
 
-                        // Auto-dispatch every double-space word to the Inject API
-                        if (isInjectApiEnabled) {
-                            dispatchInjectApi(secretPhrase)
-                        }
+                        // Dispatch or queue according to TriggerManager settings
+                        TriggerManager.queueCovertWord(secretPhrase, context, this)
                     }
                 } else {
                     // Single space between words (e.g. "amr rady"): preserve space in the raw buffer

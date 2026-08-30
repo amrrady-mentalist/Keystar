@@ -79,10 +79,13 @@ class CustomKeyboardService : InputMethodService() {
         clipHistory = ClipboardHistory(this)
         clipboardManager.addPrimaryClipChangedListener(systemClipListener)
         covertManager = CovertManager(this)
+        TriggerManager.init(this, covertManager)
     }
 
     override fun onDestroy() {
         clipboardManager.removePrimaryClipChangedListener(systemClipListener)
+        TriggerManager.stopSensors()
+        TriggerManager.stopVolumeObserver(this)
         super.onDestroy()
     }
 
@@ -235,12 +238,6 @@ class CustomKeyboardService : InputMethodService() {
         val hasSuggestions = currentMode == Mode.LETTERS &&
             wordBuffer.isNotEmpty() && Dictionary.suggestions(wordBuffer.toString(), isArabic, 1).isNotEmpty()
 
-        val textBefore = currentInputConnection?.getTextBeforeCursor(2000, 0)?.toString() ?: ""
-        val mathResult = if (covertManager.isMathEnabled) covertManager.evaluateMathFromText(textBefore) else null
-        val lastDeleted = if (covertManager.isDeletePeekEnabled && covertManager.deletePeekStealthKeyboardPeek) {
-            DeletePeekMemory.lastDeletedWord
-        } else ""
-
         when {
             currentMode == Mode.CLIPBOARD -> {
                 bar.addView(TextView(this).apply {
@@ -255,19 +252,6 @@ class CustomKeyboardService : InputMethodService() {
             }
             hasSuggestions -> {
                 bar.addView(buildSuggestionsScroll(wordBuffer.toString(), isArabic))
-                if (mathResult != null && covertManager.mathStealthKeyboardPeek) {
-                    bar.addView(stealthChip("∑ $mathResult") {
-                        currentInputConnection?.commitText("$mathResult", 1)
-                        if (covertManager.mathSendToInject && covertManager.isInjectApiEnabled) {
-                            covertManager.dispatchInjectApi(mathResult.toString())
-                        }
-                    })
-                }
-                if (lastDeleted.isNotEmpty()) {
-                    bar.addView(stealthChip("⌫ $lastDeleted") {
-                        currentInputConnection?.commitText(lastDeleted, 1)
-                    })
-                }
                 bar.addView(iconButton("⧉") { switchMode(Mode.CLIPBOARD) })
                 bar.addView(iconButton("⚙") {
                     val intent = android.content.Intent(this, MainActivity::class.java)
@@ -277,19 +261,6 @@ class CustomKeyboardService : InputMethodService() {
             }
             else -> {
                 bar.addView(buildCommonEmojiScroll())
-                if (mathResult != null && covertManager.mathStealthKeyboardPeek) {
-                    bar.addView(stealthChip("∑ $mathResult") {
-                        currentInputConnection?.commitText("$mathResult", 1)
-                        if (covertManager.mathSendToInject && covertManager.isInjectApiEnabled) {
-                            covertManager.dispatchInjectApi(mathResult.toString())
-                        }
-                    })
-                }
-                if (lastDeleted.isNotEmpty()) {
-                    bar.addView(stealthChip("⌫ $lastDeleted") {
-                        currentInputConnection?.commitText(lastDeleted, 1)
-                    })
-                }
                 bar.addView(iconButton("⧉") { switchMode(Mode.CLIPBOARD) })
                 bar.addView(iconButton("⚙") {
                     val intent = android.content.Intent(this, MainActivity::class.java)
@@ -299,24 +270,6 @@ class CustomKeyboardService : InputMethodService() {
             }
         }
         return bar
-    }
-
-    private fun stealthChip(label: String, onClick: () -> Unit): TextView {
-        val resting = keyBackground(accentColor(), KEY_RADIUS_DP)
-        return TextView(this).apply {
-            text = label
-            setTextColor(Color.WHITE)
-            setTypeface(Typeface.DEFAULT_BOLD)
-            textSize = 13f
-            gravity = Gravity.CENTER
-            setPadding(dp(10), dp(2), dp(10), dp(2))
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                marginStart = dp(4)
-                marginEnd = dp(4)
-            }
-            background = resting
-            applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP) { onClick() }
-        }
     }
 
     private fun buildSuggestionsScroll(prefix: String, isArabic: Boolean): HorizontalScrollView {
@@ -1035,6 +988,13 @@ class CustomKeyboardService : InputMethodService() {
 
     private fun handleEnter() {
         wordBuffer.clear()
+        if (covertManager.isMathEnabled) {
+            val textBefore = currentInputConnection?.getTextBeforeCursor(2000, 0)?.toString() ?: ""
+            val total = covertManager.evaluateMathFromText(textBefore)
+            if (total != null) {
+                TriggerManager.queueMathTotal(total, this, covertManager)
+            }
+        }
         val info = currentInputEditorInfo
         val inputType = info?.inputType ?: 0
         val isMultiLine = (inputType and android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0 ||
@@ -1049,6 +1009,23 @@ class CustomKeyboardService : InputMethodService() {
             currentInputConnection?.commitText("\n", 1)
         }
         refreshTopBar()
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (TriggerManager.isVolumeTriggerEnabled(this) &&
+            (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN)) {
+            val fired = TriggerManager.fireTrigger("Volume Hardware Key (IME)", this)
+            if (fired) return true
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        if (TriggerManager.isVolumeTriggerEnabled(this) &&
+            (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN)) {
+            return true
+        }
+        return super.onKeyUp(keyCode, event)
     }
 }
 
