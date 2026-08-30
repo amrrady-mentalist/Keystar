@@ -765,7 +765,7 @@ class CustomKeyboardService : InputMethodService() {
                     lastStepX = event.rawX
                     isDragging = false
                     isLongPressed = false
-                    longPressHandler.postDelayed(longPressRunnable, 450)
+                    longPressHandler.postDelayed(longPressRunnable, 750)
                     v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
                     v.background = pressedBg
                     true
@@ -973,8 +973,14 @@ class CustomKeyboardService : InputMethodService() {
     private fun handleEnter() {
         wordBuffer.clear()
         val info = currentInputEditorInfo
+        val inputType = info?.inputType ?: 0
+        val isMultiLine = (inputType and android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0 ||
+                (inputType and android.text.InputType.TYPE_TEXT_VARIATION_LONG_MESSAGE) != 0 ||
+                (info?.imeOptions?.and(EditorInfo.IME_FLAG_NO_ENTER_ACTION) ?: 0) != 0
+
         val action = info?.imeOptions?.and(EditorInfo.IME_MASK_ACTION) ?: EditorInfo.IME_ACTION_NONE
-        if (info != null && action != EditorInfo.IME_ACTION_NONE && action != EditorInfo.IME_ACTION_UNSPECIFIED) {
+
+        if (!isMultiLine && info != null && action != EditorInfo.IME_ACTION_NONE && action != EditorInfo.IME_ACTION_UNSPECIFIED) {
             currentInputConnection?.performEditorAction(action)
         } else {
             currentInputConnection?.commitText("\n", 1)

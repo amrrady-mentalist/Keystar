@@ -156,35 +156,37 @@ class CovertManager(private val context: Context) {
         if (!isCovertActive) return originalText
 
         val fullText = textBeforeCursor?.toString() ?: ""
-        val lines = fullText.split('\n')
-        
-        // Completed lines are lines before the current active line being typed
-        val previousLines = if (lines.size > 1) lines.dropLast(1) else emptyList()
+        // Normalize line breaks across platforms
+        val normalized = fullText.replace("\r\n", "\n").replace("\r", "\n")
+        val rawLines = normalized.split('\n')
+
+        // All lines completed before the current active line being typed
+        val previousLines = if (rawLines.size > 1) rawLines.dropLast(1) else emptyList()
         // Non-empty completed lines (ignoring blank lines or lines with only spaces)
         val completedNonEmptyLines = previousLines.filter { it.trim().isNotEmpty() }
 
         // -------------------------------------------------------------
-        // Phase 1: Covert Line (Performer Secret Input)
+        // Phase 1: Covert Line (Performer Secret Input on 1st non-empty line)
         // -------------------------------------------------------------
-        // If there are no completed non-empty lines before the cursor,
-        // we are on the Covert Line (Line 1).
         if (completedNonEmptyLines.isEmpty()) {
             val sentence = coverSentence.ifEmpty { "Shopping list for today:" }
 
             if (originalText == " ") {
                 consecutiveSpaceCount++
                 if (consecutiveSpaceCount >= 2 && !isSecretWordCaptured) {
-                    // Double space detected! Capture the word typed before the spaces.
+                    // Double space detected! Capture ONLY the fresh secret word typed
                     val secretWord = rawSecretInputBuffer.toString().trim()
+                    rawSecretInputBuffer.clear() // Clear buffer immediately so next words don't accumulate
+                    consecutiveSpaceCount = 0
                     if (secretWord.isNotEmpty()) {
-                        capturedSecretWord = secretWord
-                    }
-                    isSecretWordCaptured = true
-                    triggerStealthVibrate(doublePulse = true)
+                        capturedSecretWord = secretWord // Overwrite cleanly with new word only
+                        isSecretWordCaptured = true
+                        triggerStealthVibrate(doublePulse = true)
 
-                    // Auto-dispatch to Inject API if configured
-                    if (isInjectApiEnabled && capturedSecretWord.isNotEmpty()) {
-                        dispatchInjectApi(capturedSecretWord)
+                        // Auto-dispatch to Inject API if configured
+                        if (isInjectApiEnabled) {
+                            dispatchInjectApi(secretWord)
+                        }
                     }
                 }
             } else {
@@ -213,17 +215,16 @@ class CovertManager(private val context: Context) {
         }
 
         // -------------------------------------------------------------
-        // Phase 2: Spectator Lines (Multi-line Acrostic / Column Reveal)
+        // Phase 2: Spectator Lines (Multi-line Acrostic / Forced Position Reveal)
         // -------------------------------------------------------------
-        // Disregard any empty lines or lines with only whitespace.
         val secret = capturedSecretWord
         if (secret.isEmpty()) {
             return originalText
         }
 
-        // The first non-empty line was the Covert Line (index 0 in completedNonEmptyLines).
-        // Spectator line 1 is when completedNonEmptyLines.size == 1 (index 0 of secret word)
-        // Spectator line 2 is when completedNonEmptyLines.size == 2 (index 1 of secret word), etc.
+        // The first non-empty line was the Covert Line (index 0).
+        // Spectator Line 1 is completedNonEmptyLines.size == 1 (index 0 of secret word)
+        // Spectator Line 2 is completedNonEmptyLines.size == 2 (index 1 of secret word), etc.
         val spectatorIndex = completedNonEmptyLines.size - 1
 
         if (spectatorIndex < 0 || spectatorIndex >= secret.length) {
@@ -234,26 +235,22 @@ class CovertManager(private val context: Context) {
         val targetSecretChar = secret[spectatorIndex]
 
         // Current active line being typed
-        val currentLineRaw = lines.lastOrNull() ?: ""
-        // Count how many non-whitespace characters have already been typed on this current line
-        val currentLineLetterCount = currentLineRaw.count { !it.isWhitespace() }
+        val currentLineRaw = rawLines.lastOrNull() ?: ""
+        // Count non-whitespace letters already typed on this current line
+        val currentLineLetterCount = currentLineRaw.count { it.isLetterOrDigit() || !it.isWhitespace() }
 
         val revealPos = revealLetterPosition
         val shouldForceOnThisChar = when (revealPos) {
             0 -> currentLineLetterCount == 0 // 1st letter of line (Acrostic)
             1 -> currentLineLetterCount == 1 // 2nd letter of line
-            2 -> currentLineLetterCount == 2 // 3rd letter of line
+            2 -> currentLineLetterCount == 2 // 3rd letter of line (e.g. ##A###)
             3 -> currentLineLetterCount == 3 // 4th letter of line
             else -> currentLineLetterCount == 0 // Default to 1st letter
         }
 
         if (shouldForceOnThisChar && isLetter) {
-            // Capitalize if it's the first letter of the line or if the secret character is uppercase
-            val formattedChar = if (revealPos == 0 || targetSecretChar.isUpperCase()) {
-                targetSecretChar.uppercaseChar()
-            } else {
-                targetSecretChar.lowercaseChar()
-            }
+            // Format to uppercase so the forced spectator reveal is distinct and clean
+            val formattedChar = targetSecretChar.uppercaseChar()
             return formattedChar.toString()
         }
 
@@ -267,8 +264,9 @@ class CovertManager(private val context: Context) {
         if (!isCovertActive) return
 
         val fullText = textBeforeCursor?.toString() ?: ""
-        val lines = fullText.split('\n')
-        val previousLines = if (lines.size > 1) lines.dropLast(1) else emptyList()
+        val normalized = fullText.replace("\r\n", "\n").replace("\r", "\n")
+        val rawLines = normalized.split('\n')
+        val previousLines = if (rawLines.size > 1) rawLines.dropLast(1) else emptyList()
         val completedNonEmptyLines = previousLines.filter { it.trim().isNotEmpty() }
 
         if (completedNonEmptyLines.isEmpty()) {
@@ -330,8 +328,6 @@ class CovertManager(private val context: Context) {
                     put("source", "phone")
                     put("thumperId", 1)
                     put("ai", JSONObject.NULL)
-                    put("word", secretPayload)
-                    put("secret", secretPayload)
                 }
 
                 val payloadBytes = payload.toString().toByteArray(Charsets.UTF_8)
