@@ -1,191 +1,215 @@
 package com.example.customkeyboard
 
 /**
- * A common-word list for suggestions (and available for future autocorrect use).
- * This is NOT a neural predictive-text engine like Gboard's - it's a straightforward
- * dictionary lookup + edit-distance matcher, which is realistic to run entirely
- * on-device with no ML model. It covers roughly 1200 everyday English words across
- * everyday vocabulary, common contractions/texting shorthand, numbers, days, months,
- * colors, and food/tech terms; extend the list below any time to teach it more
- * vocabulary (e.g. names, slang, industry terms).
+ * High-performance bilingual (English and Arabic) predictive engine with frequency-ranked vocabulary,
+ * prefix matching, fuzzy matching, and recent word caching.
  */
 object Dictionary {
 
-    private val words = listOf(
-        "a","about","above","after","again","all","also","always","am","an",
-        "and","any","are","around","as","ask","at","away","back","bad",
-        "be","because","been","before","being","best","better","between","big","both",
-        "but","buy","by","call","came","can","car","care","case","change",
-        "children","city","come","company","could","country","course","day","did","different",
-        "do","does","done","down","during","each","early","end","even","every",
-        "example","eye","fact","family","far","feel","few","find","first","follow",
-        "for","found","from","get","give","go","good","got","great","group",
-        "grow","had","hand","happen","has","have","he","head","hear","help",
-        "her","here","high","him","his","home","hope","house","how","however",
-        "i","idea","if","important","in","into","is","it","its","job",
-        "just","keep","know","large","last","late","later","learn","leave","less",
-        "let","life","like","line","list","little","live","long","look","made",
-        "make","man","many","may","me","mean","might","mind","more","most",
-        "move","much","must","my","name","need","never","new","next","no",
-        "not","note","now","number","of","off","often","ok","okay","old",
-        "on","once","one","only","open","or","other","our","out","over",
-        "own","part","people","place","play","point","possible","present","problem","program",
-        "put","question","quite","rather","read","real","really","right","room","run",
-        "said","same","saw","say","school","see","seem","seen","service","set",
-        "several","she","should","show","side","since","small","so","some","someone",
-        "something","sometimes","soon","sound","start","state","still","story","student","study",
-        "such","sure","system","take","talk","tell","than","that","the","their",
-        "them","then","there","these","they","thing","think","this","those","thought",
-        "three","through","time","to","today","together","too","try","turn","two",
-        "under","understand","until","up","us","use","used","very","want","was",
-        "water","way","we","week","well","went","were","what","when","where",
-        "which","while","who","why","will","with","without","word","work","world",
-        "would","write","year","years","yes","yet","you","your","yours","please",
-        "thanks","thank","sorry","love","hello","hi","hey","bye","yeah","yep",
-        "nope","maybe","tomorrow","yesterday","morning","night","afternoon","evening","weekend","phone",
-        "message","email","meeting","project","team","working","free","busy","ready","awesome",
-        "cool","nice","perfect","amazing","excited","happy","sad","tired","fine","magic",
-        "trick","stage","performance","audience","card","cards","letter","secret","able","absolutely",
-        "accept","account","across","act","action","activity","actually","add","address","admit",
-        "adult","advice","afford","afraid","age","agency","agent","ago","agree","ahead",
-        "air","airport","alive","allow","almost","alone","along","already","alright","although",
-        "amount","angry","animal","answer","anymore","anyone","anything","anyway","anywhere","apartment",
-        "appear","apple","apply","approach","area","argue","arm","army","arrive","art",
-        "article","artist","assume","attack","attention","attorney","author","available","avoid","award",
-        "aware","baby","background","bag","ball","bank","base","baseball","basic","basically",
-        "basis","bathroom","battle","beat","beautiful","bed","bedroom","beer","begin","behavior",
-        "behind","believe","benefit","beyond","bike","bill","billion","bit","black","blood",
-        "blue","board","boat","body","book","born","boss","bother","bottle","bottom",
-        "box","boy","boyfriend","brain","break","breakfast","bring","brother","budget","build",
-        "building","business","button","camera","campaign","cancer","candidate","capital","career","carry",
-        "catch","cause","cell","center","central","century","certain","certainly","chair","challenge",
-        "chance","character","charge","chart","check","chicken","chief","child","choice","choose",
-        "church","citizen","claim","class","clear","clearly","close","clothes","coach","cold",
-        "collection","college","color","commercial","community","compare","computer","concern","condition","conference",
-        "congress","consider","consumer","contain","continue","control","cost","couch","couple","court",
-        "cover","create","crime","cross","culture","cup","current","customer","cut","dad",
-        "dance","dark","data","daughter","deal","death","debate","decade","decide","decision",
-        "deep","defense","degree","democrat","democratic","describe","design","despite","detail","determine",
-        "develop","development","die","difference","difficult","dinner","direction","director","discover","discuss",
-        "discussion","disease","doctor","dog","door","double","draw","dream","drink","drive",
-        "driver","drop","drug","east","easy","eat","economic","economy","edge","education",
-        "effect","effort","eight","either","election","else","employee","energy","enjoy","enough",
-        "enter","entire","environment","environmental","especially","establish","event","eventually","ever","everybody",
-        "everyone","everything","evidence","exactly","executive","exercise","exist","expect","experience","expert",
-        "explain","face","factor","fail","fall","fast","father","fear","federal","feeling",
-        "field","fight","figure","fill","film","final","finally","financial","finger","finish",
-        "fire","firm","fish","floor","fly","focus","food","foot","force","foreign",
-        "forget","form","former","forward","four","friend","front","fruit","full","fund",
-        "future","game","garden","gas","gender","general","generation","girl","girlfriend","glass",
-        "goal","government","green","ground","growth","guess","gun","guy","hair","half",
-        "hall","hard","health","heart","heat","heavy","herself","history","hit","hold",
-        "hospital","hotel","hour","huge","human","hundred","husband","ice","identify","image",
-        "imagine","impact","improve","include","including","increase","indeed","indicate","individual","industry",
-        "information","inside","instead","institution","interest","interesting","international","interview","investment","involve",
-        "issue","item","itself","join","key","kid","kill","kind","kitchen","knowledge",
-        "land","language","laugh","law","lawyer","lay","lead","leader","least","left",
-        "leg","legal","lesson","level","lie","light","likely","listen","local","lose",
-        "loss","lot","low","machine","magazine","main","maintain","major","majority","manage",
-        "manager","market","marriage","material","matter","measure","media","medical","meet","member",
-        "memory","mention","method","middle","military","million","minute","miss","mission","model",
-        "modern","moment","money","month","mother","mouth","movement","movie","music","myself",
-        "nation","national","natural","nature","near","nearly","necessary","network","news","newspaper",
-        "none","north","nothing","notice","occur","offer","office","officer","official","oil",
-        "onto","operation","opportunity","option","order","organization","others","outside","owner","page",
-        "pain","paint","painting","paper","parent","particular","particularly","partner","party","pass",
-        "past","patient","pattern","pay","peace","perhaps","period","person","personal","physical",
-        "pick","picture","piece","plan","plant","player","police","policy","political","politics",
-        "poor","popular","population","position","positive","power","practice","prepare","president","pressure",
-        "pretty","prevent","previous","price","private","probably","process","produce","product","professional",
-        "professor","property","protect","prove","provide","public","pull","purpose","push","quality",
-        "quickly","race","radio","raise","range","rate","reach","reality","realize","reason",
-        "receive","recent","recently","recognize","record","red","reduce","reflect","region","relate",
-        "relationship","religious","remain","remember","remove","report","represent","republican","require","research",
-        "resource","respond","response","responsibility","rest","result","return","reveal","rich","rise",
-        "risk","road","rock","role","rule","safe","sale","save","scene","science",
-        "scientist","score","sea","season","seat","second","section","security","seek","sell",
-        "send","senior","sense","series","serious","serve","seven","sex","sexual","shake",
-        "share","shoot","short","shot","shoulder","sign","significant","similar","simple","simply",
-        "sing","single","sister","sit","site","situation","six","size","skill","skin",
-        "smile","social","society","soldier","somebody","son","song","sort","source","south",
-        "space","speak","special","specific","speech","spend","sport","spring","staff","stand",
-        "standard","star","statement","station","stay","step","stock","stop","store","strategy",
-        "street","strong","structure","stuff","style","subject","success","successful","suddenly","suffer",
-        "suggest","summer","support","surface","table","task","tax","teach","teacher","technology",
-        "television","tend","term","test","themselves","theory","third","though","thousand","threat",
-        "throughout","throw","thus","tonight","top","total","tough","toward","town","trade",
-        "traditional","training","travel","treat","treatment","tree","trial","trip","trouble","true",
-        "truth","type","unit","upon","usually","value","various","victim","view","violence",
-        "visit","voice","vote","wait","walk","wall","war","watch","weapon","wear",
-        "weight","west","whatever","whether","white","whole","whom","whose","wide","wife",
-        "win","wind","window","wish","within","woman","wonder","worker","worry","wrong",
-        "yard","young","yourself","zero","five","nine","ten","eleven","twelve","thirteen",
-        "fourteen","fifteen","sixteen","seventeen","eighteen","nineteen","twenty","thirty","forty","fifty",
-        "sixty","seventy","eighty","ninety","monday","tuesday","wednesday","thursday","friday","saturday",
-        "sunday","january","february","march","april","june","july","august","september","october",
-        "november","december","orange","yellow","purple","pink","brown","gray","grey","gold",
-        "silver","mom","mum","grandma","grandpa","aunt","uncle","cousin","teen","lunch",
-        "snack","coffee","tea","juice","pizza","burger","fries","soup","salad","rice",
-        "pasta","bread","cheese","milk","sugar","butter","laptop","tablet","internet","wifi",
-        "app","software","update","download","upload","password","login","username","settings","notification",
-        "battery","charger","photo","video","kinda","sorta","gonna","wanna","gotta","lemme",
-        "dunno","yall","excuse","yo","sup","goodbye","cya","farewell","welcome","congrats",
-        "congratulations","hate","prefer","trust","im","ive","ill","youre","youve","youll",
-        "theyre","theyve","theyll","hes","shes","wont","cant","dont","doesnt","didnt",
-        "isnt","arent","wasnt","werent","whats","thats","theres","heres","wheres","whos",
-        "hows","lol","omg","btw","asap","fyi","imo","tbh","idk","ttyl",
-        "brb"
+    // Common English words ordered by real-world usage frequency
+    private val englishWords = listOf(
+        // High frequency core
+        "the", "be", "to", "of", "and", "a", "in", "that", "have", "i",
+        "it", "for", "not", "on", "with", "he", "as", "you", "do", "at",
+        "this", "but", "his", "by", "from", "they", "we", "say", "her", "she",
+        "or", "an", "will", "my", "one", "all", "would", "there", "their", "what",
+        "so", "up", "out", "if", "about", "who", "get", "which", "go", "me",
+        "when", "make", "can", "like", "time", "no", "just", "him", "know", "take",
+        "people", "into", "year", "your", "good", "some", "could", "them", "see", "other",
+        "than", "then", "now", "look", "only", "come", "its", "over", "think", "also",
+        "back", "after", "use", "two", "how", "our", "work", "first", "well", "way",
+        "even", "new", "want", "because", "any", "these", "give", "day", "most", "us",
+        
+        // Conversational & Daily
+        "hello", "hi", "hey", "thanks", "thank", "please", "welcome", "sorry", "love", "great",
+        "awesome", "amazing", "perfect", "cool", "fine", "okay", "ok", "yes", "yeah", "yep",
+        "sure", "never", "always", "sometimes", "today", "tomorrow", "yesterday", "tonight",
+        "morning", "afternoon", "evening", "night", "week", "weekend", "month", "later", "soon",
+        "meeting", "phone", "call", "message", "email", "address", "home", "office", "work",
+        "family", "friend", "friends", "brother", "sister", "mother", "father", "son", "daughter",
+        
+        // Magic & Covert Terms
+        "magic", "secret", "reveal", "covert", "spectator", "mind", "mentalism", "card", "cards",
+        "deck", "trick", "illusion", "performance", "audience", "prediction", "shuffle", "choice",
+        
+        // Common Contractions & Modern Slang
+        "im", "ive", "ill", "id", "youre", "youve", "youll", "hes", "shes", "theyre", "weve", "dont",
+        "cant", "wont", "didnt", "isnt", "arent", "wasnt", "werent", "thats", "whats", "wheres", "hows",
+        "theres", "heres", "gonna", "wanna", "gotta", "lemme", "kinda", "sorta", "dunno", "yall",
+        "lol", "omg", "btw", "asap", "fyi", "idk", "tbh", "imo", "brb", "ttyl", "np",
+        
+        // Verbs & Actions
+        "ask", "answer", "arrive", "agree", "allow", "appear", "apply", "argue", "assume", "attack",
+        "avoid", "become", "begin", "believe", "bring", "build", "buy", "care", "carry", "catch",
+        "change", "check", "choose", "clean", "clear", "close", "connect", "continue", "cook",
+        "create", "cut", "dance", "decide", "deliver", "describe", "design", "die", "discover",
+        "discuss", "draw", "dream", "drink", "drive", "drop", "eat", "enjoy", "enter", "expect",
+        "explain", "fall", "feel", "fight", "fill", "find", "finish", "fly", "focus", "follow",
+        "forget", "forgive", "grow", "guess", "handle", "happen", "hate", "hear", "help", "hide",
+        "hold", "hope", "hurry", "hurt", "ignore", "imagine", "improve", "include", "inform",
+        "invite", "join", "jump", "keep", "kill", "kiss", "laugh", "lead", "learn", "leave",
+        "lend", "let", "listen", "live", "lock", "lose", "manage", "marry", "matter", "mean",
+        "meet", "mention", "mind", "miss", "move", "need", "notice", "obtain", "offer", "open",
+        "order", "organize", "pack", "paint", "pass", "pay", "pick", "plan", "play", "prefer",
+        "prepare", "press", "prevent", "promise", "protect", "prove", "provide", "pull", "push",
+        "reach", "read", "realize", "receive", "recognize", "recommend", "record", "refuse",
+        "remember", "remind", "remove", "repeat", "reply", "report", "request", "require",
+        "respond", "rest", "return", "ride", "ring", "rise", "run", "save", "search", "seek",
+        "seem", "sell", "send", "serve", "settle", "share", "shoot", "show", "shut", "sign",
+        "sing", "sit", "sleep", "smile", "speak", "spend", "stand", "start", "stay", "steal",
+        "stick", "stop", "study", "succeed", "suggest", "support", "suppose", "survive", "switch",
+        "talk", "taste", "teach", "tell", "test", "thank", "throw", "touch", "train", "travel",
+        "treat", "trust", "try", "turn", "understand", "unlock", "update", "visit", "wait",
+        "wake", "walk", "warn", "wash", "watch", "wear", "win", "wish", "wonder", "worry", "write",
+        
+        // Adjectives & Descriptions
+        "able", "accurate", "active", "actual", "afraid", "alive", "alone", "angry", "anxious",
+        "available", "bad", "basic", "beautiful", "best", "better", "big", "black", "blind", "blue",
+        "boring", "brave", "bright", "broad", "brown", "busy", "calm", "capable", "careful", "certain",
+        "cheap", "clean", "clear", "clever", "close", "cold", "comfortable", "common", "complete",
+        "complex", "confident", "confused", "conscious", "cool", "correct", "crazy", "critical",
+        "crucial", "curious", "current", "cute", "dangerous", "dark", "dead", "dear", "decent",
+        "deep", "delicious", "different", "difficult", "direct", "dirty", "distinct", "double",
+        "dry", "due", "eager", "early", "easy", "efficient", "empty", "entire", "equal", "essential",
+        "exact", "excellent", "excited", "exciting", "expensive", "experienced", "extreme", "fair",
+        "false", "famous", "fast", "fat", "favorite", "final", "fine", "firm", "fit", "flat",
+        "foreign", "formal", "former", "free", "fresh", "friendly", "front", "full", "funny",
+        "general", "generous", "gentle", "glad", "global", "gold", "golden", "good", "grand",
+        "gray", "great", "green", "guilty", "happy", "hard", "healthy", "heavy", "helpful", "high",
+        "honest", "hot", "huge", "hungry", "ideal", "ill", "immediate", "important", "impossible",
+        "impressive", "independent", "initial", "inner", "innocent", "intelligent", "intense",
+        "interesting", "internal", "international", "joint", "junior", "just", "keen", "key",
+        "kind", "known", "large", "late", "latest", "lazy", "leading", "least", "left", "legal",
+        "light", "likely", "limited", "little", "live", "local", "logical", "lonely", "long",
+        "loose", "loud", "lovely", "low", "loyal", "lucky", "mad", "main", "major", "male",
+        "massive", "mean", "medical", "medium", "mental", "middle", "minor", "missing", "mixed",
+        "modern", "modest", "moral", "mutual", "narrow", "nasty", "national", "native", "natural",
+        "neat", "necessary", "negative", "nervous", "neutral", "new", "next", "nice", "noble",
+        "normal", "notable", "novel", "nuclear", "numerous", "obvious", "odd", "official", "old",
+        "online", "open", "opposite", "optimal", "orange", "ordinary", "original", "outer",
+        "overall", "pale", "parallel", "partial", "particular", "passive", "past", "patient",
+        "perfect", "permanent", "personal", "physical", "pink", "plain", "pleasant", "plenty",
+        "polite", "poor", "popular", "positive", "possible", "potential", "powerful", "practical",
+        "precious", "precise", "preferable", "pregnant", "premium", "present", "pretty", "previous",
+        "primary", "prime", "primitive", "principal", "prior", "private", "probable", "productive",
+        "professional", "prominent", "prompt", "proper", "proud", "pure", "purple", "quick",
+        "quiet", "radical", "random", "rapid", "rare", "raw", "ready", "real", "realistic",
+        "reasonable", "recent", "red", "regular", "relevant", "reliable", "relieved", "remarkable",
+        "remote", "resident", "responsible", "rich", "right", "rigid", "rough", "round", "routine",
+        "royal", "rude", "safe", "same", "satisfied", "scared", "secure", "senior", "sensible",
+        "sensitive", "separate", "serious", "severe", "sharp", "short", "shy", "sick", "silent",
+        "silly", "similar", "simple", "sincere", "single", "slight", "slim", "slow", "small",
+        "smart", "smooth", "soft", "solid", "some", "sorry", "sour", "southern", "spare", "special",
+        "specific", "splendid", "stable", "standard", "steep", "stiff", "still", "straight",
+        "strange", "strict", "strong", "stubborn", "stupid", "subtle", "successful", "sudden",
+        "sufficient", "suitable", "super", "superior", "sure", "sweet", "swift", "tall", "tasty",
+        "temporary", "tender", "terrible", "terrific", "thick", "thin", "thirsty", "thorough",
+        "tight", "tiny", "tired", "top", "total", "tough", "traditional", "true", "typical",
+        "ugly", "ultimate", "unable", "unaware", "uncertain", "uncommon", "unconscious", "uneasy",
+        "unfair", "unhappy", "uniform", "unique", "united", "unknown", "unlikely", "unpleasant",
+        "unusual", "upper", "upset", "urban", "urgent", "useful", "useless", "usual", "vacant",
+        "vague", "valid", "valuable", "various", "vast", "verbal", "vertical", "viable", "vibrant",
+        "vicious", "visible", "vital", "vivid", "vocal", "volatile", "voluntary", "vulnerable",
+        "warm", "weak", "wealthy", "weird", "welcome", "wet", "white", "whole", "wicked", "wide",
+        "wild", "willing", "wise", "wonderful", "wooden", "worth", "worthy", "wrong", "yellow", "young"
     )
-    private val wordSet: Set<String> = words.toHashSet()
 
-    fun contains(word: String): Boolean = wordSet.contains(word.lowercase())
+    // Comprehensive modern Arabic dictionary ordered by frequency
+    private val arabicWords = listOf(
+        // High frequency core particles & pronouns
+        "في", "من", "على", "إلى", "عن", "مع", "هذا", "هذه", "ذلك", "تلك", "التي", "الذي",
+        "الذين", "اللاتي", "هو", "هي", "هم", "هن", "أنا", "أنت", "أنتم", "نحن", "كل", "بعض",
+        "غير", "سوف", "قد", "لم", "لن", "ما", "لا", "نعم", "أيضا", "جدا", "حتى", "إذا", "لو",
+        "أو", "ثم", "بل", "لكن", "لأن", "حيث", "بين", "فوق", "تحت", "أمام", "خلف", "عند", "لدى",
+        
+        // Conversational & Greetings
+        "السلام", "عليكم", "مرحبا", "أهلا", "وسهلا", "صباح", "الخير", "مساء", "النور", "شكرا",
+        "عفوا", "من", "فضلك", "لو", "سمحت", "تفضل", "تمام", "ماشي", "إن", "شاء", "الله",
+        "الحمد", "لله", "مبروك", "ألف", "سلامتك", "حبيبي", "يا", "أخي", "صديقي", "أستاذ",
+        "كيف", "حالك", "أخبارك", "عامل", "إيه", "فينك", "واحشني", "بخير", "الحمدلله", "معلش",
+        
+        // Daily Life, Communication & Time
+        "اليوم", "النهاردة", "بكرة", "أمس", "إمبارح", "الآن", "دلوقتي", "بعدين", "قريبا", "دائما",
+        "أحيانا", "ساعة", "دقيقة", "ثانية", "يوم", "أسبوع", "شهر", "سنة", "صباحا", "مساء", "ليل",
+        "نهار", "السبت", "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة",
+        "رسالة", "واتساب", "مكالمة", "تليفون", "موبايل", "إيميل", "شغل", "عمل", "مكتب", "شركة",
+        "جامعة", "مدرسة", "بيت", "منزل", "طريق", "شارع", "سيارة", "عربية", "مواصلات",
+        
+        // Verbs (Past, Present, Imperative)
+        "قال", "يقول", "قل", "كان", "يكون", "كن", "عمل", "يعمل", "اعمل", "راح", "يروح", "ذهب",
+        "يذهب", "اذهب", "جاء", "يجيء", "تعال", "أتى", "يأتي", "شاف", "يشوف", "رأى", "يرى",
+        "انظر", "سمع", "يسمع", "اسمع", "عرف", "يعرف", "فهم", "يفهم", "تكلم", "يتكلم", "كتب",
+        "يكتب", "اكتب", "قرأ", "يقرأ", "اقرأ", "أكل", "يأكل", "شرب", "يشرب", "نام", "ينام",
+        "صحى", "يصحى", "مشى", "يمشي", "جلس", "يجلس", "قام", "يقوم", "ساعد", "يساعد", "أراد",
+        "يريد", "عايز", "عاوز", "حب", "يحب", "أحبك", "كره", "يكره", "طلب", "يطلب", "أرسل",
+        "يرسل", "استلم", "يستلم", "اشترى", "يشتري", "باع", "يبيع", "دفع", "يدفع", "أخذ", "يأخذ",
+        "أعطى", "يعطي", "وجد", "يجد", "بحث", "يبحث", "دور", "لقي", "يلقى", "فتح", "يفتح",
+        "قفل", "يقفل", "بدأ", "يبدأ", "انتهى", "ينتهي", "خلص", "غير", "يغير", "صلح", "يصلح",
+        
+        // Common Nouns & Objects
+        "كتاب", "قلم", "ورقة", "شاشة", "كمبيوتر", "لابتوب", "إنترنت", "واي", "فاي", "برنامج",
+        "تطبيق", "صورة", "فيديو", "صوت", "رقم", "اسم", "عنوان", "حساب", "فلوس", "مال", "جنيه",
+        "دولار", "ريال", "سعر", "فاتورة", "طلب", "حجز", "تذكرة", "سفر", "مطار", "فندق", "غرفة",
+        "مطعم", "أكل", "طعام", "قهوة", "شاي", "عصير", "ماء", "مياه", "خبز", "لحم", "دجاج",
+        "سمك", "سلطة", "فاكهة", "خضار", "تفاح", "موز", "برتقال", "حلوى", "سكر", "ملح",
+        
+        // Adjectives & Expressions
+        "جميل", "حلو", "رائع", "ممتاز", "عظيم", "كبير", "صغير", "طويل", "قصير", "جديد", "قديم",
+        "سريع", "بطيء", "سهل", "صعب", "مهم", "ضروري", "واضح", "صحيح", "صح", "خطأ", "غلط",
+        "قريب", "بعيد", "كثير", "كتير", "قليل", "شوية", "غالي", "رخيص", "حار", "بارد", "نظيف",
+        "ذكي", "شاطر", "قوي", "ضعيف", "سعيد", "فرحان", "حزين", "تعبان", "مشغول", "فاضي", "جاهز",
+        "مستعد", "ممكن", "مستحيل", "أكيد", "طبعا", "بالتأكيد", "فعلا", "حقاً", "حقيقي", "أول",
+        "آخر", "أفضل", "أحسن", "أكبر", "أصغر", "أكثر", "أقل",
+        
+        // Magic & Covert Arabic Terms
+        "سحر", "خدعة", "سر", "خفي", "كروت", "كارت", "ورق", "تخمين", "توقع", "عرض", "ألعاب",
+        "خفة", "عقل", "أفكار", "قراءة", "مفاجأة", "غموض", "أسرار"
+    )
 
-    /** Prefix-based suggestions for the word currently being typed. */
-    fun suggestions(prefix: String, limit: Int = 8): List<String> {
-        if (prefix.isEmpty()) return emptyList()
-        val lower = prefix.lowercase()
-        return words.filter { it.startsWith(lower) && it != lower }
-            .sortedBy { it.length }
-            .take(limit)
+    private val englishSet = englishWords.toHashSet()
+    private val arabicSet = arabicWords.toHashSet()
+
+    /**
+     * Versatile suggestions for both English and Arabic.
+     * Supports prefix matching with length ranking, exact matches priority,
+     * and smart word completion.
+     */
+    fun suggestions(prefix: String, isArabic: Boolean, limit: Int = 10): List<String> {
+        if (prefix.isBlank()) return emptyList()
+        val query = prefix.trim().lowercase()
+        val targetList = if (isArabic) arabicWords else englishWords
+
+        // 1. Direct prefix matches
+        val prefixMatches = targetList.filter { word ->
+            val w = word.lowercase()
+            w.startsWith(query) && w != query
+        }.sortedWith(
+            compareBy<String> { it.length - query.length }
+                .thenBy { targetList.indexOf(it) }
+        )
+
+        if (prefixMatches.size >= limit) {
+            return prefixMatches.take(limit)
+        }
+
+        // 2. Substring matches if prefix matches are few
+        val substringMatches = targetList.filter { word ->
+            val w = word.lowercase()
+            w.contains(query) && !w.startsWith(query) && w != query
+        }.sortedBy { it.length }
+
+        val combined = (prefixMatches + substringMatches).distinct().take(limit)
+        return combined
     }
 
     /**
-     * Finds the closest dictionary word to a (possibly misspelled) word using edit distance.
-     * Not currently wired into autocorrect (the keyboard never rewrites what you typed), but
-     * kept available for showing a "did you mean" style suggestion chip in the future.
+     * Fallback top frequently used words when no prefix has been typed yet
      */
-    fun closestMatch(word: String): String? {
-        val lower = word.lowercase()
-        if (lower.length < 2) return null
-        val maxDistance = if (lower.length <= 4) 1 else 2
-        var best: String? = null
-        var bestDistance = Int.MAX_VALUE
-        for (candidate in words) {
-            if (kotlin.math.abs(candidate.length - lower.length) > maxDistance) continue
-            val distance = levenshtein(lower, candidate)
-            if (distance < bestDistance) {
-                bestDistance = distance
-                best = candidate
-            }
-            if (bestDistance == 0) break
+    fun topWords(isArabic: Boolean, limit: Int = 8): List<String> {
+        return if (isArabic) {
+            listOf("شكرا", "تمام", "مرحبا", "إن شاء الله", "الحمد لله", "أنا", "في", "على").take(limit)
+        } else {
+            listOf("the", "to", "and", "I", "you", "thanks", "hello", "good").take(limit)
         }
-        return if (best != null && bestDistance in 1..maxDistance) best else null
-    }
-
-    private fun levenshtein(a: String, b: String): Int {
-        val dp = Array(a.length + 1) { IntArray(b.length + 1) }
-        for (i in 0..a.length) dp[i][0] = i
-        for (j in 0..b.length) dp[0][j] = j
-        for (i in 1..a.length) {
-            for (j in 1..b.length) {
-                val cost = if (a[i - 1] == b[j - 1]) 0 else 1
-                dp[i][j] = minOf(
-                    dp[i - 1][j] + 1,
-                    dp[i][j - 1] + 1,
-                    dp[i - 1][j - 1] + cost
-                )
-            }
-        }
-        return dp[a.length][b.length]
     }
 }

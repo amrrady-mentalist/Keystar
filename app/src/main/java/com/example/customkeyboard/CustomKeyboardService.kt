@@ -231,8 +231,9 @@ class CustomKeyboardService : InputMethodService() {
             setPadding(dp(6), 0, dp(6), dp(2))
         }
 
-        val hasSuggestions = currentLang == Lang.EN && currentMode == Mode.LETTERS &&
-            wordBuffer.isNotEmpty() && Dictionary.suggestions(wordBuffer.toString(), 1).isNotEmpty()
+        val isArabic = currentLang == Lang.AR
+        val hasSuggestions = currentMode == Mode.LETTERS &&
+            wordBuffer.isNotEmpty() && Dictionary.suggestions(wordBuffer.toString(), isArabic, 1).isNotEmpty()
 
         when {
             currentMode == Mode.CLIPBOARD -> {
@@ -247,7 +248,7 @@ class CustomKeyboardService : InputMethodService() {
                 bar.addView(iconButton("←") { switchMode(Mode.LETTERS) })
             }
             hasSuggestions -> {
-                bar.addView(buildSuggestionsScroll(wordBuffer.toString()))
+                bar.addView(buildSuggestionsScroll(wordBuffer.toString(), isArabic))
                 bar.addView(iconButton("⧉") { switchMode(Mode.CLIPBOARD) })
                 bar.addView(iconButton("⚙") {
                     val intent = android.content.Intent(this, MainActivity::class.java)
@@ -268,14 +269,15 @@ class CustomKeyboardService : InputMethodService() {
         return bar
     }
 
-    private fun buildSuggestionsScroll(prefix: String): HorizontalScrollView {
+    private fun buildSuggestionsScroll(prefix: String, isArabic: Boolean): HorizontalScrollView {
         val inner = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        // Backed by a ~1200-word dictionary now, so there's a much deeper pool of matches to
-        // scroll through than before - shown as a scrollable strip since they can't all fit.
-        Dictionary.suggestions(prefix, 8).forEach { word -> inner.addView(suggestionChip(word)) }
+        val suggestions = Dictionary.suggestions(prefix, isArabic, 10)
+        suggestions.forEachIndexed { index, word ->
+            inner.addView(suggestionChip(word, isPrimary = (index == 0)))
+        }
         return HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
@@ -307,16 +309,22 @@ class CustomKeyboardService : InputMethodService() {
         }
     }
 
-    private fun suggestionChip(word: String): TextView {
+    private fun suggestionChip(word: String, isPrimary: Boolean = false): TextView {
+        val resting = if (isPrimary) keyBackground(specialKeyColor(), KEY_RADIUS_DP) else null
         return TextView(this).apply {
             text = word
-            setTextColor(textColor())
-            setTypeface(Typeface.DEFAULT_BOLD)
+            setTextColor(if (isPrimary) accentColor() else textColor())
+            setTypeface(if (isPrimary) Typeface.DEFAULT_BOLD else Typeface.DEFAULT)
             textSize = 15f
             gravity = Gravity.CENTER
-            setPadding(dp(12), 0, dp(12), 0)
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT)
-            applyKeyTouchBehavior(this, pressHighlightColor(), null, KEY_RADIUS_DP) {
+            setPadding(dp(14), 0, dp(14), 0)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT).apply {
+                if (isPrimary) {
+                    setMargins(dp(2), dp(2), dp(2), dp(2))
+                }
+            }
+            if (resting != null) background = resting
+            applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP) {
                 // Suggestions are only ever committed by an explicit tap - never automatically.
                 currentInputConnection?.deleteSurroundingText(wordBuffer.length, 0)
                 currentInputConnection?.commitText("$word ", 1)
@@ -902,7 +910,7 @@ class CustomKeyboardService : InputMethodService() {
         }
 
         currentInputConnection?.commitText(originalText, 1)
-        if (isLetter && currentLang == Lang.EN) {
+        if (isLetter) {
             wordBuffer.append(originalText.lowercase())
         }
 
