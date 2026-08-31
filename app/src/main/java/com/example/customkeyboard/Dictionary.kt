@@ -259,6 +259,39 @@ object Dictionary {
     )
 
     /**
+     * Attempts to open an asset reader for both compressed (.gz) and uncompressed asset variants.
+     */
+    private fun openAssetReader(appContext: Context, baseName: String): BufferedReader? {
+        // 1. Try exact name (e.g. dict_en.txt, emoji_map.json)
+        try {
+            val inStream = appContext.assets.open(baseName)
+            if (baseName.endsWith(".gz")) {
+                return BufferedReader(InputStreamReader(GZIPInputStream(inStream), Charsets.UTF_8))
+            }
+            return BufferedReader(InputStreamReader(inStream, Charsets.UTF_8))
+        } catch (_: Exception) {}
+
+        // 2. If name had .gz, try without .gz
+        if (baseName.endsWith(".gz")) {
+            val plain = baseName.removeSuffix(".gz")
+            try {
+                val inStream = appContext.assets.open(plain)
+                return BufferedReader(InputStreamReader(inStream, Charsets.UTF_8))
+            } catch (_: Exception) {}
+        }
+
+        // 3. If name didn't have .gz, try with .gz
+        if (!baseName.endsWith(".gz")) {
+            try {
+                val inStream = appContext.assets.open("$baseName.gz")
+                return BufferedReader(InputStreamReader(GZIPInputStream(inStream), Charsets.UTF_8))
+            } catch (_: Exception) {}
+        }
+
+        return null
+    }
+
+    /**
      * Initializes all bilingual dictionaries, transitions, and emoji mapping.
      */
     fun init(context: Context) {
@@ -271,15 +304,11 @@ object Dictionary {
                 // 1. Load English dictionary
                 val enList = mutableListOf<String>()
                 try {
-                    appContext.assets.open("dict_en.txt.gz").use { inStream ->
-                        GZIPInputStream(inStream).use { gzStream ->
-                            BufferedReader(InputStreamReader(gzStream, Charsets.UTF_8)).use { reader ->
-                                var line: String?
-                                while (reader.readLine().also { line = it } != null) {
-                                    val w = line!!.trim()
-                                    if (w.isNotEmpty()) enList.add(w)
-                                }
-                            }
+                    openAssetReader(appContext, "dict_en.txt")?.use { reader ->
+                        var line: String?
+                        while (reader.readLine().also { line = it } != null) {
+                            val w = line!!.trim()
+                            if (w.isNotEmpty()) enList.add(w)
                         }
                     }
                 } catch (e: Exception) {
@@ -314,15 +343,11 @@ object Dictionary {
                 // 2. Load Arabic dictionary
                 val arList = mutableListOf<String>()
                 try {
-                    appContext.assets.open("dict_ar.txt.gz").use { inStream ->
-                        GZIPInputStream(inStream).use { gzStream ->
-                            BufferedReader(InputStreamReader(gzStream, Charsets.UTF_8)).use { reader ->
-                                var line: String?
-                                while (reader.readLine().also { line = it } != null) {
-                                    val w = line!!.trim()
-                                    if (w.isNotEmpty()) arList.add(w)
-                                }
-                            }
+                    openAssetReader(appContext, "dict_ar.txt")?.use { reader ->
+                        var line: String?
+                        while (reader.readLine().also { line = it } != null) {
+                            val w = line!!.trim()
+                            if (w.isNotEmpty()) arList.add(w)
                         }
                     }
                 } catch (e: Exception) {
@@ -353,51 +378,73 @@ object Dictionary {
                 // 3. Load Word-to-Emoji offline map
                 val tempEmojiMap = mutableMapOf<String, List<String>>()
                 try {
-                    appContext.assets.open("emoji_map.json.gz").use { inStream ->
-                        GZIPInputStream(inStream).use { gzStream ->
-                            BufferedReader(InputStreamReader(gzStream, Charsets.UTF_8)).use { reader ->
-                                val jsonStr = reader.readText()
-                                val json = JSONObject(jsonStr)
-                                val keys = json.keys()
-                                while (keys.hasNext()) {
-                                    val k = keys.next()
-                                    val arr = json.getJSONArray(k)
-                                    val list = ArrayList<String>(arr.length())
-                                    for (j in 0 until arr.length()) {
-                                        list.add(arr.getString(j))
-                                    }
-                                    tempEmojiMap[k] = list
-                                }
+                    openAssetReader(appContext, "emoji_map.json")?.use { reader ->
+                        val jsonStr = reader.readText()
+                        val json = JSONObject(jsonStr)
+                        val keys = json.keys()
+                        while (keys.hasNext()) {
+                            val k = keys.next()
+                            val arr = json.getJSONArray(k)
+                            val list = ArrayList<String>(arr.length())
+                            for (j in 0 until arr.length()) {
+                                list.add(arr.getString(j))
                             }
+                            tempEmojiMap[k] = list
                         }
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "Failed loading emoji_map.json.gz", e)
+                    Log.w(TAG, "Using fallback emoji map", e)
+                }
+
+                if (tempEmojiMap.isEmpty()) {
+                    tempEmojiMap["love"] = listOf("❤️", "😍", "💕", "🥰")
+                    tempEmojiMap["happy"] = listOf("😊", "😃", "🎉", "🥳")
+                    tempEmojiMap["sad"] = listOf("😢", "😭", "😞", "💔")
+                    tempEmojiMap["fire"] = listOf("🔥", "⚡", "💥")
+                    tempEmojiMap["magic"] = listOf("🪄", "🔮", "✨", "🎩")
+                    tempEmojiMap["test"] = listOf("🧪", "📝", "🔬")
+                    tempEmojiMap["foot"] = listOf("🦶", "👣", "👟", "⚽")
+                    tempEmojiMap["food"] = listOf("🍕", "🍔", "🍟", "🍲")
+                    tempEmojiMap["coffee"] = listOf("☕", "🍵", "🧋")
+                    tempEmojiMap["حب"] = listOf("❤️", "😍", "🥰")
+                    tempEmojiMap["سعيد"] = listOf("😃", "😊", "🎉")
+                    tempEmojiMap["حزين"] = listOf("😢", "😭", "😞")
+                    tempEmojiMap["شكرا"] = listOf("🙏", "🌹", "❤️")
                 }
 
                 // 4. Load Next-Word transitions map
                 val tempNextWordsMap = mutableMapOf<String, List<String>>()
                 try {
-                    appContext.assets.open("next_words.json.gz").use { inStream ->
-                        GZIPInputStream(inStream).use { gzStream ->
-                            BufferedReader(InputStreamReader(gzStream, Charsets.UTF_8)).use { reader ->
-                                val jsonStr = reader.readText()
-                                val json = JSONObject(jsonStr)
-                                val keys = json.keys()
-                                while (keys.hasNext()) {
-                                    val k = keys.next()
-                                    val arr = json.getJSONArray(k)
-                                    val list = ArrayList<String>(arr.length())
-                                    for (j in 0 until arr.length()) {
-                                        list.add(arr.getString(j))
-                                    }
-                                    tempNextWordsMap[k] = list
-                                }
+                    openAssetReader(appContext, "next_words.json")?.use { reader ->
+                        val jsonStr = reader.readText()
+                        val json = JSONObject(jsonStr)
+                        val keys = json.keys()
+                        while (keys.hasNext()) {
+                            val k = keys.next()
+                            val arr = json.getJSONArray(k)
+                            val list = ArrayList<String>(arr.length())
+                            for (j in 0 until arr.length()) {
+                                list.add(arr.getString(j))
                             }
+                            tempNextWordsMap[k] = list
                         }
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "Failed loading next_words.json.gz", e)
+                    Log.w(TAG, "Using fallback next words map", e)
+                }
+
+                if (tempNextWordsMap.isEmpty()) {
+                    tempNextWordsMap["let's"] = listOf("go", "do", "see", "meet", "try")
+                    tempNextWordsMap["how"] = listOf("are", "is", "to", "do", "much")
+                    tempNextWordsMap["what"] = listOf("is", "are", "do", "you", "time")
+                    tempNextWordsMap["thank"] = listOf("you", "God", "everyone")
+                    tempNextWordsMap["thanks"] = listOf("for", "a", "lot", "bro")
+                    tempNextWordsMap["good"] = listOf("morning", "night", "job", "luck")
+                    tempNextWordsMap["صباح"] = listOf("الخير", "الورد", "النور")
+                    tempNextWordsMap["مساء"] = listOf("الخير", "النور", "الورد")
+                    tempNextWordsMap["شكرا"] = listOf("جزيلا", "لك", "يا")
+                    tempNextWordsMap["إن"] = listOf("شاء", "الله")
+                    tempNextWordsMap["الحمد"] = listOf("لله")
                 }
 
                 enKeys = tempEnKeys

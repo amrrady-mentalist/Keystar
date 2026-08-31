@@ -27,6 +27,11 @@ class CovertManager(private val context: Context) {
         val text: String
     )
 
+    // Check whether ANY of the magic effects using triggers is active
+    fun isAnyMagicEffectActive(): Boolean {
+        return isCovertActive || isMathEnabled || isDeletePeekEnabled || isTextPeekEnabled || isTextReplaceEnabled
+    }
+
     // Master armed state
     var isCovertActive: Boolean
         get() = prefs.getBoolean("key_covert_active", false)

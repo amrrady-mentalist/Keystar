@@ -158,13 +158,13 @@ class CustomKeyboardService : InputMethodService() {
     }
 
     override fun onWindowHidden() {
-        TriggerManager.stopActiveSession(this)
         super.onWindowHidden()
+        // Keep trigger session alive so triggers work even if spectator dismissed keyboard
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
-        TriggerManager.stopActiveSession(this)
         super.onFinishInputView(finishingInput)
+        // Keep trigger session alive so triggers work even if spectator dismissed keyboard
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {

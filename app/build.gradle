@@ -47,6 +47,10 @@ android {
     buildFeatures {
         viewBinding false
     }
+
+    aaptOptions {
+        noCompress 'gz', 'json', 'txt'
+    }
 }
 
 dependencies {

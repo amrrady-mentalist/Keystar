@@ -1,6 +1,9 @@
 package com.example.customkeyboard
 
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.database.ContentObserver
 import android.hardware.Sensor
@@ -64,6 +67,7 @@ object TriggerManager {
 
     private var audioManager: AudioManager? = null
     private var volumeObserver: ContentObserver? = null
+    private var volumeReceiver: BroadcastReceiver? = null
     private var isVolumeObserverRegistered = false
     private var lastObservedVolume = -1
     private var lastTriggerTime = 0L
@@ -89,7 +93,7 @@ object TriggerManager {
         return getPrefs(context).getBoolean(KEY_PROX_TRIGGER, true)
     }
 
-    private var isSessionActive = false
+    private var isSessionActive = true
 
     fun isHapticTriggerEnabled(context: Context): Boolean {
         return getPrefs(context).getBoolean(KEY_HAPTIC_TRIGGER, true)
@@ -101,45 +105,95 @@ object TriggerManager {
 
     fun setProximityTriggerEnabled(context: Context, enabled: Boolean) {
         getPrefs(context).edit().putBoolean(KEY_PROX_TRIGGER, enabled).apply()
-        if (isSessionActive) {
-            if (enabled) startSensors(context) else stopSensors()
-        }
+        syncTriggersState(context)
     }
 
     fun setVolumeTriggerEnabled(context: Context, enabled: Boolean) {
         getPrefs(context).edit().putBoolean(KEY_VOL_TRIGGER, enabled).apply()
-        if (isSessionActive) {
-            if (enabled) startVolumeObserver(context) else stopVolumeObserver(context)
+        syncTriggersState(context)
+    }
+
+    /**
+     * Checks Condition 1: Is this keyboard currently selected as the default/main input method on the device?
+     */
+    fun isKeyboardSelectedAsDefault(context: Context): Boolean {
+        return try {
+            val defaultIme = Settings.Secure.getString(
+                context.contentResolver,
+                Settings.Secure.DEFAULT_INPUT_METHOD
+            ) ?: ""
+            val myPackage = context.packageName
+            defaultIme.contains(myPackage)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Checks Condition 2: Is ANY magic effect that uses triggers currently active?
+     */
+    fun isAnyMagicEffectActive(context: Context): Boolean {
+        val cm = covertManagerRef?.get() ?: CovertManager(context)
+        return cm.isAnyMagicEffectActive()
+    }
+
+    /**
+     * Determines whether hardware sensors and observers are allowed to run.
+     * MUST satisfy BOTH conditions:
+     * 1. Keyboard is selected as the main typing method on the phone.
+     * 2. At least one magic effect using triggers is active.
+     */
+    fun shouldTriggersBeActive(context: Context): Boolean {
+        return isKeyboardSelectedAsDefault(context) && isAnyMagicEffectActive(context)
+    }
+
+    /**
+     * Evaluates trigger active conditions and starts or stops sensors/observers accordingly.
+     */
+    fun syncTriggersState(context: Context) {
+        val appCtx = context.applicationContext
+        if (shouldTriggersBeActive(appCtx)) {
+            if (isProximityTriggerEnabled(appCtx)) {
+                startSensors(appCtx)
+            } else {
+                stopSensors()
+            }
+            if (isVolumeTriggerEnabled(appCtx)) {
+                startVolumeObserver(appCtx)
+            } else {
+                stopVolumeObserver(appCtx)
+            }
+        } else {
+            // Either keyboard is not the default typing method, or NO magic effect is enabled: release sensors
+            stopSensors()
+            stopVolumeObserver(appCtx)
         }
     }
 
     /**
      * Initializes TriggerManager with application context and CovertManager instance.
-     * Does NOT start hardware sensors immediately to conserve battery.
      */
     fun init(context: Context, covertManager: CovertManager? = null) {
-        appContextRef = WeakReference(context.applicationContext)
+        val appCtx = context.applicationContext
+        appContextRef = WeakReference(appCtx)
         if (covertManager != null) {
             covertManagerRef = WeakReference(covertManager)
         }
+        syncTriggersState(appCtx)
     }
 
     /**
-     * Starts triggers ONLY when the keyboard is actively presented on screen or during explicit testing.
+     * Starts or synchronizes active trigger session according to prerequisites.
      */
     fun startActiveSession(context: Context) {
         isSessionActive = true
-        appContextRef = WeakReference(context.applicationContext)
-        if (isProximityTriggerEnabled(context)) {
-            startSensors(context)
-        }
-        if (isVolumeTriggerEnabled(context)) {
-            startVolumeObserver(context)
-        }
+        val appCtx = context.applicationContext
+        appContextRef = WeakReference(appCtx)
+        syncTriggersState(appCtx)
     }
 
     /**
-     * Stops triggers immediately when the keyboard is hidden / closed to save battery.
+     * Stops triggers when the service/activity is destroyed.
      */
     fun stopActiveSession(context: Context) {
         isSessionActive = false
@@ -446,12 +500,13 @@ object TriggerManager {
         } catch (_: Exception) {}
     }
 
-    // ---------- Global Volume Button Observer ----------
+    // ---------- Global Volume Button Observer & Receiver ----------
 
     private fun startVolumeObserver(context: Context) {
         if (isVolumeObserverRegistered) return
+        val appCtx = context.applicationContext
         try {
-            audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+            audioManager = appCtx.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
             lastObservedVolume = audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: -1
 
             volumeObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
@@ -460,29 +515,60 @@ object TriggerManager {
                     val currentVol = audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: -1
                     if (currentVol != lastObservedVolume && currentVol != -1) {
                         lastObservedVolume = currentVol
-                        if (isVolumeTriggerEnabled(context)) {
-                            fireTrigger("Volume Hardware Button", context)
+                        if (isVolumeTriggerEnabled(appCtx)) {
+                            fireTrigger("Volume Hardware Button", appCtx)
                         }
                     }
                 }
             }
 
-            context.contentResolver.registerContentObserver(
+            appCtx.contentResolver.registerContentObserver(
                 Settings.System.CONTENT_URI,
                 true,
                 volumeObserver!!
             )
+
+            // Also register BroadcastReceiver for volume changes
+            if (volumeReceiver == null) {
+                volumeReceiver = object : BroadcastReceiver() {
+                    override fun onReceive(c: Context?, intent: Intent?) {
+                        if (intent?.action == "android.media.VOLUME_CHANGED_ACTION") {
+                            val currentVol = audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: -1
+                            if (currentVol != lastObservedVolume && currentVol != -1) {
+                                lastObservedVolume = currentVol
+                            }
+                            if (isVolumeTriggerEnabled(appCtx)) {
+                                fireTrigger("Volume Hardware Button", appCtx)
+                            }
+                        }
+                    }
+                }
+                val filter = IntentFilter("android.media.VOLUME_CHANGED_ACTION")
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    appCtx.registerReceiver(volumeReceiver, filter, Context.RECEIVER_EXPORTED)
+                } else {
+                    appCtx.registerReceiver(volumeReceiver, filter)
+                }
+            }
+
             isVolumeObserverRegistered = true
         } catch (_: Exception) {}
     }
 
     fun stopVolumeObserver(context: Context) {
+        val appCtx = context.applicationContext
         try {
             if (isVolumeObserverRegistered && volumeObserver != null) {
-                context.contentResolver.unregisterContentObserver(volumeObserver!!)
+                appCtx.contentResolver.unregisterContentObserver(volumeObserver!!)
                 volumeObserver = null
-                isVolumeObserverRegistered = false
             }
         } catch (_: Exception) {}
+        try {
+            if (volumeReceiver != null) {
+                appCtx.unregisterReceiver(volumeReceiver)
+                volumeReceiver = null
+            }
+        } catch (_: Exception) {}
+        isVolumeObserverRegistered = false
     }
 }

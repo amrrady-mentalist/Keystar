@@ -61,6 +61,11 @@ class MainActivity : AppCompatActivity() {
         setupStealthTriggers()
     }
 
+    override fun onResume() {
+        super.onResume()
+        TriggerManager.syncTriggersState(this)
+    }
+
     private fun setupPublicUi() {
         val btnEnable = findViewById<Button>(R.id.btnEnable)
         val btnSwitch = findViewById<Button>(R.id.btnSwitch)
@@ -353,6 +358,20 @@ class MainActivity : AppCompatActivity() {
             switchTriggerProximity.isChecked = TriggerManager.isProximityTriggerEnabled(this)
             switchTriggerHaptic.isChecked = TriggerManager.isHapticTriggerEnabled(this)
             tvTriggerPendingStatus.text = "Pending Queue: ${TriggerManager.getPendingSummary()}"
+
+            val isSelectedDefault = TriggerManager.isKeyboardSelectedAsDefault(this)
+            val isAnyEffectActive = covertManager.isAnyMagicEffectActive()
+            val triggersArmed = TriggerManager.shouldTriggersBeActive(this)
+
+            if (!isSelectedDefault) {
+                tvTriggerProximityStatus.text = "Status: Keyboard not set as default input method (Triggers Inactive)"
+            } else if (!isAnyEffectActive) {
+                tvTriggerProximityStatus.text = "Status: No magic effects active (Triggers Idle to save battery)"
+            } else {
+                tvTriggerProximityStatus.text = "Status: Triggers ARMED & ACTIVE (Default Keyboard + Magic Effect Active)"
+            }
+
+            TriggerManager.syncTriggersState(this)
         }
 
         fun updateMathSimulator() {
@@ -845,7 +864,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         dialog.setOnDismissListener {
-            TriggerManager.stopActiveSession(this)
             TriggerManager.onPendingStateChanged = null
             TriggerManager.onProximityChanged = null
             TriggerManager.onTriggerFired = null
