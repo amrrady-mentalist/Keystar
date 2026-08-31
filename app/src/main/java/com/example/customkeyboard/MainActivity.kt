@@ -762,10 +762,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnFireTriggerTest.setOnClickListener {
-            val fired = TriggerManager.fireTrigger("Manual Test Button", this)
-            if (!fired) {
-                Toast.makeText(this, "Trigger dispatched (No pending items)", Toast.LENGTH_SHORT).show()
-            }
+            TriggerManager.fireTrigger("Manual Test Button", this)
             updateStatusUi()
         }
 
@@ -797,7 +794,6 @@ class MainActivity : AppCompatActivity() {
 
         TriggerManager.onTriggerFired = { source, summary ->
             runOnUiThread {
-                Toast.makeText(this, "Trigger Fired ($source)\n$summary", Toast.LENGTH_SHORT).show()
                 updateStatusUi()
             }
         }
