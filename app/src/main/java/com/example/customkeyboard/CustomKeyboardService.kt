@@ -25,6 +25,7 @@ import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -51,17 +52,66 @@ class CustomKeyboardService : InputMethodService() {
     private lateinit var clipHistory: ClipboardHistory
     private lateinit var covertManager: CovertManager
 
-    // ---------- sizing constants (kept tight to match system keyboards like Gboard) ----------
+    // ---------- sizing helpers (customizable via Settings preferences) ----------
     private val KEY_RADIUS_DP = 8
     private val PILL_RADIUS_DP = 24
-    private val ROW_HEIGHT_DP = 44
-    private val TOP_BAR_HEIGHT_DP = 36
     private val ICON_GLYPH_DP = 26
-    // The visual gap between keys is drawn as a cosmetic inset on the key's background, not as
-    // a real margin - a real margin would create a dead zone between keys where fast/light taps
-    // don't register on anything. Insets keep the touch target the full, contiguous cell.
     private val KEY_INSET_H_DP = 2
     private val KEY_INSET_V_DP = 4
+
+    private fun getRowHeightDp(): Int {
+        return when (prefs.getString("keyboard_height", "normal")) {
+            "compact" -> 44
+            "tall" -> 54
+            "extra_tall" -> 60
+            else -> 48
+        }
+    }
+
+    private fun getTopBarHeightDp(): Int {
+        return when (prefs.getString("keyboard_height", "normal")) {
+            "compact" -> 36
+            "tall" -> 42
+            "extra_tall" -> 46
+            else -> 38
+        }
+    }
+
+    private fun getLetterFontSize(): Float {
+        return when (prefs.getString("key_font_size", "normal")) {
+            "small" -> 20f
+            "large" -> 25f
+            "extra_large" -> 28f
+            else -> 23f
+        }
+    }
+
+    private fun getSymbolFontSize(): Float {
+        return when (prefs.getString("key_font_size", "normal")) {
+            "small" -> 18f
+            "large" -> 22f
+            "extra_large" -> 25f
+            else -> 20f
+        }
+    }
+
+    private fun getSpecialKeyFontSize(): Float {
+        return when (prefs.getString("key_font_size", "normal")) {
+            "small" -> 13f
+            "large" -> 16f
+            "extra_large" -> 18f
+            else -> 14.5f
+        }
+    }
+
+    private fun getEmojiFontSize(): Float {
+        return when (prefs.getString("key_font_size", "normal")) {
+            "small" -> 20f
+            "large" -> 24f
+            "extra_large" -> 27f
+            else -> 22f
+        }
+    }
 
     private val commonEmojis = listOf("😀", "😂", "❤️", "👍", "🙏", "🔥", "😊", "🎉", "👀", "✅", "😉", "💯")
     private var currentEmojiCategory: String = "Smileys"
@@ -87,13 +137,28 @@ class CustomKeyboardService : InputMethodService() {
 
     override fun onDestroy() {
         clipboardManager.removePrimaryClipChangedListener(systemClipListener)
-        TriggerManager.stopSensors()
-        TriggerManager.stopVolumeObserver(this)
+        TriggerManager.stopActiveSession(this)
         super.onDestroy()
+    }
+
+    override fun onWindowShown() {
+        super.onWindowShown()
+        TriggerManager.startActiveSession(this)
+    }
+
+    override fun onWindowHidden() {
+        TriggerManager.stopActiveSession(this)
+        super.onWindowHidden()
+    }
+
+    override fun onFinishInputView(finishingInput: Boolean) {
+        TriggerManager.stopActiveSession(this)
+        super.onFinishInputView(finishingInput)
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
+        TriggerManager.startActiveSession(this)
         currentMode = Mode.LETTERS
         shiftOn = false
         capsLock = false
@@ -231,7 +296,7 @@ class CustomKeyboardService : InputMethodService() {
     private fun buildTopBar(): LinearLayout {
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(TOP_BAR_HEIGHT_DP))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getTopBarHeightDp()))
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(6), 0, dp(6), dp(2))
         }
@@ -244,20 +309,21 @@ class CustomKeyboardService : InputMethodService() {
 
         when {
             currentMode == Mode.CLIPBOARD -> {
+                bar.addView(iconButton(R.drawable.ic_arrow_back, "Back") { switchMode(Mode.LETTERS) })
                 bar.addView(TextView(this).apply {
-                    text = "Clipboard"
+                    text = "Clipboard History"
                     setTextColor(textColor())
                     setTypeface(Typeface.DEFAULT_BOLD)
                     textSize = 14f
+                    setPadding(dp(8), 0, dp(8), 0)
                     layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 })
-                bar.addView(iconButton("⌫") { deleteChar() })
-                bar.addView(iconButton("←") { switchMode(Mode.LETTERS) })
+                bar.addView(iconButtonText("⌫") { deleteChar() })
             }
             contextualSuggestions.isNotEmpty() -> {
                 bar.addView(buildSuggestionsScroll(contextualSuggestions))
-                bar.addView(iconButton("⧉") { switchMode(Mode.CLIPBOARD) })
-                bar.addView(iconButton("⚙") {
+                bar.addView(iconButton(R.drawable.ic_clipboard, "Clipboard") { switchMode(Mode.CLIPBOARD) })
+                bar.addView(iconButton(R.drawable.ic_settings, "Settings") {
                     val intent = android.content.Intent(this, MainActivity::class.java)
                     intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                     startActivity(intent)
@@ -265,8 +331,8 @@ class CustomKeyboardService : InputMethodService() {
             }
             else -> {
                 bar.addView(buildCommonEmojiScroll())
-                bar.addView(iconButton("⧉") { switchMode(Mode.CLIPBOARD) })
-                bar.addView(iconButton("⚙") {
+                bar.addView(iconButton(R.drawable.ic_clipboard, "Clipboard") { switchMode(Mode.CLIPBOARD) })
+                bar.addView(iconButton(R.drawable.ic_settings, "Settings") {
                     val intent = android.content.Intent(this, MainActivity::class.java)
                     intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                     startActivity(intent)
@@ -299,7 +365,7 @@ class CustomKeyboardService : InputMethodService() {
         val resting = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
         return TextView(this).apply {
             text = emoji
-            textSize = 20f
+            textSize = getEmojiFontSize()
             gravity = Gravity.CENTER
             setPadding(dp(10), 0, dp(10), 0)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT).apply {
@@ -321,7 +387,7 @@ class CustomKeyboardService : InputMethodService() {
         commonEmojis.forEach { emoji ->
             inner.addView(TextView(this).apply {
                 text = emoji
-                textSize = 18f
+                textSize = getEmojiFontSize()
                 gravity = Gravity.CENTER
                 setPadding(dp(8), 0, dp(8), 0)
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT)
@@ -376,14 +442,31 @@ class CustomKeyboardService : InputMethodService() {
         }
     }
 
-    private fun iconButton(symbol: String, onClick: () -> Unit): TextView {
+    private fun iconButton(drawableResId: Int, contentDesc: String, onClick: () -> Unit): View {
+        val size = dp(28)
+        val pad = dp(5)
+        return ImageView(this).apply {
+            setImageResource(drawableResId)
+            setColorFilter(textColor())
+            contentDescription = contentDesc
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setPadding(pad, pad, pad, pad)
+            layoutParams = LinearLayout.LayoutParams(size, size).apply {
+                marginStart = dp(3)
+                marginEnd = dp(1)
+            }
+            applyKeyTouchBehavior(this, pressHighlightColor(), null, KEY_RADIUS_DP) { onClick() }
+        }
+    }
+
+    private fun iconButtonText(symbol: String, onClick: () -> Unit): TextView {
         return TextView(this).apply {
             text = symbol
             setTextColor(textColor())
             textSize = 16f
             gravity = Gravity.CENTER
             val size = dp(28)
-            layoutParams = LinearLayout.LayoutParams(size, size).apply { marginStart = dp(4) }
+            layoutParams = LinearLayout.LayoutParams(size, size).apply { marginStart = dp(3) }
             applyKeyTouchBehavior(this, pressHighlightColor(), null, KEY_RADIUS_DP) { onClick() }
         }
     }
@@ -453,12 +536,12 @@ class CustomKeyboardService : InputMethodService() {
     private fun buildRow(keys: List<String>, applyShift: Boolean = false, isEmoji: Boolean = false, isLetterRow: Boolean = false): LinearLayout {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(ROW_HEIGHT_DP))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
         }
         val fontSize = when {
-            isEmoji -> 22f
-            isLetterRow -> 24f
-            else -> 20f
+            isEmoji -> getEmojiFontSize()
+            isLetterRow -> getLetterFontSize()
+            else -> getSymbolFontSize()
         }
         keys.forEach { k ->
             val display = if (applyShift && (shiftOn || capsLock)) k.uppercase() else k
@@ -476,12 +559,12 @@ class CustomKeyboardService : InputMethodService() {
     private fun buildLetterRowWithShift(keys: List<String>): LinearLayout {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(ROW_HEIGHT_DP))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
         }
         row.addView(spacer(0.5f))
         keys.forEach { k ->
             val display = if (currentLang == Lang.EN && (shiftOn || capsLock)) k.uppercase() else k
-            row.addView(makeKey(display, weight = 1f, fontSize = 24f) { commitLetter(display) })
+            row.addView(makeKey(display, weight = 1f, fontSize = getLetterFontSize()) { commitLetter(display) })
         }
         row.addView(spacer(0.5f))
         return row
@@ -490,14 +573,14 @@ class CustomKeyboardService : InputMethodService() {
     private fun buildLetterRowWithShiftAndBackspace(keys: List<String>): LinearLayout {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(ROW_HEIGHT_DP))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
         }
         if (currentLang == Lang.EN) {
             row.addView(makeShiftKey(weight = 1.5f))
         }
         keys.forEach { k ->
             val display = if (currentLang == Lang.EN && (shiftOn || capsLock)) k.uppercase() else k
-            row.addView(makeKey(display, weight = 1f, fontSize = 24f) { commitLetter(display) })
+            row.addView(makeKey(display, weight = 1f, fontSize = getLetterFontSize()) { commitLetter(display) })
         }
         // Swipe left on backspace to delete more than one character at a time.
         row.addView(makeBackspaceKey(weight = 1.5f))
@@ -507,22 +590,22 @@ class CustomKeyboardService : InputMethodService() {
     private fun buildSymbolsRow(keys: List<String>, prependToggle: Boolean = false): LinearLayout {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(ROW_HEIGHT_DP))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
         }
         if (prependToggle) {
             val label = if (symbolsPage == 1) "1/2" else "2/2"
             row.addView(makeSpecialKey(label, weight = 1.3f) { toggleSymbolsPage() })
         }
-        keys.forEach { k -> row.addView(makeKey(k, weight = 1f, fontSize = 20f) { commitSymbol(k) }) }
+        keys.forEach { k -> row.addView(makeKey(k, weight = 1f, fontSize = getSymbolFontSize()) { commitSymbol(k) }) }
         return row
     }
 
     private fun buildSymbolsBottomRow(keys: List<String>): LinearLayout {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(ROW_HEIGHT_DP))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
         }
-        keys.forEach { k -> row.addView(makeKey(k, weight = 1f, fontSize = 20f) { commitSymbol(k) }) }
+        keys.forEach { k -> row.addView(makeKey(k, weight = 1f, fontSize = getSymbolFontSize()) { commitSymbol(k) }) }
         row.addView(makeBackspaceKey(weight = 1.5f))
         return row
     }
@@ -583,21 +666,21 @@ class CustomKeyboardService : InputMethodService() {
 
         val r1 = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(ROW_HEIGHT_DP))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(getRowHeightDp()))
         }
         row1.forEach { em -> r1.addView(makeEmojiKey(em)) }
         emojiContent.addView(r1)
 
         val r2 = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(ROW_HEIGHT_DP))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(getRowHeightDp()))
         }
         row2.forEach { em -> r2.addView(makeEmojiKey(em)) }
         emojiContent.addView(r2)
 
         val r3 = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(ROW_HEIGHT_DP))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(getRowHeightDp()))
         }
         row3.forEach { em -> r3.addView(makeEmojiKey(em)) }
         emojiContent.addView(r3)
@@ -616,9 +699,9 @@ class CustomKeyboardService : InputMethodService() {
         val resting = keyBackground(keyColor(), KEY_RADIUS_DP)
         return TextView(this).apply {
             text = emoji
-            textSize = 22f
+            textSize = getEmojiFontSize()
             gravity = Gravity.CENTER
-            val size = dp(ROW_HEIGHT_DP - 6)
+            val size = dp(getRowHeightDp() - 6)
             layoutParams = LinearLayout.LayoutParams(size, ViewGroup.LayoutParams.MATCH_PARENT).apply {
                 setMargins(dp(2), dp(2), dp(2), dp(2))
             }
@@ -632,7 +715,7 @@ class CustomKeyboardService : InputMethodService() {
     private fun buildBottomRow(): LinearLayout {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(ROW_HEIGHT_DP))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
         }
 
         when (currentMode) {
@@ -682,7 +765,7 @@ class CustomKeyboardService : InputMethodService() {
             gravity = Gravity.CENTER
             setTextColor(textCl)
             setTypeface(Typeface.DEFAULT_BOLD)
-            textSize = 15f
+            textSize = getSpecialKeyFontSize()
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
             background = resting
             isClickable = true
@@ -758,7 +841,7 @@ class CustomKeyboardService : InputMethodService() {
             gravity = Gravity.CENTER
             setTextColor(if (textHighlighted) accentColor() else textColor())
             setTypeface(Typeface.DEFAULT_BOLD)
-            textSize = 15f
+            textSize = getSpecialKeyFontSize()
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
             background = resting
             applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP) { onClick() }
@@ -877,7 +960,7 @@ class CustomKeyboardService : InputMethodService() {
             gravity = Gravity.CENTER
             setTextColor(textColor())
             setTypeface(Typeface.DEFAULT_BOLD)
-            textSize = 14f
+            textSize = getSpecialKeyFontSize()
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
             background = resting
             isClickable = true

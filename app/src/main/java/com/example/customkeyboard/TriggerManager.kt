@@ -79,22 +79,11 @@ object TriggerManager {
         return getPrefs(context).getBoolean(KEY_VOL_TRIGGER, true)
     }
 
-    fun setVolumeTriggerEnabled(context: Context, enabled: Boolean) {
-        getPrefs(context).edit().putBoolean(KEY_VOL_TRIGGER, enabled).apply()
-    }
-
     fun isProximityTriggerEnabled(context: Context): Boolean {
         return getPrefs(context).getBoolean(KEY_PROX_TRIGGER, true)
     }
 
-    fun setProximityTriggerEnabled(context: Context, enabled: Boolean) {
-        getPrefs(context).edit().putBoolean(KEY_PROX_TRIGGER, enabled).apply()
-        if (enabled) {
-            startSensors(context)
-        } else {
-            stopSensors()
-        }
-    }
+    private var isSessionActive = false
 
     fun isHapticTriggerEnabled(context: Context): Boolean {
         return getPrefs(context).getBoolean(KEY_HAPTIC_TRIGGER, true)
@@ -104,16 +93,52 @@ object TriggerManager {
         getPrefs(context).edit().putBoolean(KEY_HAPTIC_TRIGGER, enabled).apply()
     }
 
+    fun setProximityTriggerEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_PROX_TRIGGER, enabled).apply()
+        if (isSessionActive) {
+            if (enabled) startSensors(context) else stopSensors()
+        }
+    }
+
+    fun setVolumeTriggerEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_VOL_TRIGGER, enabled).apply()
+        if (isSessionActive) {
+            if (enabled) startVolumeObserver(context) else stopVolumeObserver(context)
+        }
+    }
+
     /**
      * Initializes TriggerManager with application context and CovertManager instance.
+     * Does NOT start hardware sensors immediately to conserve battery.
      */
     fun init(context: Context, covertManager: CovertManager? = null) {
         appContextRef = WeakReference(context.applicationContext)
         if (covertManager != null) {
             covertManagerRef = WeakReference(covertManager)
         }
-        startSensors(context)
-        startVolumeObserver(context)
+    }
+
+    /**
+     * Starts triggers ONLY when the keyboard is actively presented on screen or during explicit testing.
+     */
+    fun startActiveSession(context: Context) {
+        isSessionActive = true
+        appContextRef = WeakReference(context.applicationContext)
+        if (isProximityTriggerEnabled(context)) {
+            startSensors(context)
+        }
+        if (isVolumeTriggerEnabled(context)) {
+            startVolumeObserver(context)
+        }
+    }
+
+    /**
+     * Stops triggers immediately when the keyboard is hidden / closed to save battery.
+     */
+    fun stopActiveSession(context: Context) {
+        isSessionActive = false
+        stopSensors()
+        stopVolumeObserver(context)
     }
 
     fun setCovertManager(covertManager: CovertManager) {

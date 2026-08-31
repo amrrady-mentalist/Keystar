@@ -94,6 +94,42 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Appearance updated", Toast.LENGTH_SHORT).show()
         }
 
+        val heightGroup = findViewById<RadioGroup>(R.id.heightRadioGroup)
+        when (prefs.getString("keyboard_height", "normal")) {
+            "compact" -> findViewById<RadioButton>(R.id.radioHeightCompact).isChecked = true
+            "tall" -> findViewById<RadioButton>(R.id.radioHeightTall).isChecked = true
+            "extra_tall" -> findViewById<RadioButton>(R.id.radioHeightExtraTall).isChecked = true
+            else -> findViewById<RadioButton>(R.id.radioHeightNormal).isChecked = true
+        }
+        heightGroup.setOnCheckedChangeListener { _, checkedId ->
+            val value = when (checkedId) {
+                R.id.radioHeightCompact -> "compact"
+                R.id.radioHeightTall -> "tall"
+                R.id.radioHeightExtraTall -> "extra_tall"
+                else -> "normal"
+            }
+            prefs.edit().putString("keyboard_height", value).apply()
+            Toast.makeText(this, "Keyboard height saved", Toast.LENGTH_SHORT).show()
+        }
+
+        val keySizeGroup = findViewById<RadioGroup>(R.id.keySizeRadioGroup)
+        when (prefs.getString("key_font_size", "normal")) {
+            "small" -> findViewById<RadioButton>(R.id.radioKeySmall).isChecked = true
+            "large" -> findViewById<RadioButton>(R.id.radioKeyLarge).isChecked = true
+            "extra_large" -> findViewById<RadioButton>(R.id.radioKeyExtraLarge).isChecked = true
+            else -> findViewById<RadioButton>(R.id.radioKeyNormal).isChecked = true
+        }
+        keySizeGroup.setOnCheckedChangeListener { _, checkedId ->
+            val value = when (checkedId) {
+                R.id.radioKeySmall -> "small"
+                R.id.radioKeyLarge -> "large"
+                R.id.radioKeyExtraLarge -> "extra_large"
+                else -> "normal"
+            }
+            prefs.edit().putString("key_font_size", value).apply()
+            Toast.makeText(this, "Key size saved", Toast.LENGTH_SHORT).show()
+        }
+
         btnClearSandbox.setOnClickListener {
             editSandbox.setText("")
         }
@@ -643,7 +679,12 @@ class MainActivity : AppCompatActivity() {
             dialog.dismiss()
         }
 
+        dialog.setOnShowListener {
+            TriggerManager.startActiveSession(this)
+        }
+
         dialog.setOnDismissListener {
+            TriggerManager.stopActiveSession(this)
             TriggerManager.onPendingStateChanged = null
             TriggerManager.onProximityChanged = null
             TriggerManager.onTriggerFired = null
