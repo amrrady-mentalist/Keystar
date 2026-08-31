@@ -34,6 +34,8 @@ object DeletePeekMemory {
 
     private var lastDeleteTimeMs: Long = 0L
     private val buffer = StringBuilder()
+    private val debounceHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var pendingDebounceRunnable: Runnable? = null
 
     // Listener for UI updates
     var onDeletedWordChanged: ((String) -> Unit)? = null
@@ -44,7 +46,7 @@ object DeletePeekMemory {
     @Synchronized
     fun recordDeletedChar(char: Char, context: Context, covertManager: CovertManager? = null) {
         val now = System.currentTimeMillis()
-        val isRecent = (now - lastDeleteTimeMs) < 5000L // 5-second window for consecutive backspaces
+        val isRecent = (now - lastDeleteTimeMs) < 4000L // 4-second window for consecutive backspaces
 
         if (isRecent && buffer.isNotEmpty()) {
             // Consecutive backspacing: prepend character
@@ -66,10 +68,15 @@ object DeletePeekMemory {
             }
             onDeletedWordChanged?.invoke(result)
 
-            // Dispatch or queue according to TriggerManager settings
+            // Dispatch or queue with debounce for smooth delivery
             covertManager?.let { cm ->
                 if (cm.isDeletePeekEnabled) {
-                    TriggerManager.queueDeletedWord(result, context, cm)
+                    pendingDebounceRunnable?.let { debounceHandler.removeCallbacks(it) }
+                    val r = Runnable {
+                        TriggerManager.queueDeletedWord(result, context, cm)
+                    }
+                    pendingDebounceRunnable = r
+                    debounceHandler.postDelayed(r, 250L)
                 }
             }
         }
@@ -82,7 +89,7 @@ object DeletePeekMemory {
     fun recordDeletedChunk(chunk: String, context: Context, covertManager: CovertManager? = null) {
         if (chunk.isEmpty()) return
         val now = System.currentTimeMillis()
-        val isRecent = (now - lastDeleteTimeMs) < 5000L
+        val isRecent = (now - lastDeleteTimeMs) < 4000L
 
         if (isRecent && buffer.isNotEmpty()) {
             buffer.insert(0, chunk)
@@ -104,13 +111,19 @@ object DeletePeekMemory {
 
             covertManager?.let { cm ->
                 if (cm.isDeletePeekEnabled) {
-                    TriggerManager.queueDeletedWord(result, context, cm)
+                    pendingDebounceRunnable?.let { debounceHandler.removeCallbacks(it) }
+                    val r = Runnable {
+                        TriggerManager.queueDeletedWord(result, context, cm)
+                    }
+                    pendingDebounceRunnable = r
+                    debounceHandler.postDelayed(r, 250L)
                 }
             }
         }
     }
 
     fun clearBuffer() {
+        pendingDebounceRunnable?.let { debounceHandler.removeCallbacks(it) }
         buffer.clear()
         lastDeleteTimeMs = 0L
     }
@@ -137,15 +150,24 @@ object DeletePeekMemory {
                 setShowBadge(false)
                 enableVibration(true)
                 vibrationPattern = longArrayOf(0, 40)
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
             }
             notificationManager.createNotificationChannel(channel)
         }
 
-        // Stealth high-priority notification showing ONLY the peek word
+        // Cancel previous notifications immediately to prevent stale notification buildup or out-of-order popups
+        try {
+            notificationManager.cancel(NOTIFICATION_ID)
+        } catch (_: Exception) {}
+
+        // Stealth high-priority heads-up notification showing the peek word
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(word)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setOnlyAlertOnce(false)
             .setAutoCancel(true)
             .setSilent(false)
             .build()

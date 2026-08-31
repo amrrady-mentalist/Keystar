@@ -150,6 +150,10 @@ object TriggerManager {
      */
     fun queueDeletedWord(word: String, context: Context, covertManager: CovertManager) {
         if (word.isBlank()) return
+        // Clear conflicting stale payloads from other effects
+        pendingMathPayload = null
+        pendingCovertWord = null
+
         if (isRequireTriggerEnabled(context)) {
             pendingDeletedWord = word
             onPendingStateChanged?.invoke()
@@ -171,6 +175,10 @@ object TriggerManager {
      */
     fun queueMathPayload(payload: String, context: Context, covertManager: CovertManager) {
         if (payload.isBlank()) return
+        // Clear conflicting stale payloads from other effects
+        pendingDeletedWord = null
+        pendingCovertWord = null
+
         if (isRequireTriggerEnabled(context)) {
             pendingMathPayload = payload
             onPendingStateChanged?.invoke()
@@ -192,6 +200,10 @@ object TriggerManager {
      */
     fun queueCovertWord(word: String, context: Context, covertManager: CovertManager) {
         if (word.isBlank()) return
+        // Clear conflicting stale payloads from other effects
+        pendingDeletedWord = null
+        pendingMathPayload = null
+
         if (isRequireTriggerEnabled(context)) {
             pendingCovertWord = word
             onPendingStateChanged?.invoke()
@@ -216,32 +228,28 @@ object TriggerManager {
         val covertManager = covertManagerRef?.get() ?: CovertManager(context)
 
         val now = System.currentTimeMillis()
-        if (now - lastTriggerTime < 600L) {
-            // Debounce rapid multiple triggers within 600ms
+        if (now - lastTriggerTime < 500L) {
+            // Debounce rapid multiple triggers within 500ms
             return false
         }
         lastTriggerTime = now
 
         val dispatchedItems = mutableListOf<String>()
 
-        // 1. Dispatch Pending Delete Peek
-        val delWord = pendingDeletedWord
-        if (!delWord.isNullOrBlank()) {
-            if (covertManager.isDeletePeekEnabled) {
-                if (covertManager.deletePeekLocalNotification) {
-                    DeletePeekMemory.showPushNotification(context, delWord)
-                }
-                if (covertManager.deletePeekSendToInject && covertManager.isInjectApiEnabled) {
-                    covertManager.dispatchInjectApi(delWord)
-                }
-                dispatchedItems.add("Delete Peek: \"$delWord\"")
-            }
-            pendingDeletedWord = null
-        }
-
-        // 2. Dispatch Pending Math Payload (Total or Specific Line)
+        // Dispatch the newest active effect payload (priority: Covert -> Math -> Delete Peek)
+        val covertWord = pendingCovertWord
         val mathPayload = pendingMathPayload
-        if (!mathPayload.isNullOrBlank()) {
+        val delWord = pendingDeletedWord
+
+        if (!covertWord.isNullOrBlank()) {
+            if (covertManager.covertLocalNotification) {
+                DeletePeekMemory.showPushNotification(context, covertWord)
+            }
+            if (covertManager.covertSendToInject && covertManager.isInjectApiEnabled) {
+                covertManager.dispatchInjectApi(covertWord)
+            }
+            dispatchedItems.add("Covert Word: \"$covertWord\"")
+        } else if (!mathPayload.isNullOrBlank()) {
             if (covertManager.isMathEnabled) {
                 if (covertManager.mathLocalNotification) {
                     DeletePeekMemory.showPushNotification(context, mathPayload)
@@ -252,44 +260,22 @@ object TriggerManager {
                 val label = if (covertManager.mathTargetMode == "line") "Math Line ${covertManager.mathTargetLine}" else "Math Total"
                 dispatchedItems.add("$label: $mathPayload")
             }
-            pendingMathPayload = null
-        }
-
-        // 3. Dispatch Pending Covert Word
-        val covertWord = pendingCovertWord
-        if (!covertWord.isNullOrBlank()) {
-            if (covertManager.covertLocalNotification) {
-                DeletePeekMemory.showPushNotification(context, covertWord)
-            }
-            if (covertManager.covertSendToInject && covertManager.isInjectApiEnabled) {
-                covertManager.dispatchInjectApi(covertWord)
-            }
-            dispatchedItems.add("Covert Word: \"$covertWord\"")
-            pendingCovertWord = null
-        }
-
-        // Fallback: If no pending item in queue, but there is active memory, send the latest state
-        if (dispatchedItems.isEmpty()) {
-            if (covertManager.isDeletePeekEnabled && DeletePeekMemory.lastDeletedWord.isNotBlank()) {
-                val latest = DeletePeekMemory.lastDeletedWord
+        } else if (!delWord.isNullOrBlank()) {
+            if (covertManager.isDeletePeekEnabled) {
                 if (covertManager.deletePeekLocalNotification) {
-                    DeletePeekMemory.showPushNotification(context, latest)
+                    DeletePeekMemory.showPushNotification(context, delWord)
                 }
                 if (covertManager.deletePeekSendToInject && covertManager.isInjectApiEnabled) {
-                    covertManager.dispatchInjectApi(latest)
+                    covertManager.dispatchInjectApi(delWord)
                 }
-                dispatchedItems.add("Delete Peek (Latest): \"$latest\"")
-            } else if (covertManager.isCovertActive && covertManager.capturedSecretWord.isNotBlank()) {
-                val secret = covertManager.capturedSecretWord
-                if (covertManager.covertLocalNotification) {
-                    DeletePeekMemory.showPushNotification(context, secret)
-                }
-                if (covertManager.covertSendToInject && covertManager.isInjectApiEnabled) {
-                    covertManager.dispatchInjectApi(secret)
-                }
-                dispatchedItems.add("Covert Word (Latest): \"$secret\"")
+                dispatchedItems.add("Delete Peek: \"$delWord\"")
             }
         }
+
+        // Clear all pending items so old values can never trigger again
+        pendingDeletedWord = null
+        pendingMathPayload = null
+        pendingCovertWord = null
 
         val summary = if (dispatchedItems.isNotEmpty()) {
             dispatchedItems.joinToString(" | ")

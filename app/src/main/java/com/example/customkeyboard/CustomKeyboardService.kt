@@ -291,6 +291,35 @@ class CustomKeyboardService : InputMethodService() {
 
     private fun dp(v: Int) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v.toFloat(), resources.displayMetrics).toInt()
 
+    private fun isWordCharacter(c: Char): Boolean {
+        return c.isLetterOrDigit() || c == '\'' || c == '’' || c == '-' || (c in '\u0600'..'\u06FF')
+    }
+
+    private fun getActiveTypingContext(): Pair<String, String> {
+        val textBefore = currentInputConnection?.getTextBeforeCursor(80, 0)?.toString() ?: ""
+        if (textBefore.isEmpty()) {
+            return Pair(wordBuffer.toString(), lastCommittedWord)
+        }
+        val lastChar = textBefore.last()
+        if (lastChar.isWhitespace() || !isWordCharacter(lastChar)) {
+            // Space or punctuation -> current word is empty, extract previous word
+            val words = textBefore.trim().split(Regex("[\\s\\p{Punct}]+")).filter { it.isNotEmpty() }
+            val prev = words.lastOrNull() ?: lastCommittedWord
+            return Pair("", prev)
+        } else {
+            // Typing in-progress word -> extract active word prefix and preceding word
+            var i = textBefore.length - 1
+            while (i >= 0 && isWordCharacter(textBefore[i])) {
+                i--
+            }
+            val activeWord = textBefore.substring(i + 1)
+            val beforeActive = textBefore.substring(0, i + 1).trim()
+            val words = beforeActive.split(Regex("[\\s\\p{Punct}]+")).filter { it.isNotEmpty() }
+            val prev = words.lastOrNull() ?: lastCommittedWord
+            return Pair(activeWord, prev)
+        }
+    }
+
     // ---------- top bar: suggestions / common emojis / clipboard / settings ----------
 
     private fun buildTopBar(): LinearLayout {
@@ -302,9 +331,9 @@ class CustomKeyboardService : InputMethodService() {
         }
 
         val isArabic = currentLang == Lang.AR
-        val currentWord = wordBuffer.toString()
+        val (currentWord, prevWord) = getActiveTypingContext()
         val contextualSuggestions = if (currentMode == Mode.LETTERS) {
-            Dictionary.getContextualSuggestions(currentWord, lastCommittedWord, isArabic, limit = 16)
+            Dictionary.getContextualSuggestions(currentWord, prevWord, isArabic, limit = 16)
         } else emptyList()
 
         when {
@@ -373,7 +402,8 @@ class CustomKeyboardService : InputMethodService() {
             }
             background = resting
             applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP) {
-                currentInputConnection?.commitText(emoji, 1)
+                currentInputConnection?.commitText("$emoji ", 1)
+                wordBuffer.clear()
                 refreshTopBar()
             }
         }
@@ -430,12 +460,14 @@ class CustomKeyboardService : InputMethodService() {
             }
             if (resting != null) background = resting
             applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP) {
+                val (activeWord, _) = getActiveTypingContext()
                 Dictionary.recordUsedWord(item.text)
                 lastCommittedWord = item.text
-                if (wordBuffer.isNotEmpty()) {
-                    currentInputConnection?.deleteSurroundingText(wordBuffer.length, 0)
-                    wordBuffer.clear()
+                val lengthToDelete = if (activeWord.isNotEmpty()) activeWord.length else wordBuffer.length
+                if (lengthToDelete > 0) {
+                    currentInputConnection?.deleteSurroundingText(lengthToDelete, 0)
                 }
+                wordBuffer.clear()
                 currentInputConnection?.commitText("${item.text} ", 1)
                 refreshTopBar()
             }

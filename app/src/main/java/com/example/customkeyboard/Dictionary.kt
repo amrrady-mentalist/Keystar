@@ -444,46 +444,146 @@ object Dictionary {
     }
 
     /**
-     * Finds related emojis for a given word offline.
+     * Finds related emojis for a given word offline using full semantic mappings and keyword matches.
      */
     fun getEmojisForWord(word: String, limit: Int = 4): List<String> {
         val clean = word.trim().lowercase()
         if (clean.isEmpty()) return emptyList()
+        val norm = normalizeArabic(clean)
 
-        val list = emojiMap[clean] ?: emojiMap[normalizeArabic(clean)]
-        if (list != null && list.isNotEmpty()) {
-            return list.take(limit)
+        val results = LinkedHashSet<String>()
+
+        // 1. Direct emojiMap matches from ingested JSON
+        emojiMap[clean]?.let { results.addAll(it) }
+        emojiMap[norm]?.let { results.addAll(it) }
+
+        // 2. High-precision semantic offline mapping (English & Arabic)
+        val semanticMatches = lookupSemanticEmojis(clean, norm)
+        results.addAll(semanticMatches)
+
+        // 3. Keyword / prefix search in emojiMap for partial words (e.g., "foo" -> matches "food" -> 🍕, 🍔)
+        if (results.size < limit && clean.length >= 3) {
+            for ((k, list) in emojiMap) {
+                if (k.startsWith(clean) || clean.startsWith(k)) {
+                    results.addAll(list)
+                    if (results.size >= limit * 2) break
+                }
+            }
         }
 
-        // Direct fallback emojis
-        val direct = when (clean) {
-            "foot", "feet" -> listOf("🦶", "👣", "👟", "🧦")
-            "sad", "sadness", "sorrow", "cry", "crying" -> listOf("😢", "😭", "😞", "💔")
-            "happy", "happiness", "joy" -> listOf("😊", "😄", "😃", "🎉")
-            "test", "testing", "tested", "tests" -> listOf("🧪", "📝", "🔬", "✅")
-            "food", "eat", "eating" -> listOf("🍕", "🍔", "🍟", "🍲")
-            "football" -> listOf("⚽", "🏈", "🏟️")
-            "love", "loving", "loved" -> listOf("❤️", "😍", "🥰", "💕")
-            "fire", "lit" -> listOf("🔥", "⚡")
-            "magic", "magical" -> listOf("🪄", "🔮", "✨", "🎩")
-            "secret" -> listOf("🤫", "🤐", "🔒")
-            "money", "cash" -> listOf("💰", "💵", "🤑")
-            "car", "drive" -> listOf("🚗", "🚘")
-            "coffee", "tea" -> listOf("☕", "🍵")
-            "party" -> listOf("🎉", "🥳")
-            "قدم", "رجل" -> listOf("🦶", "👣", "👟")
-            "حزن", "حزين", "زعلان", "دموع" -> listOf("😢", "😭", "😞", "💔")
-            "حب", "بحبك", "قلبي" -> listOf("❤️", "😍", "🥰", "💕")
-            "فرح", "سعيد", "مبسوط" -> listOf("😃", "😊", "🎉")
-            "طعام", "اكل" -> listOf("🍕", "🍔", "🍲")
-            "كورة", "كرة" -> listOf("⚽", "🏟️")
-            "شكرا", "تسلم" -> listOf("🙏", "🌹", "❤️")
-            "تمام", "صح" -> listOf("👍", "👌", "✔️")
-            "سحر", "خدعة" -> listOf("🔮", "✨", "🪄", "🎩")
-            "تست", "اختبار" -> listOf("🧪", "📝", "🔬")
-            else -> null
+        return results.take(limit).toList()
+    }
+
+    private fun lookupSemanticEmojis(clean: String, norm: String): List<String> {
+        return when {
+            // Foot / Feet / Steps / Shoes
+            clean in listOf("foot", "feet", "toe", "step", "walk", "walking", "runner", "shoe", "shoes") ->
+                listOf("🦶", "👣", "👟", "🧦")
+            norm in listOf("قدم", "رجل", "خطوة", "ارجل", "كعب", "حذاء", "مشى", "يمشي") ->
+                listOf("🦶", "👣", "👟", "🧦")
+
+            // Food / Eating / Snacks / Cooking
+            clean in listOf("foo", "food", "eat", "eating", "eaten", "cook", "cooking", "snack", "dinner", "lunch", "meal", "pizza", "burger") ->
+                listOf("🍕", "🍔", "🍟", "🍲", "🥗")
+            norm in listOf("طعام", "اكل", "ياكل", "وجبة", "بيتزا", "برجر", "غداء", "عشاء", "طبخ") ->
+                listOf("🍕", "🍔", "🍟", "🍲", "🥗")
+
+            // Football / Soccer / Sports
+            clean in listOf("football", "soccer", "ball", "match", "game", "goal", "fifa") ->
+                listOf("⚽", "🏈", "🏟️", "🏆")
+            norm in listOf("كورة", "كرة", "قدم", "مباراة", "ملعب", "هدف", "كاس") ->
+                listOf("⚽", "🏟️", "🏆")
+
+            // Sad / Crying / Tears / Heartbreak
+            clean in listOf("sad", "sadness", "sadly", "cry", "crying", "tears", "depressed", "unhappy", "sorrow", "grief") ->
+                listOf("😢", "😭", "💔", "😞", "🥺")
+            norm in listOf("حزن", "حزين", "زعلان", "دموع", "بكى", "تعبان", "مقهور", "قلبي") ->
+                listOf("😢", "😭", "💔", "😞", "🥺")
+
+            // Happy / Joy / Smile / Laugh
+            clean in listOf("happy", "happiness", "joy", "smile", "smiling", "glad", "cheerful", "excited") ->
+                listOf("😊", "😄", "😃", "🎉", "✨")
+            norm in listOf("فرح", "سعيد", "مبسوط", "فرحان", "ضحك", "روعة", "مبتسم") ->
+                listOf("😃", "😊", "🎉", "✨")
+
+            // Love / Heart / Romantic
+            clean in listOf("love", "loving", "loved", "heart", "crush", "sweetheart", "kiss", "kisses", "romance") ->
+                listOf("❤️", "😍", "🥰", "💕", "💖", "😘")
+            norm in listOf("حب", "بحبك", "قلبي", "حبيبي", "حبيبتي", "عشقي", "غرام", "بوسة") ->
+                listOf("❤️", "😍", "🥰", "💕", "😘")
+
+            // Fire / Flame / Lit / Hot
+            clean in listOf("fire", "flame", "lit", "hot", "burn", "burning", "spicy") ->
+                listOf("🔥", "⚡", "💥")
+            norm in listOf("نار", "ولعة", "حريقة", "مولع", "شعلة") ->
+                listOf("🔥", "⚡", "💥")
+
+            // Test / Chemistry / Science / Quiz
+            clean in listOf("test", "testing", "tested", "tests", "exam", "quiz", "check", "lab") ->
+                listOf("🧪", "📝", "🔬", "✅")
+            norm in listOf("تست", "اختبار", "امتحان", "فحص", "تجربة", "معمل") ->
+                listOf("🧪", "📝", "🔬", "✅")
+
+            // Thank / Thanks / Gratitude
+            clean in listOf("thank", "thanks", "grateful", "appreciate", "blessed") ->
+                listOf("🙏", "🌹", "❤️", "✨")
+            norm in listOf("شكرا", "تسلم", "مشكور", "يسلمو", "الف شكر", "بارك الله") ->
+                listOf("🙏", "🌹", "❤️", "✨")
+
+            // Good morning / Good night
+            clean in listOf("morning", "sun", "sunrise") ->
+                listOf("☀️", "🌅", "☕")
+            clean in listOf("night", "sleep", "dream", "moon") ->
+                listOf("🌙", "⭐", "😴", "✨")
+            norm in listOf("صباح", "شمس") ->
+                listOf("☀️", "🌸", "☕")
+            norm in listOf("مساء", "ليل", "نوم", "قمر") ->
+                listOf("🌙", "✨", "🌹")
+
+            // Money / Cash / Rich
+            clean in listOf("money", "cash", "dollar", "rich", "wealth", "pay", "payment") ->
+                listOf("💰", "💵", "🤑", "💳")
+            norm in listOf("فلوس", "مصاري", "مال", "دولار", "غني") ->
+                listOf("💰", "💵", "🤑")
+
+            // Car / Driving / Vehicle
+            clean in listOf("car", "drive", "driving", "auto", "vehicle", "ride") ->
+                listOf("🚗", "🚘", "🏎️")
+            norm in listOf("عربية", "سيارة", "سواقة", "عربيات") ->
+                listOf("🚗", "🚘")
+
+            // Coffee / Tea / Drinks
+            clean in listOf("coffee", "tea", "drink", "cafe", "espresso", "latte", "cup") ->
+                listOf("☕", "🍵", "🧋", "🥤")
+            norm in listOf("قهوة", "شاي", "كافيه", "مشروب", "عصير") ->
+                listOf("☕", "🍵", "🧋")
+
+            // Party / Celebration / Birthday
+            clean in listOf("party", "celebrate", "birthday", "cheers", "festival", "dance") ->
+                listOf("🎉", "🥳", "🍾", "🎂", "🎈")
+            norm in listOf("حفلة", "عيد ميلاد", "مبروك", "تهانينا", "احتفال") ->
+                listOf("🎉", "🥳", "🎂", "🎈")
+
+            // Magic / Mystery / Trick
+            clean in listOf("magic", "magical", "trick", "wizard", "illusion", "secret") ->
+                listOf("🪄", "🔮", "✨", "🎩", "🤫")
+            norm in listOf("سحر", "خدعة", "ساحر", "سري", "خفي") ->
+                listOf("🪄", "🔮", "✨", "🎩", "🤫")
+
+            // Affirmation / OK / Yes / Done
+            clean in listOf("ok", "okay", "yes", "done", "good", "great", "nice", "perfect", "cool") ->
+                listOf("👍", "👌", "✅", "😎", "💯")
+            norm in listOf("تمام", "صح", "ماشي", "اوكي", "مضبوط", "حلو", "جميل") ->
+                listOf("👍", "👌", "✅", "💯")
+
+            // Laugh / LOL / Funny
+            clean in listOf("lol", "haha", "hahaha", "laugh", "funny", "hilarious", "joke") ->
+                listOf("😂", "🤣", "😆")
+            norm in listOf("هههه", "ههههه", "ضحك", "نكته", "مسخرة") ->
+                listOf("😂", "🤣", "😆")
+
+            else -> emptyList()
         }
-        return direct?.take(limit) ?: emptyList()
     }
 
     /**
@@ -564,36 +664,88 @@ object Dictionary {
         return false
     }
 
+    // Built-in next-word predictions (Bigrams)
+    private val builtInNextWords = mapOf(
+        "foot" to listOf("ball", "prints", "step", "wear", "and", "it", "traffic", "note"),
+        "feet" to listOf("and", "on", "off", "high", "deep", "tall"),
+        "food" to listOf("and", "is", "delivery", "store", "court", "truck", "safety"),
+        "football" to listOf("game", "match", "player", "club", "team", "season"),
+        "test" to listOf("results", "flight", "case", "drive", "tube", "run", "it", "out"),
+        "let" to listOf("us", "me", "go", "it", "know", "them", "him", "her"),
+        "let's" to listOf("go", "do", "see", "meet", "talk", "start", "get", "try", "make"),
+        "sad" to listOf("to", "that", "and", "about", "day", "news", "story"),
+        "happy" to listOf("birthday", "new", "to", "for", "day", "anniversary", "with"),
+        "love" to listOf("you", "it", "this", "my", "to", "so", "forever"),
+        "thank" to listOf("you", "God", "so", "very", "everyone", "him", "her"),
+        "thanks" to listOf("for", "a", "lot", "again", "bro", "so", "much", "man"),
+        "how" to listOf("are", "is", "about", "to", "do", "can", "was", "did"),
+        "what" to listOf("is", "are", "do", "about", "did", "happened", "time", "can"),
+        "where" to listOf("are", "is", "do", "did", "were", "can"),
+        "who" to listOf("is", "are", "was", "were", "knows", "can"),
+        "why" to listOf("not", "did", "do", "is", "are", "would"),
+        "i" to listOf("am", "have", "will", "would", "want", "think", "love", "can", "know", "need", "feel"),
+        "you" to listOf("are", "have", "can", "will", "want", "know", "think", "need", "look"),
+        "he" to listOf("is", "was", "has", "said", "will", "wants", "can"),
+        "she" to listOf("is", "was", "has", "said", "will", "wants", "can"),
+        "we" to listOf("are", "have", "can", "will", "need", "want", "should"),
+        "they" to listOf("are", "were", "have", "will", "can", "said"),
+        "it" to listOf("is", "was", "will", "would", "has", "can", "looks", "seems"),
+        "good" to listOf("morning", "night", "job", "luck", "idea", "day", "news", "time", "one", "thing"),
+        "great" to listOf("job", "work", "idea", "news", "day", "time", "to"),
+        "see" to listOf("you", "it", "what", "how", "if", "that"),
+        "have" to listOf("a", "been", "to", "you", "fun", "time", "done"),
+        "can" to listOf("you", "I", "we", "be", "do", "see", "help"),
+        "will" to listOf("be", "have", "do", "see", "call", "come"),
+        "do" to listOf("you", "not", "it", "that", "this"),
+        "my" to listOf("friend", "love", "phone", "car", "name", "life", "dear"),
+        "your" to listOf("name", "phone", "time", "help", "order", "place"),
+        "fire" to listOf("alarm", "department", "truck", "station", "hazard"),
+        // Arabic Bigrams
+        "صباح" to listOf("الخير", "الورد", "النور", "الفل", "الجمال"),
+        "مساء" to listOf("الخير", "النور", "الورد", "الفل", "الجمال"),
+        "شكرا" to listOf("جزيلا", "لك", "يا", "جدا", "كتير", "حبيبي"),
+        "الحمد" to listOf("لله", "والشكر لله"),
+        "ان" to listOf("شاء الله", "كنت", "لم", "كان"),
+        "عامل" to listOf("ايه", "اي", "تمام", "شغل"),
+        "ازيك" to listOf("يا", "عامل ايه", "اخبارك"),
+        "تمام" to listOf("جدا", "الحمد لله", "يا باشا", "كده"),
+        "انا" to listOf("تمام", "بخير", "في", "رايح", "بحبك", "عايز", "مش"),
+        "انت" to listOf("فين", "عامل ايه", "وحشني", "صح", "جميل"),
+        "هو" to listOf("فين", "كان", "قال", "رايح"),
+        "هي" to listOf("فين", "كانت", "قالت", "رايحة"),
+        "كل" to listOf("سنة وانت طيب", "يوم", "حاجة", "مرة", "واحد"),
+        "في" to listOf("البيت", "الشغل", "الطريق", "مصر", "كل مكان"),
+        "مع" to listOf("السلامة", "ألف سلامة", "بعض", "حبيبي")
+    )
+
     /**
      * Next-word prediction (Bigrams) for the given preceding word (Priority 2).
      */
     fun getNextWords(previousWord: String, isArabic: Boolean, limit: Int = 8): List<String> {
         val clean = previousWord.trim().lowercase()
         if (clean.isEmpty()) return emptyList()
+        val norm = if (isArabic) normalizeArabic(clean) else clean
 
-        val list = nextWordsMap[clean] ?: nextWordsMap[normalizeArabic(clean)]
-        if (list != null && list.isNotEmpty()) {
-            return list.take(limit)
+        val results = LinkedHashSet<String>()
+
+        // 1. High-precision contextual bigrams
+        builtInNextWords[clean]?.let { results.addAll(it) }
+        builtInNextWords[norm]?.let { results.addAll(it) }
+
+        // 2. Ingested bigram map from assets
+        nextWordsMap[clean]?.let { results.addAll(it) }
+        nextWordsMap[norm]?.let { results.addAll(it) }
+
+        // 3. Defaults
+        if (results.isEmpty()) {
+            if (isArabic) {
+                results.addAll(listOf("في", "من", "على", "يا", "تمام", "جدا", "كتير", "معاك", "إن شاء الله", "الحمد لله"))
+            } else {
+                results.addAll(listOf("and", "it", "the", "to", "is", "for", "you", "in", "with", "that"))
+            }
         }
 
-        // Context-aware defaults
-        return when (clean) {
-            "foot" -> listOf("ball", "prints", "step", "wear", "and", "it", "note", "traffic")
-            "test" -> listOf("results", "flight", "case", "drive", "tube", "run", "it", "out")
-            "let" -> listOf("us", "me", "go", "it", "know", "them", "him", "her")
-            "let's" -> listOf("go", "do", "see", "meet", "talk", "start", "get", "try")
-            "sad" -> listOf("to", "that", "and", "about", "day", "news")
-            "food" -> listOf("and", "is", "delivery", "store", "truck", "safety")
-            "thank" -> listOf("you", "God", "everyone", "him", "her")
-            "thanks" -> listOf("for", "a", "lot", "again", "bro", "so", "much")
-            else -> {
-                if (isArabic) {
-                    listOf("يا", "في", "من", "على", "جدا", "تمام", "إن شاء الله", "الحمد لله").take(limit)
-                } else {
-                    listOf("and", "it", "the", "to", "is", "for", "you", "in").take(limit)
-                }
-            }
-        }.take(limit)
+        return results.take(limit).toList()
     }
 
     /**
@@ -671,17 +823,53 @@ object Dictionary {
     }
 
     /**
+     * Built-in fallback word completions for essential terms so suggestions work instantaneously.
+     */
+    private val builtInEnglishWords = listOf(
+        "food", "football", "foot", "footage", "footprint", "footwear", "fool", "foolish",
+        "help", "helpful", "helping", "helped", "hello", "helicopter", "helmet",
+        "happy", "happiness", "happily", "happened", "happening",
+        "love", "lovely", "loving", "loved", "lover",
+        "sad", "sadness", "sadly",
+        "test", "testing", "tested", "tests", "tester", "testimony",
+        "let", "let's", "lets", "letter", "letters", "letting",
+        "good", "goodbye", "goodness", "goods",
+        "thank", "thanks", "thankful", "thanking", "thanked",
+        "fire", "firewall", "fireman", "fireworks", "firefox",
+        "magic", "magical", "magician",
+        "secret", "secretary", "secrets", "secretly",
+        "apple", "apply", "application", "applied", "app",
+        "water", "watch", "watching", "watched",
+        "people", "person", "personal", "personality",
+        "time", "timer", "times", "timeline"
+    )
+
+    private val builtInArabicWords = listOf(
+        "كتاب", "كتابة", "كتابي", "كتب", "كاتب", "مكتوب", "كتائب",
+        "طعام", "اكل", "وجبة", "مطعم", "اطعمة",
+        "كورة", "كرة", "قدم", "مباراة", "ملعب", "اهداف",
+        "قدم", "اقدام", "قديم", "قدام",
+        "فرح", "فرحان", "فرحانة", "افراح", "سعيد", "سعادة",
+        "حزن", "حزين", "حزينة", "احزان", "زعلان",
+        "حب", "حبيبي", "حبيبتي", "بحبك", "محبة",
+        "شكرا", "شاكر", "مشكور", "تسلم", "يسلمو",
+        "صباح", "صباح الخير", "صباح الورد", "صباح النور",
+        "مساء", "مساء الخير", "مساء النور",
+        "الحمد", "الحمد لله", "إن", "إن شاء الله", "تمام", "مرحبا"
+    )
+
+    /**
      * Primary Suggestion Pipeline implementing the 4 prioritized requirements:
      *
      * 1. Priority 1 (While typing word):
      *    - Word completions starting with typed prefix (e.g. "foo" -> "food", "football", "foot", "footage")
      *    - Direct contraction replacement (e.g. "lets" -> "let's", "dont" -> "don't")
      *    - Morphological extensions (e.g. "test" -> "testing", "tested", "tests")
-     *    - Contextual emoji chips for typed word (e.g. "sad" -> 😢, 😭)
+     *    - Contextual emoji chips interleaved prominently (e.g. "foo" -> 🍕, 🦶; "sad" -> 😢, 😭)
      *
      * 2. Priority 2 (After space):
-     *    - Next-word predictions for previous word (e.g. "foot " -> "and", "it", "prints", "ball")
-     *    - Contextual emojis for previous word (e.g. "foot " -> 🦶, 👣)
+     *    - Next-word predictions for previous word (e.g. "foot " -> "ball", "prints", "step", "wear")
+     *    - Contextual emojis for previous word (e.g. "foot " -> 🦶, 👣, 👟)
      *
      * 3. Priority 3 (Typo & Misspelling correction):
      *    - If typed word is not in dictionary (e.g. "fot"), highlight top correction "foot"
@@ -702,35 +890,36 @@ object Dictionary {
         if (prefix.isNotEmpty()) {
             val query = if (isArabic) normalizeArabic(prefix) else prefix.lowercase()
 
+            val wordCompletions = mutableListOf<SuggestionItem>()
+            val emojiCompletions = mutableListOf<String>()
+
             // --- PRIORITY 4: Check Contractions ("lets" -> "let's", "dont" -> "don't", "im" -> "I'm") ---
             val contractionMatch = contractionsMap[query]
-            if (contractionMatch != null) {
-                result.add(SuggestionItem(text = contractionMatch, isEmoji = false, isPrimary = true, isCorrection = true))
-                seenWords.add(contractionMatch.lowercase())
+            if (contractionMatch != null && seenWords.add(contractionMatch.lowercase())) {
+                wordCompletions.add(SuggestionItem(text = contractionMatch, isEmoji = false, isPrimary = true, isCorrection = true))
             }
 
-            // --- PRIORITY 3: Check Typo / Spelling Correction if word looks misspelled (e.g. "fot" -> "foot") ---
+            // --- PRIORITY 3: Check Typo / Spelling Correction if word is misspelled (e.g. "fot" -> "foot") ---
             val isKnown = isKnownWord(prefix, isArabic)
-            var typoCorrections = emptyList<String>()
-            if (!isKnown && prefix.length >= 2) {
-                typoCorrections = getTypoCorrections(prefix, isArabic, limit = 4)
-                if (typoCorrections.isNotEmpty()) {
-                    val bestFix = typoCorrections.first()
-                    if (seenWords.add(bestFix.lowercase())) {
-                        result.add(SuggestionItem(text = bestFix, isEmoji = false, isPrimary = true, isCorrection = true))
-                    }
+            val typoCorrections = if (!isKnown && prefix.length >= 2) {
+                getTypoCorrections(prefix, isArabic, limit = 4)
+            } else emptyList()
+
+            if (typoCorrections.isNotEmpty()) {
+                val bestFix = typoCorrections.first()
+                if (seenWords.add(bestFix.lowercase())) {
+                    wordCompletions.add(SuggestionItem(text = bestFix, isEmoji = false, isPrimary = true, isCorrection = true))
                 }
             }
 
             // --- PRIORITY 1: Word Completions starting with prefix ("foo" -> "food", "football", "foot", "footage") ---
-            // 1a. Direct prefix matches from dictionary sorted by frequency rank
             if (isLoaded) {
                 val keys = if (isArabic) arKeys else enKeys
                 val entries = if (isArabic) arEntries else enEntries
 
                 val startIdx = binarySearchStart(keys, query)
                 val candidates = mutableListOf<Entry>()
-                val maxScan = 2500
+                val maxScan = 3000
                 var scanned = 0
                 var idx = startIdx
 
@@ -747,96 +936,153 @@ object Dictionary {
 
                 // Rank by frequency rank first, then length
                 candidates.sortWith(
-                    compareBy<Entry> { it.rank }
-                        .thenBy { it.word.length }
+                    compareBy<Entry> {
+                        if (it.key == query) 0 else 1
+                    }.thenBy { it.rank }
+                     .thenBy { it.word.length }
                 )
 
                 for (cand in candidates) {
                     if (seenWords.add(cand.key)) {
-                        val isFirstMatch = result.isEmpty()
-                        result.add(SuggestionItem(text = cand.word, isEmoji = false, isPrimary = isFirstMatch))
-                        if (result.size >= limit) return result
+                        val isFirstMatch = wordCompletions.isEmpty()
+                        wordCompletions.add(SuggestionItem(text = cand.word, isEmoji = false, isPrimary = isFirstMatch))
                     }
                 }
             }
 
-            // 1b. Morphological extensions of typed word (e.g., "test" -> "testing", "tested", "tests", "tester")
+            // Built-in core terms completion
+            val builtInList = if (isArabic) builtInArabicWords else builtInEnglishWords
+            for (w in builtInList) {
+                val normW = if (isArabic) normalizeArabic(w) else w.lowercase()
+                if (normW.startsWith(query) && seenWords.add(normW)) {
+                    val isFirstMatch = wordCompletions.isEmpty()
+                    wordCompletions.add(SuggestionItem(text = w, isEmoji = false, isPrimary = isFirstMatch))
+                }
+            }
+
+            // Morphological extensions of typed word (e.g., "test" -> "testing", "tested", "tests", "tester")
             val morphForms = getMorphologicalForms(prefix, isArabic)
             for (form in morphForms) {
                 val formKey = if (isArabic) normalizeArabic(form) else form.lowercase()
                 if (seenWords.add(formKey)) {
-                    result.add(SuggestionItem(text = form, isEmoji = false))
+                    wordCompletions.add(SuggestionItem(text = form, isEmoji = false))
                 }
             }
 
-            // 1c. Add other typo candidates if any
+            // Other typo fixes
             for (fix in typoCorrections) {
                 val fixKey = if (isArabic) normalizeArabic(fix) else fix.lowercase()
                 if (seenWords.add(fixKey)) {
-                    result.add(SuggestionItem(text = fix, isEmoji = false, isCorrection = true))
+                    wordCompletions.add(SuggestionItem(text = fix, isEmoji = false, isCorrection = true))
                 }
             }
 
-            // 1d. Contextual Emojis for typed word (e.g., "sad" -> 😢, 😭; "foot" -> 🦶, 👣; "food" -> 🍕, 🍔)
-            val emojis = getEmojisForWord(prefix, limit = 3)
-            for (em in emojis) {
+            // Contextual Emojis for prefix AND top completion candidate
+            val prefixEmojis = getEmojisForWord(prefix, limit = 4)
+            emojiCompletions.addAll(prefixEmojis)
+            if (wordCompletions.isNotEmpty()) {
+                val topWord = wordCompletions.first().text
+                val topEmojis = getEmojisForWord(topWord, limit = 4)
+                emojiCompletions.addAll(topEmojis)
+            }
+
+            // Interleave: Top 2 words -> Top 1-2 emojis -> Next 2 words -> Next emojis -> Remaining words
+            var wordIdx = 0
+            var emojiIdx = 0
+
+            // 1. Top 2 words
+            while (wordIdx < wordCompletions.size && wordIdx < 2) {
+                result.add(wordCompletions[wordIdx++])
+            }
+            // 2. Top 1-2 Emojis (Immediately visible on top bar!)
+            while (emojiIdx < emojiCompletions.size && emojiIdx < 2) {
+                val em = emojiCompletions[emojiIdx++]
                 if (seenEmojis.add(em)) {
                     result.add(SuggestionItem(text = em, isEmoji = true))
                 }
             }
-
-            // 1e. Recent user words boost
-            synchronized(recentUserWords) {
-                for (w in recentUserWords) {
-                    val normW = if (isArabic) normalizeArabic(w) else w.lowercase()
-                    if (normW.startsWith(query) && seenWords.add(normW)) {
-                        result.add(SuggestionItem(text = w, isEmoji = false))
-                    }
+            // 3. Next 2 words
+            val targetWords = wordIdx + 2
+            while (wordIdx < wordCompletions.size && wordIdx < targetWords) {
+                result.add(wordCompletions[wordIdx++])
+            }
+            // 4. Next emojis
+            while (emojiIdx < emojiCompletions.size && emojiIdx < 4) {
+                val em = emojiCompletions[emojiIdx++]
+                if (seenEmojis.add(em)) {
+                    result.add(SuggestionItem(text = em, isEmoji = true))
                 }
             }
+            // 5. Remaining words
+            while (wordIdx < wordCompletions.size && result.size < limit) {
+                result.add(wordCompletions[wordIdx++])
+            }
 
-            // 1f. Exact typed word chip as fallback if not present
+            // Fallback exact typed word if not present
             if (result.none { it.text.equals(prefix, ignoreCase = true) }) {
                 result.add(SuggestionItem(text = prefix, isEmoji = false))
             }
 
         } else if (previousWord.isNotBlank()) {
-            // --- PRIORITY 2: Next-Word Predictions & Emojis after space (e.g., "foot " -> "and", "it", "prints", "ball", "🦶", "👣") ---
+            // --- PRIORITY 2: Next-Word Predictions & Emojis after space (e.g., "foot " -> "ball", "prints", "step", "🦶", "👣") ---
             val prevClean = previousWord.trim()
 
-            // 2a. Next-Word predictions following the committed word
             val nextWords = getNextWords(prevClean, isArabic, limit = 8)
-            for (nw in nextWords) {
+            val emojis = getEmojisForWord(prevClean, limit = 4)
+
+            var nwIdx = 0
+            var emIdx = 0
+
+            // 1. Top 2 Next words
+            while (nwIdx < nextWords.size && nwIdx < 2) {
+                val nw = nextWords[nwIdx++]
                 val nwKey = if (isArabic) normalizeArabic(nw) else nw.lowercase()
                 if (seenWords.add(nwKey)) {
-                    val isFirst = result.isEmpty()
-                    result.add(SuggestionItem(text = nw, isEmoji = false, isNextWord = true, isPrimary = isFirst))
+                    result.add(SuggestionItem(text = nw, isEmoji = false, isNextWord = true, isPrimary = result.isEmpty()))
                 }
             }
 
-            // 2b. Contextual Emojis for the committed word
-            val emojis = getEmojisForWord(prevClean, limit = 4)
-            for (em in emojis) {
+            // 2. Top 1-2 Contextual Emojis for previous word (Immediately visible on top bar!)
+            while (emIdx < emojis.size && emIdx < 2) {
+                val em = emojis[emIdx++]
                 if (seenEmojis.add(em)) {
                     result.add(SuggestionItem(text = em, isEmoji = true))
                 }
             }
 
-            // 2c. Morphological derivations of previous word
-            val morphForms = getMorphologicalForms(prevClean, isArabic)
-            for (form in morphForms) {
-                val formKey = if (isArabic) normalizeArabic(form) else form.lowercase()
-                if (seenWords.add(formKey)) {
-                    result.add(SuggestionItem(text = form, isEmoji = false))
+            // 3. Next 2 words
+            val targetNw = nwIdx + 2
+            while (nwIdx < nextWords.size && nwIdx < targetNw) {
+                val nw = nextWords[nwIdx++]
+                val nwKey = if (isArabic) normalizeArabic(nw) else nw.lowercase()
+                if (seenWords.add(nwKey)) {
+                    result.add(SuggestionItem(text = nw, isEmoji = false, isNextWord = true))
                 }
             }
 
-            // 2d. Common conversational next words
-            val fallback = topWords(isArabic, limit = 6)
-            for (fw in fallback) {
-                val fwKey = if (isArabic) normalizeArabic(fw) else fw.lowercase()
-                if (seenWords.add(fwKey)) {
-                    result.add(SuggestionItem(text = fw, isEmoji = false, isNextWord = true))
+            // 4. Next emojis
+            while (emIdx < emojis.size && emIdx < 4) {
+                val em = emojis[emIdx++]
+                if (seenEmojis.add(em)) {
+                    result.add(SuggestionItem(text = em, isEmoji = true))
+                }
+            }
+
+            // 5. Remaining next words
+            while (nwIdx < nextWords.size && result.size < limit) {
+                val nw = nextWords[nwIdx++]
+                val nwKey = if (isArabic) normalizeArabic(nw) else nw.lowercase()
+                if (seenWords.add(nwKey)) {
+                    result.add(SuggestionItem(text = nw, isEmoji = false, isNextWord = true))
+                }
+            }
+
+            // Morphological derivations of previous word
+            val morphForms = getMorphologicalForms(prevClean, isArabic)
+            for (form in morphForms) {
+                val formKey = if (isArabic) normalizeArabic(form) else form.lowercase()
+                if (seenWords.add(formKey) && result.size < limit) {
+                    result.add(SuggestionItem(text = form, isEmoji = false))
                 }
             }
 
