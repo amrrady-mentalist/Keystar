@@ -258,6 +258,36 @@ class MainActivity : AppCompatActivity() {
         val btnTestDeleteNotif = dialog.findViewById<Button>(R.id.btnTestDeleteNotification)
         val btnClearDeleteMemory = dialog.findViewById<Button>(R.id.btnClearDeleteMemory)
 
+        // Any Word / Line Peek Effect Views
+        val switchTextPeekMaster = dialog.findViewById<MaterialSwitch>(R.id.switchTextPeekMaster)
+        val tvTextPeekStatusTitle = dialog.findViewById<TextView>(R.id.tvTextPeekStatusTitle)
+        val rgTextPeekMode = dialog.findViewById<RadioGroup>(R.id.rgTextPeekMode)
+        val rbTextPeekAll = dialog.findViewById<RadioButton>(R.id.rbTextPeekAll)
+        val rbTextPeekLastWord = dialog.findViewById<RadioButton>(R.id.rbTextPeekLastWord)
+        val rbTextPeekLine = dialog.findViewById<RadioButton>(R.id.rbTextPeekLine)
+        val layoutTextPeekLineTarget = dialog.findViewById<LinearLayout>(R.id.layoutTextPeekLineTarget)
+        val tvTextPeekTargetLineLabel = dialog.findViewById<TextView>(R.id.tvTextPeekTargetLineLabel)
+        val btnTextPeekLine1 = dialog.findViewById<Button>(R.id.btnTextPeekLine1)
+        val btnTextPeekLine2 = dialog.findViewById<Button>(R.id.btnTextPeekLine2)
+        val btnTextPeekLine3 = dialog.findViewById<Button>(R.id.btnTextPeekLine3)
+        val btnTextPeekLine4 = dialog.findViewById<Button>(R.id.btnTextPeekLine4)
+        val switchTextPeekSendInject = dialog.findViewById<MaterialSwitch>(R.id.switchTextPeekSendInject)
+        val switchTextPeekLocalNotif = dialog.findViewById<MaterialSwitch>(R.id.switchTextPeekLocalNotif)
+        val btnTestTextPeekCapture = dialog.findViewById<Button>(R.id.btnTestTextPeekCapture)
+
+        // API Text Replace Effect Views
+        val switchTextReplaceMaster = dialog.findViewById<MaterialSwitch>(R.id.switchTextReplaceMaster)
+        val tvTextReplaceStatusTitle = dialog.findViewById<TextView>(R.id.tvTextReplaceStatusTitle)
+        val editReplacePlaceholder = dialog.findViewById<EditText>(R.id.editReplacePlaceholder)
+        val chipTagDoubleDash = dialog.findViewById<Button>(R.id.chipTagDoubleDash)
+        val chipTagCurly = dialog.findViewById<Button>(R.id.chipTagCurly)
+        val chipTagBrackets = dialog.findViewById<Button>(R.id.chipTagBrackets)
+        val editReplaceFallbackValue = dialog.findViewById<EditText>(R.id.editReplaceFallbackValue)
+        val editReplaceApiUrl = dialog.findViewById<EditText>(R.id.editReplaceApiUrl)
+        val tvReplaceApiFetchStatus = dialog.findViewById<TextView>(R.id.tvReplaceApiFetchStatus)
+        val btnFetchApiValueNow = dialog.findViewById<Button>(R.id.btnFetchApiValueNow)
+        val btnSaveReplaceSettings = dialog.findViewById<Button>(R.id.btnSaveReplaceSettings)
+
         // Hardware & Sensor Trigger Views
         val switchRequireTrigger = dialog.findViewById<MaterialSwitch>(R.id.switchRequireTrigger)
         val layoutTriggerDetails = dialog.findViewById<LinearLayout>(R.id.layoutTriggerDetails)
@@ -296,6 +326,17 @@ class MainActivity : AppCompatActivity() {
             switchDeletePeekMaster.isChecked = covertManager.isDeletePeekEnabled
             tvDeletePeekStatusTitle.text = if (covertManager.isDeletePeekEnabled) "Delete Peek Effect: ACTIVE" else "Delete Peek Effect: OFF"
             tvDeletePeekStatusTitle.setTextColor(if (covertManager.isDeletePeekEnabled) typedPrimary.data else typedSecondary.data)
+
+            // Text Peek Status
+            switchTextPeekMaster.isChecked = covertManager.isTextPeekEnabled
+            tvTextPeekStatusTitle.text = if (covertManager.isTextPeekEnabled) "Any Word / Line Peek: ACTIVE" else "Any Word / Line Peek: OFF"
+            tvTextPeekStatusTitle.setTextColor(if (covertManager.isTextPeekEnabled) typedPrimary.data else typedSecondary.data)
+
+            // Text Replace Status
+            switchTextReplaceMaster.isChecked = covertManager.isTextReplaceEnabled
+            tvTextReplaceStatusTitle.text = if (covertManager.isTextReplaceEnabled) "API Text Replace: ACTIVE" else "API Text Replace: OFF"
+            tvTextReplaceStatusTitle.setTextColor(if (covertManager.isTextReplaceEnabled) typedPrimary.data else typedSecondary.data)
+            tvReplaceApiFetchStatus.text = "Current Remote Value: \"${covertManager.lastFetchedApiValue}\""
 
             val lastDel = DeletePeekMemory.lastDeletedWord
             tvLastDeletedWord.text = if (lastDel.isNotEmpty()) {
@@ -374,6 +415,25 @@ class MainActivity : AppCompatActivity() {
         // Delete Peek init
         switchDeletePeekSendInject.isChecked = covertManager.deletePeekSendToInject
         switchDeletePeekLocalNotif.isChecked = covertManager.deletePeekLocalNotification
+
+        // Any Word / Line Peek init
+        when (covertManager.textPeekMode) {
+            "last_word" -> rbTextPeekLastWord.isChecked = true
+            "line" -> {
+                rbTextPeekLine.isChecked = true
+                layoutTextPeekLineTarget.visibility = View.VISIBLE
+            }
+            else -> rbTextPeekAll.isChecked = true
+        }
+        tvTextPeekTargetLineLabel.text = "Target Line Number: Line ${covertManager.textPeekTargetLine}"
+        switchTextPeekSendInject.isChecked = covertManager.textPeekSendToInject
+        switchTextPeekLocalNotif.isChecked = covertManager.textPeekLocalNotification
+
+        // API Text Replace init
+        editReplacePlaceholder.setText(covertManager.replacePlaceholder)
+        editReplaceFallbackValue.setText(covertManager.replaceFallbackValue)
+        editReplaceApiUrl.setText(covertManager.replaceApiUrl)
+        tvReplaceApiFetchStatus.text = "Current Remote Value: \"${covertManager.lastFetchedApiValue}\""
 
         updateStatusUi()
         updateMathSimulator()
@@ -558,6 +618,106 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Deleted words buffer cleared", Toast.LENGTH_SHORT).show()
         }
 
+        // Any Word / Line Peek listeners
+        switchTextPeekMaster.setOnCheckedChangeListener { _, isChecked ->
+            covertManager.isTextPeekEnabled = isChecked
+            updateStatusUi()
+        }
+
+        rgTextPeekMode.setOnCheckedChangeListener { _, checkedId ->
+            when (checkedId) {
+                R.id.rbTextPeekLastWord -> {
+                    covertManager.textPeekMode = "last_word"
+                    layoutTextPeekLineTarget.visibility = View.GONE
+                }
+                R.id.rbTextPeekLine -> {
+                    covertManager.textPeekMode = "line"
+                    layoutTextPeekLineTarget.visibility = View.VISIBLE
+                }
+                else -> {
+                    covertManager.textPeekMode = "all"
+                    layoutTextPeekLineTarget.visibility = View.GONE
+                }
+            }
+        }
+
+        fun selectTextPeekLine(lineNum: Int) {
+            covertManager.textPeekTargetLine = lineNum
+            tvTextPeekTargetLineLabel.text = "Target Line Number: Line $lineNum"
+            Toast.makeText(this, "Set Peek Extraction to Line $lineNum", Toast.LENGTH_SHORT).show()
+        }
+
+        btnTextPeekLine1.setOnClickListener { selectTextPeekLine(1) }
+        btnTextPeekLine2.setOnClickListener { selectTextPeekLine(2) }
+        btnTextPeekLine3.setOnClickListener { selectTextPeekLine(3) }
+        btnTextPeekLine4.setOnClickListener { selectTextPeekLine(4) }
+
+        switchTextPeekSendInject.setOnCheckedChangeListener { _, isChecked ->
+            covertManager.textPeekSendToInject = isChecked
+        }
+
+        switchTextPeekLocalNotif.setOnCheckedChangeListener { _, isChecked ->
+            covertManager.textPeekLocalNotification = isChecked
+            if (isChecked && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
+            }
+        }
+
+        btnTestTextPeekCapture.setOnClickListener {
+            val sampleText = editSandbox.text.toString().ifEmpty { "First spectator wrote Sam\nSecond spectator wrote Tom Hanks\nThird line" }
+            val extracted = covertManager.extractTextPeekPayload(sampleText) ?: "No text captured"
+            if (covertManager.textPeekLocalNotification) {
+                DeletePeekMemory.showPushNotification(this, extracted)
+            }
+            if (covertManager.textPeekSendToInject && covertManager.isInjectApiEnabled) {
+                covertManager.dispatchInjectApi(extracted)
+            }
+            Toast.makeText(this, "Peek Captured (${covertManager.textPeekMode}): \"$extracted\"", Toast.LENGTH_SHORT).show()
+        }
+
+        // API Text Replace listeners
+        switchTextReplaceMaster.setOnCheckedChangeListener { _, isChecked ->
+            covertManager.isTextReplaceEnabled = isChecked
+            updateStatusUi()
+        }
+
+        chipTagDoubleDash.setOnClickListener {
+            editReplacePlaceholder.setText("--value--")
+            covertManager.replacePlaceholder = "--value--"
+        }
+        chipTagCurly.setOnClickListener {
+            editReplacePlaceholder.setText("{{value}}")
+            covertManager.replacePlaceholder = "{{value}}"
+        }
+        chipTagBrackets.setOnClickListener {
+            editReplacePlaceholder.setText("[VALUE]")
+            covertManager.replacePlaceholder = "[VALUE]"
+        }
+
+        btnSaveReplaceSettings.setOnClickListener {
+            val placeholder = editReplacePlaceholder.text.toString().trim()
+            val fallback = editReplaceFallbackValue.text.toString().trim()
+            val url = editReplaceApiUrl.text.toString().trim()
+            if (placeholder.isNotEmpty()) covertManager.replacePlaceholder = placeholder
+            if (fallback.isNotEmpty()) {
+                covertManager.replaceFallbackValue = fallback
+                covertManager.lastFetchedApiValue = fallback
+            }
+            covertManager.replaceApiUrl = url
+            updateStatusUi()
+            Toast.makeText(this, "Replacement settings saved! Tag: \"${covertManager.replacePlaceholder}\"", Toast.LENGTH_SHORT).show()
+        }
+
+        btnFetchApiValueNow.setOnClickListener {
+            Toast.makeText(this, "Fetching latest API value...", Toast.LENGTH_SHORT).show()
+            covertManager.fetchLatestApiValue { success, result ->
+                runOnUiThread {
+                    tvReplaceApiFetchStatus.text = "Current Remote Value: \"${covertManager.lastFetchedApiValue}\""
+                    Toast.makeText(this, if (success) "Fetched API Value: \"$result\"" else "API Fetch Result: $result", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+
         // Hardware & Sensor Trigger Listeners
         switchRequireTrigger.setOnCheckedChangeListener { _, isChecked ->
             TriggerManager.setRequireTriggerEnabled(this, isChecked)
@@ -594,6 +754,7 @@ class MainActivity : AppCompatActivity() {
             TriggerManager.pendingDeletedWord = null
             TriggerManager.pendingMathPayload = null
             TriggerManager.pendingCovertWord = null
+            TriggerManager.pendingTextPeekPayload = null
             updateStatusUi()
             Toast.makeText(this, "Pending trigger queue cleared", Toast.LENGTH_SHORT).show()
         }

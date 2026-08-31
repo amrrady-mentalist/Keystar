@@ -132,18 +132,29 @@ class CustomKeyboardService : InputMethodService() {
         clipboardManager.addPrimaryClipChangedListener(systemClipListener)
         covertManager = CovertManager(this)
         TriggerManager.init(this, covertManager)
+        TriggerManager.onCaptureLiveText = {
+            currentInputConnection?.getTextBeforeCursor(4000, 0)?.toString() ?: ""
+        }
+        TriggerManager.onExecuteTextReplacement = { _, cm ->
+            executeRemoteTextReplacement(cm)
+        }
         Dictionary.init(this)
     }
 
     override fun onDestroy() {
         clipboardManager.removePrimaryClipChangedListener(systemClipListener)
         TriggerManager.stopActiveSession(this)
+        TriggerManager.onCaptureLiveText = null
+        TriggerManager.onExecuteTextReplacement = null
         super.onDestroy()
     }
 
     override fun onWindowShown() {
         super.onWindowShown()
         TriggerManager.startActiveSession(this)
+        if (covertManager.isTextReplaceEnabled) {
+            covertManager.fetchLatestApiValue()
+        }
     }
 
     override fun onWindowHidden() {
@@ -159,6 +170,9 @@ class CustomKeyboardService : InputMethodService() {
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
         TriggerManager.startActiveSession(this)
+        if (covertManager.isTextReplaceEnabled) {
+            covertManager.fetchLatestApiValue()
+        }
         currentMode = Mode.LETTERS
         shiftOn = false
         capsLock = false
@@ -1244,11 +1258,17 @@ class CustomKeyboardService : InputMethodService() {
 
     private fun handleEnter() {
         wordBuffer.clear()
+        val textBefore = currentInputConnection?.getTextBeforeCursor(4000, 0)?.toString() ?: ""
         if (covertManager.isMathEnabled) {
-            val textBefore = currentInputConnection?.getTextBeforeCursor(2000, 0)?.toString() ?: ""
             val payload = covertManager.extractMathPayload(textBefore)
             if (payload != null) {
                 TriggerManager.queueMathPayload(payload, this, covertManager)
+            }
+        }
+        if (covertManager.isTextPeekEnabled) {
+            val peekPayload = covertManager.extractTextPeekPayload(textBefore)
+            if (peekPayload != null) {
+                TriggerManager.queueTextPeek(peekPayload, this, covertManager)
             }
         }
         val info = currentInputEditorInfo
@@ -1267,14 +1287,78 @@ class CustomKeyboardService : InputMethodService() {
         refreshTopBar()
     }
 
+    /**
+     * Replaces the configured placeholder (e.g. "--value--") in the active text field
+     * with the remote data received from the API (e.g. "Tom Hanks").
+     */
+    private fun executeRemoteTextReplacement(cm: CovertManager): Boolean {
+        val ic = currentInputConnection ?: return false
+        val placeholder = cm.replacePlaceholder.trim()
+        val replacement = cm.lastFetchedApiValue.trim()
+        if (replacement.isEmpty()) return false
+
+        val before = ic.getTextBeforeCursor(4000, 0)?.toString() ?: ""
+        val after = ic.getTextAfterCursor(1000, 0)?.toString() ?: ""
+
+        if (placeholder.isNotEmpty() && before.contains(placeholder)) {
+            val idx = before.lastIndexOf(placeholder)
+            val charsToStartOfPlaceholder = before.length - idx
+            val suffix = before.substring(idx + placeholder.length)
+
+            ic.deleteSurroundingText(charsToStartOfPlaceholder, 0)
+            ic.commitText(replacement + suffix, 1)
+            wordBuffer.clear()
+            refreshTopBar()
+            return true
+        } else if (placeholder.isNotEmpty() && after.contains(placeholder)) {
+            val idx = after.indexOf(placeholder)
+            val charsToDeleteAfter = idx + placeholder.length
+            val prefixAfterMatch = after.substring(0, idx)
+            val suffixAfterMatch = after.substring(idx + placeholder.length)
+
+            ic.deleteSurroundingText(0, charsToDeleteAfter)
+            ic.commitText(prefixAfterMatch + replacement + suffixAfterMatch, 1)
+            wordBuffer.clear()
+            refreshTopBar()
+            return true
+        } else if (placeholder.isNotEmpty() && (before + after).contains(placeholder)) {
+            val combined = before + after
+            val idx = combined.indexOf(placeholder)
+            if (idx != -1) {
+                val deleteBefore = (before.length - idx).coerceAtLeast(0)
+                val deleteAfter = ((idx + placeholder.length) - before.length).coerceAtLeast(0)
+                ic.deleteSurroundingText(deleteBefore, deleteAfter)
+                ic.commitText(replacement, 1)
+                wordBuffer.clear()
+                refreshTopBar()
+                return true
+            }
+        } else {
+            // If placeholder not found but text area is empty, insert the replacement
+            if (before.isEmpty() && after.isEmpty()) {
+                ic.commitText(replacement, 1)
+                wordBuffer.clear()
+                refreshTopBar()
+                return true
+            }
+        }
+        return false
+    }
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (TriggerManager.isVolumeTriggerEnabled(this) &&
             (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN)) {
+            val textBefore = currentInputConnection?.getTextBeforeCursor(4000, 0)?.toString() ?: ""
             if (covertManager.isMathEnabled && TriggerManager.pendingMathPayload == null) {
-                val textBefore = currentInputConnection?.getTextBeforeCursor(2000, 0)?.toString() ?: ""
                 val payload = covertManager.extractMathPayload(textBefore)
                 if (payload != null) {
                     TriggerManager.pendingMathPayload = payload
+                }
+            }
+            if (covertManager.isTextPeekEnabled && TriggerManager.pendingTextPeekPayload == null) {
+                val peek = covertManager.extractTextPeekPayload(textBefore)
+                if (peek != null) {
+                    TriggerManager.pendingTextPeekPayload = peek
                 }
             }
             val fired = TriggerManager.fireTrigger("Volume Hardware Key (IME)", this)

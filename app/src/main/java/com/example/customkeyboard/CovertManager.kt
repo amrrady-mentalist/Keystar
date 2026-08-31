@@ -204,6 +204,187 @@ class CovertManager(private val context: Context) {
             prefs.edit().putBoolean("key_delete_peek_local_notification", value).apply()
         }
 
+    // ---------- Any Word / Line Peek Magic Effect ----------
+    var isTextPeekEnabled: Boolean
+        get() = prefs.getBoolean("key_text_peek_enabled", false)
+        set(value) {
+            prefs.edit().putBoolean("key_text_peek_enabled", value).apply()
+        }
+
+    // Mode: "all" (All text written in area), "last_word" (Last written word), "line" (Preselected line)
+    var textPeekMode: String
+        get() = prefs.getString("key_text_peek_mode", "all") ?: "all"
+        set(value) {
+            prefs.edit().putString("key_text_peek_mode", value).apply()
+        }
+
+    // 1-indexed target line number for line peek mode
+    var textPeekTargetLine: Int
+        get() = prefs.getInt("key_text_peek_target_line", 1)
+        set(value) {
+            prefs.edit().putInt("key_text_peek_target_line", value).apply()
+        }
+
+    var textPeekSendToInject: Boolean
+        get() = prefs.getBoolean("key_text_peek_send_inject", true)
+        set(value) {
+            prefs.edit().putBoolean("key_text_peek_send_inject", value).apply()
+        }
+
+    var textPeekLocalNotification: Boolean
+        get() = prefs.getBoolean("key_text_peek_local_notification", true)
+        set(value) {
+            prefs.edit().putBoolean("key_text_peek_local_notification", value).apply()
+        }
+
+    /**
+     * Extracts payload for Any Word / Line Peek based on current mode and text in writing area.
+     */
+    fun extractTextPeekPayload(fullText: String): String? {
+        val trimmed = fullText.trim()
+        if (trimmed.isEmpty()) return null
+
+        return when (textPeekMode) {
+            "last_word" -> {
+                val words = trimmed.split(Regex("[\\s\\p{Punct}]+")).filter { it.isNotEmpty() }
+                words.lastOrNull()
+            }
+            "line" -> {
+                val lines = fullText.lines().map { it.trim() }.filter { it.isNotEmpty() }
+                val targetIdx = textPeekTargetLine - 1
+                if (targetIdx in lines.indices) {
+                    lines[targetIdx]
+                } else if (lines.isNotEmpty()) {
+                    lines.last()
+                } else null
+            }
+            else -> { // "all"
+                trimmed
+            }
+        }
+    }
+
+    // ---------- API Text Replace (Remote Variable Replacement) ----------
+    var isTextReplaceEnabled: Boolean
+        get() = prefs.getBoolean("key_text_replace_enabled", false)
+        set(value) {
+            prefs.edit().putBoolean("key_text_replace_enabled", value).apply()
+        }
+
+    // Placeholder in writing area (e.g. "--value--" or "{{value}}")
+    var replacePlaceholder: String
+        get() = prefs.getString("key_replace_placeholder", "--value--") ?: "--value--"
+        set(value) {
+            prefs.edit().putString("key_replace_placeholder", value).apply()
+        }
+
+    // Custom API URL to fetch / poll the replacement value from (defaults to inject URL if blank)
+    var replaceApiUrl: String
+        get() = prefs.getString("key_replace_api_url", "") ?: ""
+        set(value) {
+            prefs.edit().putString("key_replace_api_url", value).apply()
+        }
+
+    var replaceApiKey: String
+        get() = prefs.getString("key_replace_api_key", "") ?: ""
+        set(value) {
+            prefs.edit().putString("key_replace_api_key", value).apply()
+        }
+
+    // Cached last received replacement value from API (e.g. "Tom Hanks")
+    var lastFetchedApiValue: String
+        get() = prefs.getString("key_last_fetched_api_value", "Tom Hanks") ?: "Tom Hanks"
+        set(value) {
+            prefs.edit().putString("key_last_fetched_api_value", value).apply()
+        }
+
+    // Fallback value if API is unreachable
+    var replaceFallbackValue: String
+        get() = prefs.getString("key_replace_fallback_value", "Tom Hanks") ?: "Tom Hanks"
+        set(value) {
+            prefs.edit().putString("key_replace_fallback_value", value).apply()
+        }
+
+    /**
+     * Fetches the latest replacement value from the configured API / Webhook (GET or POST).
+     * Extracts either JSON fields (value, text, result, payload, data, name) or raw body.
+     */
+    fun fetchLatestApiValue(onResult: ((Boolean, String) -> Unit)? = null) {
+        var endpoint = replaceApiUrl.trim()
+        if (endpoint.isEmpty()) {
+            endpoint = injectApiUrl.trim()
+        }
+        if (endpoint.isEmpty()) {
+            val fallback = replaceFallbackValue
+            lastFetchedApiValue = fallback
+            onResult?.invoke(true, fallback)
+            return
+        }
+
+        if (!endpoint.startsWith("http://") && !endpoint.startsWith("https://")) {
+            endpoint = "https://$endpoint"
+        }
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val url = URL(endpoint)
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 7000
+                connection.readTimeout = 7000
+                connection.instanceFollowRedirects = true
+                connection.setRequestProperty("Accept", "application/json, text/plain, */*")
+                val key = if (replaceApiKey.isNotBlank()) replaceApiKey.trim() else injectApiKey.trim()
+                if (key.isNotBlank()) {
+                    connection.setRequestProperty("Authorization", "Bearer $key")
+                }
+
+                val code = connection.responseCode
+                val isSuccess = code in 200..299
+                val responseBody = if (isSuccess) {
+                    connection.inputStream.bufferedReader().use { it.readText() }
+                } else {
+                    connection.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $code"
+                }
+
+                if (isSuccess && responseBody.isNotBlank()) {
+                    var extractedValue = ""
+                    try {
+                        val json = JSONObject(responseBody.trim())
+                        extractedValue = when {
+                            json.has("value") && !json.isNull("value") -> json.getString("value")
+                            json.has("text") && !json.isNull("text") -> json.getString("text")
+                            json.has("result") && !json.isNull("result") -> json.getString("result")
+                            json.has("payload") && !json.isNull("payload") -> json.getString("payload")
+                            json.has("data") && !json.isNull("data") -> json.getString("data")
+                            json.has("name") && !json.isNull("name") -> json.getString("name")
+                            else -> responseBody.trim()
+                        }
+                    } catch (_: Exception) {
+                        extractedValue = responseBody.trim()
+                    }
+
+                    if (extractedValue.isNotBlank()) {
+                        lastFetchedApiValue = extractedValue
+                        onResult?.invoke(true, extractedValue)
+                    } else {
+                        val fallback = replaceFallbackValue
+                        lastFetchedApiValue = fallback
+                        onResult?.invoke(true, fallback)
+                    }
+                } else {
+                    val fallback = replaceFallbackValue
+                    lastFetchedApiValue = fallback
+                    onResult?.invoke(false, "HTTP $code: $responseBody")
+                }
+            } catch (e: Exception) {
+                val fallback = replaceFallbackValue
+                lastFetchedApiValue = fallback
+                onResult?.invoke(false, e.localizedMessage ?: "Connection error")
+            }
+        }
+    }
+
     // In-memory runtime state for live typing session
     private val rawSecretInputBuffer = StringBuilder()
     private var consecutiveSpaceCount = 0

@@ -941,6 +941,398 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- CARD 7: Any Word / Line Peek Effect -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="?attr/colorOutline">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvTextPeekStatusTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Any Word / Line Peek: OFF"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="?android:attr/textColorSecondary" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Captures spectator's written text, last word, or a specific line to Notification or API."
+                            android:textSize="12sp"
+                            android:alpha="0.75" />
+                    </LinearLayout>
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switchTextPeekMaster"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Capture Target Mode:"
+                        android:textStyle="bold"
+                        android:textSize="13sp" />
+
+                    <RadioGroup
+                        android:id="@+id/rgTextPeekMode"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp">
+
+                        <RadioButton
+                            android:id="@+id/rbTextPeekAll"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="All Written Text (Everything in writing area)"
+                            android:textSize="13sp"
+                            android:checked="true" />
+
+                        <RadioButton
+                            android:id="@+id/rbTextPeekLastWord"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Last Written Word / Token"
+                            android:textSize="13sp" />
+
+                        <RadioButton
+                            android:id="@+id/rbTextPeekLine"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Preselected Line Only (e.g. Line 1, Line 2...)"
+                            android:textSize="13sp" />
+                    </RadioGroup>
+
+                    <LinearLayout
+                        android:id="@+id/layoutTextPeekLineTarget"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:id="@+id/tvTextPeekTargetLineLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Target Line Number: Line 1"
+                            android:textSize="13sp"
+                            android:textStyle="bold"
+                            android:textColor="?attr/colorPrimary" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:orientation="horizontal">
+
+                            <Button
+                                android:id="@+id/btnTextPeekLine1"
+                                style="@style/Widget.Material3.Button.TonalButton"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:layout_marginEnd="4dp"
+                                android:text="Line 1" />
+
+                            <Button
+                                android:id="@+id/btnTextPeekLine2"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:layout_marginHorizontal="2dp"
+                                android:text="Line 2" />
+
+                            <Button
+                                android:id="@+id/btnTextPeekLine3"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:layout_marginHorizontal="2dp"
+                                android:text="Line 3" />
+
+                            <Button
+                                android:id="@+id/btnTextPeekLine4"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:layout_marginStart="4dp"
+                                android:text="Line 4" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switchTextPeekSendInject"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Post Captured Content to Inject API"
+                        android:textSize="13sp"
+                        android:checked="true" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switchTextPeekLocalNotif"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Discreet Push Notification (Lockscreen / Watch)"
+                        android:textSize="13sp"
+                        android:checked="true" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="horizontal"
+                        android:gravity="end">
+
+                        <Button
+                            android:id="@+id/btnTestTextPeekCapture"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Test Peek Extraction" />
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- CARD 8: API Text Replace (Remote Variable Replacement) -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="?attr/colorOutline">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvTextReplaceStatusTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="API Text Replace: OFF"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="?android:attr/textColorSecondary" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Replaces text like --value-- with remote information received from the API."
+                            android:textSize="12sp"
+                            android:alpha="0.75" />
+                    </LinearLayout>
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switchTextReplaceMaster"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Placeholder Tag in Writing Area:"
+                        android:textStyle="bold"
+                        android:textSize="13sp" />
+
+                    <EditText
+                        android:id="@+id/editReplacePlaceholder"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:hint="--value--"
+                        android:textColor="@color/edit_text_color"
+                        android:textColorHint="@color/edit_hint_color"
+                        android:textSize="14sp"
+                        android:singleLine="true"
+                        android:padding="10dp"
+                        android:background="@drawable/bg_edit_text" />
+
+                    <!-- Quick Placeholder Selection Chips -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/chipTagDoubleDash"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="36dp"
+                            android:layout_weight="1"
+                            android:layout_marginEnd="4dp"
+                            android:text="--value--"
+                            android:textSize="11sp"
+                            android:padding="0dp" />
+
+                        <Button
+                            android:id="@+id/chipTagCurly"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="36dp"
+                            android:layout_weight="1"
+                            android:layout_marginHorizontal="2dp"
+                            android:text="{{value}}"
+                            android:textSize="11sp"
+                            android:padding="0dp" />
+
+                        <Button
+                            android:id="@+id/chipTagBrackets"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="36dp"
+                            android:layout_weight="1"
+                            android:layout_marginStart="4dp"
+                            android:text="[VALUE]"
+                            android:textSize="11sp"
+                            android:padding="0dp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Fallback / Manual Replacement Text:"
+                        android:textStyle="bold"
+                        android:textSize="13sp" />
+
+                    <EditText
+                        android:id="@+id/editReplaceFallbackValue"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:hint="Tom Hanks"
+                        android:textColor="@color/edit_text_color"
+                        android:textColorHint="@color/edit_hint_color"
+                        android:textSize="14sp"
+                        android:singleLine="true"
+                        android:padding="10dp"
+                        android:background="@drawable/bg_edit_text" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Custom API Fetch URL (Optional, uses Inject API by default):"
+                        android:textStyle="bold"
+                        android:textSize="13sp" />
+
+                    <EditText
+                        android:id="@+id/editReplaceApiUrl"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:hint="https://api.inject.app/v1/event"
+                        android:textColor="@color/edit_text_color"
+                        android:textColorHint="@color/edit_hint_color"
+                        android:textSize="13sp"
+                        android:singleLine="true"
+                        android:padding="10dp"
+                        android:background="@drawable/bg_edit_text" />
+
+                    <TextView
+                        android:id="@+id/tvReplaceApiFetchStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="Current Remote Value: &quot;Tom Hanks&quot;"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:textColor="?attr/colorPrimary" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="horizontal"
+                        android:gravity="end">
+
+                        <Button
+                            android:id="@+id/btnFetchApiValueNow"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="6dp"
+                            android:text="Fetch API Now" />
+
+                        <Button
+                            android:id="@+id/btnSaveReplaceSettings"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Save Settings" />
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- CARD 7: Hardware & Sensor Triggers -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"

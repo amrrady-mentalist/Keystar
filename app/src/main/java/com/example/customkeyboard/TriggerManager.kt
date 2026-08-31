@@ -43,11 +43,17 @@ object TriggerManager {
     var pendingMathPayload: String? = null
     @Volatile
     var pendingCovertWord: String? = null
+    @Volatile
+    var pendingTextPeekPayload: String? = null
 
-    // Real-time status callbacks for UI
+    // Real-time status callbacks for UI and IME integration
     var onTriggerFired: ((source: String, summary: String) -> Unit)? = null
     var onProximityChanged: ((isNear: Boolean) -> Unit)? = null
     var onPendingStateChanged: (() -> Unit)? = null
+
+    // Direct IME hooks for active input field manipulation
+    var onExecuteTextReplacement: ((Context, CovertManager) -> Boolean)? = null
+    var onCaptureLiveText: (() -> String)? = null
 
     // Sensor & Audio State
     private var sensorManager: SensorManager? = null
@@ -203,6 +209,7 @@ object TriggerManager {
         // Clear conflicting stale payloads from other effects
         pendingDeletedWord = null
         pendingMathPayload = null
+        pendingTextPeekPayload = null
 
         if (isRequireTriggerEnabled(context)) {
             pendingCovertWord = word
@@ -219,8 +226,35 @@ object TriggerManager {
     }
 
     /**
+     * Queues a captured text / word / line from the Any Word / Line Peek effect.
+     */
+    fun queueTextPeek(payload: String, context: Context, covertManager: CovertManager) {
+        if (payload.isBlank()) return
+        // Clear conflicting stale payloads from other effects
+        pendingDeletedWord = null
+        pendingMathPayload = null
+        pendingCovertWord = null
+
+        if (isRequireTriggerEnabled(context)) {
+            pendingTextPeekPayload = payload
+            onPendingStateChanged?.invoke()
+        } else {
+            // Immediate mode: dispatch right away
+            if (covertManager.isTextPeekEnabled) {
+                if (covertManager.textPeekLocalNotification) {
+                    DeletePeekMemory.showPushNotification(context, payload)
+                }
+                if (covertManager.textPeekSendToInject && covertManager.isInjectApiEnabled) {
+                    covertManager.dispatchInjectApi(payload)
+                }
+            }
+        }
+    }
+
+    /**
      * Fires trigger from any source (Volume button, Proximity sensor, or Manual test button).
-     * Dispatches all armed and pending payloads to their configured destinations (API / Push Notification).
+     * Dispatches all armed and pending payloads to their configured destinations (API / Push Notification)
+     * and performs remote text replacements on the active writing area if enabled.
      */
     @Synchronized
     fun fireTrigger(source: String, customContext: Context? = null): Boolean {
@@ -236,12 +270,47 @@ object TriggerManager {
 
         val dispatchedItems = mutableListOf<String>()
 
-        // Dispatch the newest active effect payload (priority: Covert -> Math -> Delete Peek)
+        // 1. If API Text Replace is enabled, trigger live replacement in active input field
+        if (covertManager.isTextReplaceEnabled) {
+            val replaced = onExecuteTextReplacement?.invoke(context, covertManager) ?: false
+            if (replaced) {
+                val placeholder = covertManager.replacePlaceholder
+                val replacement = covertManager.lastFetchedApiValue
+                dispatchedItems.add("Replaced \"$placeholder\" with \"$replacement\"")
+            }
+        }
+
+        // 2. If Text Peek is active and pending is null, attempt to capture live text from current input
+        if (covertManager.isTextPeekEnabled && pendingTextPeekPayload == null) {
+            val liveText = onCaptureLiveText?.invoke() ?: ""
+            val extracted = covertManager.extractTextPeekPayload(liveText)
+            if (!extracted.isNullOrBlank()) {
+                pendingTextPeekPayload = extracted
+            }
+        }
+
+        // Dispatch the newest active effect payload (priority: Text Peek -> Covert -> Math -> Delete Peek)
+        val textPeekPayload = pendingTextPeekPayload
         val covertWord = pendingCovertWord
         val mathPayload = pendingMathPayload
         val delWord = pendingDeletedWord
 
-        if (!covertWord.isNullOrBlank()) {
+        if (!textPeekPayload.isNullOrBlank()) {
+            if (covertManager.isTextPeekEnabled) {
+                if (covertManager.textPeekLocalNotification) {
+                    DeletePeekMemory.showPushNotification(context, textPeekPayload)
+                }
+                if (covertManager.textPeekSendToInject && covertManager.isInjectApiEnabled) {
+                    covertManager.dispatchInjectApi(textPeekPayload)
+                }
+                val modeLabel = when (covertManager.textPeekMode) {
+                    "last_word" -> "Last Word"
+                    "line" -> "Line ${covertManager.textPeekTargetLine}"
+                    else -> "Full Text"
+                }
+                dispatchedItems.add("Text Peek ($modeLabel): \"$textPeekPayload\"")
+            }
+        } else if (!covertWord.isNullOrBlank()) {
             if (covertManager.covertLocalNotification) {
                 DeletePeekMemory.showPushNotification(context, covertWord)
             }
@@ -276,6 +345,7 @@ object TriggerManager {
         pendingDeletedWord = null
         pendingMathPayload = null
         pendingCovertWord = null
+        pendingTextPeekPayload = null
 
         val summary = if (dispatchedItems.isNotEmpty()) {
             dispatchedItems.joinToString(" | ")
@@ -294,6 +364,7 @@ object TriggerManager {
 
     fun getPendingSummary(): String {
         val items = mutableListOf<String>()
+        pendingTextPeekPayload?.let { items.add("Text Peek: \"$it\"") }
         pendingDeletedWord?.let { items.add("Delete Peek: \"$it\"") }
         pendingMathPayload?.let { items.add("Math: $it") }
         pendingCovertWord?.let { items.add("Covert: \"$it\"") }
