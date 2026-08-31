@@ -64,6 +64,7 @@ class CustomKeyboardService : InputMethodService() {
     private val KEY_INSET_V_DP = 4
 
     private val commonEmojis = listOf("😀", "😂", "❤️", "👍", "🙏", "🔥", "😊", "🎉", "👀", "✅", "😉", "💯")
+    private var currentEmojiCategory: String = "Smileys"
 
     private val systemClipListener = ClipboardManager.OnPrimaryClipChangedListener {
         val clip = clipboardManager.primaryClip
@@ -177,10 +178,7 @@ class CustomKeyboardService : InputMethodService() {
         when (currentMode) {
             Mode.CLIPBOARD -> rootContainer.addView(buildClipboardPanel())
             Mode.EMOJI -> {
-                rootContainer.addView(buildRow(KeyboardLayoutData.emojiRows[0], isEmoji = true))
-                rootContainer.addView(buildRow(KeyboardLayoutData.emojiRows[1], isEmoji = true))
-                // Delete stays reachable from the emoji screen too, not just letters.
-                rootContainer.addView(buildEmojiBottomRow(KeyboardLayoutData.emojiRows[2]))
+                rootContainer.addView(buildEmojiPanel())
             }
             Mode.SYMBOLS -> {
                 val pageRows = if (symbolsPage == 1) KeyboardLayoutData.symbolsPage1Rows else KeyboardLayoutData.symbolsPage2Rows
@@ -341,16 +339,26 @@ class CustomKeyboardService : InputMethodService() {
 
     private fun suggestionChip(item: Dictionary.SuggestionItem): TextView {
         val isPrimary = item.isPrimary
-        val resting = if (isPrimary) keyBackground(specialKeyColor(), KEY_RADIUS_DP) else null
+        val isCorrection = item.isCorrection
+        val isNextWord = item.isNextWord
+        val resting = when {
+            isCorrection -> keyBackground(if (isDarkMode()) Color.parseColor("#3C4043") else Color.parseColor("#E8F0FE"), KEY_RADIUS_DP)
+            isPrimary -> keyBackground(specialKeyColor(), KEY_RADIUS_DP)
+            else -> null
+        }
         return TextView(this).apply {
-            text = item.text
-            setTextColor(if (isPrimary) accentColor() else textColor())
-            setTypeface(if (isPrimary) Typeface.DEFAULT_BOLD else Typeface.DEFAULT)
+            text = if (isCorrection && !isNextWord && !item.text.contains("'")) "${item.text} ✓" else item.text
+            setTextColor(when {
+                isCorrection -> accentColor()
+                isPrimary -> accentColor()
+                else -> textColor()
+            })
+            setTypeface(if (isPrimary || isCorrection) Typeface.DEFAULT_BOLD else Typeface.DEFAULT)
             textSize = 15f
             gravity = Gravity.CENTER
             setPadding(dp(13), 0, dp(13), 0)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT).apply {
-                if (isPrimary) {
+                if (isPrimary || isCorrection) {
                     setMargins(dp(2), dp(2), dp(2), dp(2))
                 }
             }
@@ -519,14 +527,106 @@ class CustomKeyboardService : InputMethodService() {
         return row
     }
 
-    private fun buildEmojiBottomRow(keys: List<String>): LinearLayout {
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(ROW_HEIGHT_DP))
+    private fun buildEmojiPanel(): LinearLayout {
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
-        keys.forEach { k -> row.addView(makeKey(k, weight = 1f, fontSize = 22f) { currentInputConnection?.commitText(k, 1) }) }
-        row.addView(makeBackspaceKey(weight = 1.5f))
-        return row
+
+        // 1. Category Bar
+        val catBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(38))
+            setPadding(dp(2), dp(2), dp(2), dp(2))
+        }
+        KeyboardLayoutData.emojiCategoryIcons.forEach { (icon, catName) ->
+            val isSelected = (catName == currentEmojiCategory)
+            val tabBg = if (isSelected) keyBackground(accentColor(), KEY_RADIUS_DP) else keyBackground(specialKeyColor(), KEY_RADIUS_DP)
+            val tv = TextView(this).apply {
+                text = icon
+                textSize = 18f
+                gravity = Gravity.CENTER
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f).apply {
+                    setMargins(dp(1), 0, dp(1), 0)
+                }
+                background = tabBg
+                applyKeyTouchBehavior(this, pressHighlightColor(), tabBg, KEY_RADIUS_DP) {
+                    currentEmojiCategory = catName
+                    render()
+                }
+            }
+            catBar.addView(tv)
+        }
+        panel.addView(catBar)
+
+        // 2. All emojis in selected category
+        val emojis = KeyboardLayoutData.emojiCategoryData[currentEmojiCategory]
+            ?: KeyboardLayoutData.emojiCategoryData["Smileys"]
+            ?: emptyList()
+
+        val row1 = mutableListOf<String>()
+        val row2 = mutableListOf<String>()
+        val row3 = mutableListOf<String>()
+        for (i in emojis.indices) {
+            when (i % 3) {
+                0 -> row1.add(emojis[i])
+                1 -> row2.add(emojis[i])
+                2 -> row3.add(emojis[i])
+            }
+        }
+
+        val emojiContent = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+
+        val r1 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(ROW_HEIGHT_DP))
+        }
+        row1.forEach { em -> r1.addView(makeEmojiKey(em)) }
+        emojiContent.addView(r1)
+
+        val r2 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(ROW_HEIGHT_DP))
+        }
+        row2.forEach { em -> r2.addView(makeEmojiKey(em)) }
+        emojiContent.addView(r2)
+
+        val r3 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(ROW_HEIGHT_DP))
+        }
+        row3.forEach { em -> r3.addView(makeEmojiKey(em)) }
+        emojiContent.addView(r3)
+
+        val scrollView = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            addView(emojiContent)
+        }
+        panel.addView(scrollView)
+
+        return panel
+    }
+
+    private fun makeEmojiKey(emoji: String): TextView {
+        val resting = keyBackground(keyColor(), KEY_RADIUS_DP)
+        return TextView(this).apply {
+            text = emoji
+            textSize = 22f
+            gravity = Gravity.CENTER
+            val size = dp(ROW_HEIGHT_DP - 6)
+            layoutParams = LinearLayout.LayoutParams(size, ViewGroup.LayoutParams.MATCH_PARENT).apply {
+                setMargins(dp(2), dp(2), dp(2), dp(2))
+            }
+            background = resting
+            applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP) {
+                currentInputConnection?.commitText(emoji, 1)
+            }
+        }
     }
 
     private fun buildBottomRow(): LinearLayout {
