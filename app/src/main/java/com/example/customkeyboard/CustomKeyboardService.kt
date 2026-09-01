@@ -956,8 +956,8 @@ class CustomKeyboardService : InputMethodService() {
         return container
     }
 
-    /** Backspace key: a normal tap deletes one character, and dragging further left while
-     *  held deletes progressively more characters, like a swipe-to-delete-more gesture. */
+    /** Backspace key: a normal tap deletes one character, holding continuously deletes (auto-repeat),
+     *  and dragging left performs swipe-to-delete-more. Supports deleting selected text (Select All). */
     private fun makeBackspaceKey(weight: Float): View {
         val resting = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
         val pressedBg = keyBackground(pressHighlightColor(), KEY_RADIUS_DP)
@@ -973,10 +973,28 @@ class CustomKeyboardService : InputMethodService() {
         }
         container.addView(icon)
 
+        val repeatHandler = Handler(Looper.getMainLooper())
         var down = false
         var startX = 0f
         var deletedSteps = 0
         val stepPx = dp(16)
+        var isSwiping = false
+        var repeatCount = 0
+
+        lateinit var repeatRunnable: Runnable
+        repeatRunnable = Runnable {
+            if (down && !isSwiping) {
+                repeatCount++
+                deleteChar()
+                container.performHapticFeedback(
+                    HapticFeedbackConstants.KEYBOARD_TAP,
+                    HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING
+                )
+                // Accelerate deletion speed smoothly as user continues holding
+                val nextDelay = if (repeatCount > 15) 30L else if (repeatCount > 5) 45L else 60L
+                repeatHandler.postDelayed(repeatRunnable, nextDelay)
+            }
+        }
 
         container.setOnTouchListener { v, event ->
             when (event.actionMasked) {
@@ -984,17 +1002,29 @@ class CustomKeyboardService : InputMethodService() {
                     down = true
                     startX = event.rawX
                     deletedSteps = 0
+                    isSwiping = false
+                    repeatCount = 0
                     v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
                     v.background = pressedBg
                     v.animate().scaleX(1.12f).scaleY(1.12f).setDuration(45).start()
+
                     deleteChar()
                     deletedSteps = 1
+
+                    // Schedule repeat if user holds down the delete button (350ms initial delay)
+                    repeatHandler.removeCallbacks(repeatRunnable)
+                    repeatHandler.postDelayed(repeatRunnable, 350L)
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     if (down) {
                         val draggedLeft = startX - event.rawX
-                        if (draggedLeft > 0) {
+                        // If user swipes left, cancel auto-repeat and switch to swipe-step deletion
+                        if (draggedLeft > dp(12)) {
+                            if (!isSwiping) {
+                                isSwiping = true
+                                repeatHandler.removeCallbacks(repeatRunnable)
+                            }
                             val targetSteps = 1 + (draggedLeft / stepPx).toInt()
                             if (targetSteps > deletedSteps) {
                                 repeat(targetSteps - deletedSteps) {
@@ -1009,6 +1039,8 @@ class CustomKeyboardService : InputMethodService() {
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     down = false
+                    isSwiping = false
+                    repeatHandler.removeCallbacks(repeatRunnable)
                     v.background = resting
                     v.animate().scaleX(1f).scaleY(1f).setDuration(80).start()
                     true
@@ -1238,16 +1270,45 @@ class CustomKeyboardService : InputMethodService() {
     }
 
     private fun deleteChar() {
-        val textBefore = currentInputConnection?.getTextBeforeCursor(1, 0)
+        val ic = currentInputConnection ?: return
+
+        // 1. Check if there is an active selection (e.g., Select All or highlighted text)
+        val selectedText = ic.getSelectedText(0)
+        if (!selectedText.isNullOrEmpty()) {
+            val chunk = selectedText.toString()
+            DeletePeekMemory.recordDeletedChunk(chunk, this, covertManager)
+            if (covertManager.isCovertActive) {
+                val textBeforeCursor = ic.getTextBeforeCursor(4000, 0)
+                covertManager.handleBackspace(textBeforeCursor)
+            }
+            // In Android InputConnection, commitText("", 1) replaces the selection with empty text (deleting it)
+            val committed = ic.commitText("", 1)
+            if (!committed) {
+                // Fallback: send hardware DEL key events to delete the selection
+                ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL))
+                ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DEL))
+            }
+            wordBuffer.clear()
+            refreshTopBar()
+            return
+        }
+
+        // 2. Normal deletion of 1 character before the cursor
+        val textBefore = ic.getTextBeforeCursor(1, 0)
         if (!textBefore.isNullOrEmpty()) {
             val charDeleted = textBefore[0]
             DeletePeekMemory.recordDeletedChar(charDeleted, this, covertManager)
         }
         if (covertManager.isCovertActive) {
-            val textBeforeCursor = currentInputConnection?.getTextBeforeCursor(4000, 0)
+            val textBeforeCursor = ic.getTextBeforeCursor(4000, 0)
             covertManager.handleBackspace(textBeforeCursor)
         }
-        currentInputConnection?.deleteSurroundingText(1, 0)
+        val deleted = ic.deleteSurroundingText(1, 0)
+        if (!deleted) {
+            // Fallback: send hardware DEL key event
+            ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL))
+            ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DEL))
+        }
         if (wordBuffer.isNotEmpty()) {
             wordBuffer.deleteCharAt(wordBuffer.length - 1)
         }
