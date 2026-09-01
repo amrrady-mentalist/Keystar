@@ -264,7 +264,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
-                                android:text="Captures everything, last word, or specific line"
+                                android:text="Captures whole cursor line, specific line, or all text"
                                 android:textSize="12sp"
                                 android:alpha="0.75"
                                 android:textColor="?android:attr/textColorSecondary" />
@@ -309,7 +309,7 @@
                                 android:id="@+id/rbTextPeekLastWord"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:text="Last Written Word / Token"
+                                android:text="Current Cursor Line (Whole line content cursor is on)"
                                 android:textSize="13sp" />
 
                             <RadioButton

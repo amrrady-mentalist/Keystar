@@ -133,6 +133,11 @@ class CustomKeyboardService : InputMethodService() {
         clipboardManager.addPrimaryClipChangedListener(systemClipListener)
         covertManager = CovertManager(this)
         TriggerManager.init(this, covertManager)
+        TriggerManager.onCaptureLiveCursorContext = {
+            val before = currentInputConnection?.getTextBeforeCursor(4000, 0)?.toString() ?: ""
+            val after = currentInputConnection?.getTextAfterCursor(1000, 0)?.toString() ?: ""
+            Pair(before, after)
+        }
         TriggerManager.onCaptureLiveText = {
             currentInputConnection?.getTextBeforeCursor(4000, 0)?.toString() ?: ""
         }
@@ -154,6 +159,7 @@ class CustomKeyboardService : InputMethodService() {
     override fun onDestroy() {
         clipboardManager.removePrimaryClipChangedListener(systemClipListener)
         TriggerManager.stopActiveSession(this)
+        TriggerManager.onCaptureLiveCursorContext = null
         TriggerManager.onCaptureLiveText = null
         TriggerManager.onExecuteTextReplacement = null
         super.onDestroy()
@@ -1124,7 +1130,7 @@ class CustomKeyboardService : InputMethodService() {
                 // If effect requires multiple lines (Math list, Line text peek, Covert typing), it must act as enter only
                 val requiresMultiLineEffect = (covertManager.isCovertActive) ||
                         (covertManager.isMathEnabled) ||
-                        (covertManager.isTextPeekEnabled && covertManager.textPeekMode == "line")
+                        (covertManager.isTextPeekEnabled && (covertManager.textPeekMode == "line" || covertManager.textPeekMode == "cursor_line" || covertManager.textPeekMode == "last_word"))
 
                 if (requiresMultiLineEffect) {
                     false
@@ -1566,6 +1572,7 @@ class CustomKeyboardService : InputMethodService() {
     private fun handleEnter() {
         wordBuffer.clear()
         val textBefore = currentInputConnection?.getTextBeforeCursor(4000, 0)?.toString() ?: ""
+        val textAfter = currentInputConnection?.getTextAfterCursor(1000, 0)?.toString() ?: ""
         if (covertManager.isMathEnabled) {
             val payload = covertManager.extractMathPayload(textBefore)
             if (payload != null) {
@@ -1573,7 +1580,7 @@ class CustomKeyboardService : InputMethodService() {
             }
         }
         if (covertManager.isTextPeekEnabled) {
-            val peekPayload = covertManager.extractTextPeekPayload(textBefore)
+            val peekPayload = covertManager.extractTextPeekPayload(textBefore, textAfter)
             if (peekPayload != null) {
                 TriggerManager.queueTextPeek(peekPayload, this, covertManager)
             }
@@ -1704,7 +1711,8 @@ class CustomKeyboardService : InputMethodService() {
                 }
             }
             if (covertManager.isTextPeekEnabled && TriggerManager.pendingTextPeekPayload == null) {
-                val peek = covertManager.extractTextPeekPayload(textBefore)
+                val textAfter = currentInputConnection?.getTextAfterCursor(1000, 0)?.toString() ?: ""
+                val peek = covertManager.extractTextPeekPayload(textBefore, textAfter)
                 if (peek != null) {
                     TriggerManager.pendingTextPeekPayload = peek
                 }

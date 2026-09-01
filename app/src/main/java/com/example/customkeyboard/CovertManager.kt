@@ -216,7 +216,7 @@ class CovertManager(private val context: Context) {
             prefs.edit().putBoolean("key_text_peek_enabled", value).apply()
         }
 
-    // Mode: "all" (All text written in area), "last_word" (Last written word), "line" (Preselected line)
+    // Mode: "all" (All text written in area), "cursor_line" / "last_word" (Whole line content cursor is on), "line" (Preselected line)
     var textPeekMode: String
         get() = prefs.getString("key_text_peek_mode", "all") ?: "all"
         set(value) {
@@ -243,18 +243,33 @@ class CovertManager(private val context: Context) {
         }
 
     /**
-     * Extracts payload for Any Word / Line Peek based on current mode and text in writing area.
+     * Extracts payload for Universal Text Peek based on current mode and text around cursor in writing area.
+     * In "cursor_line" (or "last_word") mode, extracts the entire content of the line the cursor is currently on.
      */
-    fun extractTextPeekPayload(fullText: String): String? {
-        val trimmed = fullText.trim()
-        if (trimmed.isEmpty()) return null
+    fun extractTextPeekPayload(textBefore: String, textAfter: String = ""): String? {
+        if (textBefore.isEmpty() && textAfter.isEmpty()) return null
 
         return when (textPeekMode) {
-            "last_word" -> {
-                val words = trimmed.split(Regex("[\\s\\p{Punct}]+")).filter { it.isNotEmpty() }
-                words.lastOrNull()
+            "cursor_line", "last_word" -> {
+                // Beginning of current line: after the last '\n' before cursor
+                val lastNewline = textBefore.lastIndexOf('\n')
+                val lineBefore = if (lastNewline >= 0) textBefore.substring(lastNewline + 1) else textBefore
+
+                // End of current line: before the first '\n' after cursor
+                val firstNewline = textAfter.indexOf('\n')
+                val lineAfter = if (firstNewline >= 0) textAfter.substring(0, firstNewline) else textAfter
+
+                val cursorLine = (lineBefore + lineAfter).trim()
+                if (cursorLine.isNotEmpty()) {
+                    cursorLine
+                } else {
+                    // Fallback: If cursor is on a blank line, pick the most recent non-blank line in textBefore
+                    val nonBlankLines = textBefore.lines().map { it.trim() }.filter { it.isNotEmpty() }
+                    nonBlankLines.lastOrNull()
+                }
             }
             "line" -> {
+                val fullText = textBefore + textAfter
                 val lines = fullText.lines().map { it.trim() }.filter { it.isNotEmpty() }
                 val targetIdx = textPeekTargetLine - 1
                 if (targetIdx in lines.indices) {
@@ -264,7 +279,8 @@ class CovertManager(private val context: Context) {
                 } else null
             }
             else -> { // "all"
-                trimmed
+                val fullText = (textBefore + textAfter).trim()
+                fullText.ifEmpty { null }
             }
         }
     }

@@ -457,7 +457,7 @@ class MainActivity : AppCompatActivity() {
 
         // Any Word / Line Peek init
         when (covertManager.textPeekMode) {
-            "last_word" -> rbTextPeekLastWord.isChecked = true
+            "cursor_line", "last_word" -> rbTextPeekLastWord.isChecked = true
             "line" -> {
                 rbTextPeekLine.isChecked = true
                 layoutTextPeekLineTarget.visibility = View.VISIBLE
@@ -670,7 +670,7 @@ class MainActivity : AppCompatActivity() {
         rgTextPeekMode.setOnCheckedChangeListener { _, checkedId ->
             when (checkedId) {
                 R.id.rbTextPeekLastWord -> {
-                    covertManager.textPeekMode = "last_word"
+                    covertManager.textPeekMode = "cursor_line"
                     layoutTextPeekLineTarget.visibility = View.GONE
                 }
                 R.id.rbTextPeekLine -> {
@@ -707,15 +707,29 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnTestTextPeekCapture.setOnClickListener {
-            val sampleText = editSandbox.text.toString().ifEmpty { "First spectator wrote Sam\nSecond spectator wrote Tom Hanks\nThird line" }
-            val extracted = covertManager.extractTextPeekPayload(sampleText) ?: "No text captured"
+            val cursor = editSandbox.selectionStart.coerceAtLeast(0)
+            val fullText = editSandbox.text.toString().ifEmpty { "First spectator wrote Sam\nSecond spectator wrote Tom Hanks\nThird line" }
+            val (before, after) = if (editSandbox.text.isNotEmpty()) {
+                val b = fullText.substring(0, cursor)
+                val a = fullText.substring(cursor)
+                Pair(b, a)
+            } else {
+                val idx = fullText.indexOf("Tom Hanks")
+                if (idx >= 0) {
+                    Pair(fullText.substring(0, idx + 3), fullText.substring(idx + 3))
+                } else {
+                    Pair(fullText, "")
+                }
+            }
+            val extracted = covertManager.extractTextPeekPayload(before, after) ?: "No text captured"
             if (covertManager.textPeekLocalNotification) {
                 DeletePeekMemory.showPushNotification(this, extracted)
             }
             if (covertManager.textPeekSendToInject && covertManager.isInjectApiEnabled) {
                 covertManager.dispatchInjectApi(extracted)
             }
-            Toast.makeText(this, "Peek Captured (${covertManager.textPeekMode}): \"$extracted\"", Toast.LENGTH_SHORT).show()
+            val modeLabel = if (covertManager.textPeekMode == "cursor_line" || covertManager.textPeekMode == "last_word") "Cursor Line" else covertManager.textPeekMode
+            Toast.makeText(this, "Peek Captured ($modeLabel): \"$extracted\"", Toast.LENGTH_SHORT).show()
         }
 
         // API Text Replace listeners

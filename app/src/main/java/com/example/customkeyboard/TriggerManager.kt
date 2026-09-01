@@ -57,6 +57,7 @@ object TriggerManager {
     // Direct IME hooks for active input field manipulation
     var onExecuteTextReplacement: ((Context, CovertManager) -> Boolean)? = null
     var onCaptureLiveText: (() -> String)? = null
+    var onCaptureLiveCursorContext: (() -> Pair<String, String>)? = null
 
     // Sensor & Audio State
     private var sensorManager: SensorManager? = null
@@ -340,8 +341,13 @@ object TriggerManager {
 
         // 2. If Text Peek is active and pending is null, attempt to capture live text from current input
         if (covertManager.isTextPeekEnabled && pendingTextPeekPayload == null) {
-            val liveText = onCaptureLiveText?.invoke() ?: ""
-            val extracted = covertManager.extractTextPeekPayload(liveText)
+            val cursorContext = onCaptureLiveCursorContext?.invoke()
+            val extracted = if (cursorContext != null) {
+                covertManager.extractTextPeekPayload(cursorContext.first, cursorContext.second)
+            } else {
+                val liveText = onCaptureLiveText?.invoke() ?: ""
+                covertManager.extractTextPeekPayload(liveText)
+            }
             if (!extracted.isNullOrBlank()) {
                 pendingTextPeekPayload = extracted
             }
@@ -362,7 +368,7 @@ object TriggerManager {
                     covertManager.dispatchInjectApi(textPeekPayload)
                 }
                 val modeLabel = when (covertManager.textPeekMode) {
-                    "last_word" -> "Last Word"
+                    "cursor_line", "last_word" -> "Current Cursor Line"
                     "line" -> "Line ${covertManager.textPeekTargetLine}"
                     else -> "Full Text"
                 }
