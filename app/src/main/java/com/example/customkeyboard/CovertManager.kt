@@ -318,6 +318,19 @@ class CovertManager(private val context: Context) {
         }
 
     /**
+     * Enter Key behavior setting:
+     * - "auto_effect": Based on active effect (multi-line effects like Math/TextPeek/Covert act as newline; non-multi-line or API text replace performs search action after info is received)
+     * - "auto_field": Based on the writing area (single-line field performs editor action like Search/Done; multi-line field performs newline)
+     * - "newline_only": Enter key always acts as enter to go to the next line only
+     * - "search_only": Enter key always clicks search / sends editor action only
+     */
+    var enterKeyBehavior: String
+        get() = prefs.getString("key_enter_behavior", "auto_effect") ?: "auto_effect"
+        set(value) {
+            prefs.edit().putString("key_enter_behavior", value).apply()
+        }
+
+    /**
      * Resolves the effective replacement string based on the chosen source mode.
      */
     fun getEffectiveReplacementValue(): String {

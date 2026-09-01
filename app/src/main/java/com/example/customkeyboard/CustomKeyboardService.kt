@@ -29,6 +29,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import kotlin.math.abs
 
 class CustomKeyboardService : InputMethodService() {
@@ -136,7 +137,16 @@ class CustomKeyboardService : InputMethodService() {
             currentInputConnection?.getTextBeforeCursor(4000, 0)?.toString() ?: ""
         }
         TriggerManager.onExecuteTextReplacement = { _, cm ->
-            executeRemoteTextReplacement(cm)
+            val success = executeRemoteTextReplacement(cm)
+            if (success) {
+                // If enter behavior is set to auto_effect or search_only, automatically click search
+                if (cm.enterKeyBehavior == "auto_effect" || cm.enterKeyBehavior == "search_only") {
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        triggerSearchAfterReplacement()
+                    }, 120L)
+                }
+            }
+            success
         }
         Dictionary.init(this)
     }
@@ -541,12 +551,135 @@ class CustomKeyboardService : InputMethodService() {
         }
     }
 
-    // ---------- clipboard panel ----------
+    // ---------- clipboard panel with hidden covert effect toggles ----------
 
     private fun buildClipboardPanel(): ScrollView {
         val scroll = ScrollView(this).apply {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(220))
+            isFillViewport = true
         }
+        val mainLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(4), dp(4), dp(4), dp(8))
+        }
+
+        // 1. Covert Effect Quick-Toggle Bar (Discreet flat white icons with indicator lights)
+        val effectBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(6), dp(4), dp(6), dp(6))
+            val barBg = GradientDrawable().apply {
+                setColor(specialKeyColor())
+                cornerRadius = dp(8).toFloat()
+            }
+            background = barBg
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = dp(6)
+            }
+        }
+
+        // Effect 1: Covert Typing (Disguise Mask)
+        effectBar.addView(createEffectIconButton(
+            iconRes = R.drawable.ic_effect_covert,
+            title = "Covert Typing",
+            isActive = covertManager.isCovertActive
+        ) {
+            covertManager.toggleCovert()
+            render()
+        })
+
+        // Effect 2: Math Magic Equation (Calculator)
+        effectBar.addView(createEffectIconButton(
+            iconRes = R.drawable.ic_effect_math,
+            title = "Math Equation",
+            isActive = covertManager.isMathEnabled
+        ) {
+            covertManager.isMathEnabled = !covertManager.isMathEnabled
+            render()
+        })
+
+        // Effect 3: Delete Peek (Trash Bin + Eye)
+        effectBar.addView(createEffectIconButton(
+            iconRes = R.drawable.ic_effect_delete_peek,
+            title = "Delete Peek",
+            isActive = covertManager.isDeletePeekEnabled
+        ) {
+            covertManager.isDeletePeekEnabled = !covertManager.isDeletePeekEnabled
+            render()
+        })
+
+        // Effect 4: Any Word / Line Text Peek (Reading Eye)
+        effectBar.addView(createEffectIconButton(
+            iconRes = R.drawable.ic_effect_text_peek,
+            title = "Text Peek (${covertManager.textPeekMode.replace('_', ' ')})",
+            isActive = covertManager.isTextPeekEnabled
+        ) {
+            covertManager.isTextPeekEnabled = !covertManager.isTextPeekEnabled
+            render()
+        })
+
+        // Effect 5: API Text Replace (Swap Arrows)
+        effectBar.addView(createEffectIconButton(
+            iconRes = R.drawable.ic_effect_replace,
+            title = "Text Replace",
+            isActive = covertManager.isTextReplaceEnabled
+        ) {
+            covertManager.isTextReplaceEnabled = !covertManager.isTextReplaceEnabled
+            render()
+        })
+
+        mainLayout.addView(effectBar)
+
+        // 2. Enter Button Behavior Toggle Chip Row
+        val enterToggleRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(6), dp(2), dp(6), dp(6))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = dp(4)
+            }
+        }
+
+        val enterModes = listOf(
+            Triple("auto_effect", "Based on Effect", "⚡ Effect"),
+            Triple("auto_field", "Based on Field", "📝 Field"),
+            Triple("newline_only", "Next Line Only", "↵ Next Line"),
+            Triple("search_only", "Search Action Only", "🔍 Search")
+        )
+
+        val currentEnterMode = covertManager.enterKeyBehavior
+        enterModes.forEach { (modeKey, fullDesc, chipLabel) ->
+            val isSelected = currentEnterMode == modeKey
+            val chip = TextView(this).apply {
+                text = chipLabel
+                textSize = 11f
+                setTypeface(if (isSelected) Typeface.DEFAULT_BOLD else Typeface.DEFAULT)
+                gravity = Gravity.CENTER
+                includeFontPadding = false
+                setTextColor(if (isSelected) enterIconColor() else textColor())
+                setPadding(dp(4), dp(4), dp(4), dp(4))
+                val bg = GradientDrawable().apply {
+                    setColor(if (isSelected) accentColor() else specialKeyColor())
+                    cornerRadius = dp(6).toFloat()
+                    if (!isSelected) {
+                        setStroke(dp(1), if (isDarkMode()) Color.parseColor("#3C4043") else Color.parseColor("#DADCE0"))
+                    }
+                }
+                background = bg
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    setMargins(dp(2), 0, dp(2), 0)
+                }
+                setOnClickListener {
+                    covertManager.enterKeyBehavior = modeKey
+                    Toast.makeText(this@CustomKeyboardService, "Enter key: $fullDesc", Toast.LENGTH_SHORT).show()
+                    render()
+                }
+            }
+            enterToggleRow.addView(chip)
+        }
+        mainLayout.addView(enterToggleRow)
+
+        // 3. Regular Clipboard Item List
         val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val items = clipHistory.getAll()
 
@@ -562,7 +695,7 @@ class CustomKeyboardService : InputMethodService() {
                 val row = LinearLayout(this).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
-                    setPadding(dp(12), dp(10), dp(12), dp(10))
+                    setPadding(dp(12), dp(8), dp(12), dp(8))
                     setOnClickListener {
                         currentInputConnection?.commitText(item, 1)
                         switchMode(Mode.LETTERS)
@@ -590,15 +723,69 @@ class CustomKeyboardService : InputMethodService() {
             list.addView(TextView(this).apply {
                 text = "Clear all"
                 setTextColor(accentColor())
-                setPadding(dp(12), dp(10), dp(12), dp(10))
+                setPadding(dp(12), dp(8), dp(12), dp(8))
                 setOnClickListener {
                     clipHistory.clear()
                     render()
                 }
             })
         }
-        scroll.addView(list)
+        mainLayout.addView(list)
+        scroll.addView(mainLayout)
         return scroll
+    }
+
+    /**
+     * Helper to construct a flat white icon toggle button with active indicator light for the clipboard bar.
+     */
+    private fun createEffectIconButton(
+        iconRes: Int,
+        title: String,
+        isActive: Boolean,
+        onToggle: () -> Unit
+    ): View {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, dp(44), 1f).apply {
+                setMargins(dp(2), dp(1), dp(2), dp(1))
+            }
+            val bg = GradientDrawable().apply {
+                setColor(if (isActive) (if (isDarkMode()) Color.parseColor("#383B3E") else Color.parseColor("#D2E3FC")) else Color.TRANSPARENT)
+                cornerRadius = dp(6).toFloat()
+            }
+            background = bg
+        }
+
+        val icon = ImageView(this).apply {
+            setImageResource(iconRes)
+            // Strict requirement: All flat white icons
+            setColorFilter(if (isActive) Color.WHITE else Color.parseColor("#B0FFFFFF"))
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            layoutParams = LinearLayout.LayoutParams(dp(20), dp(20))
+        }
+
+        val indicator = View(this).apply {
+            val dot = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(if (isActive) accentColor() else Color.parseColor("#60FFFFFF"))
+            }
+            background = dot
+            layoutParams = LinearLayout.LayoutParams(dp(5), dp(5)).apply {
+                topMargin = dp(3)
+            }
+        }
+
+        container.addView(icon)
+        container.addView(indicator)
+
+        applyKeyTouchBehavior(container, pressHighlightColor(), null, KEY_RADIUS_DP) {
+            onToggle()
+            val stateText = if (!isActive) "ON" else "OFF"
+            Toast.makeText(this@CustomKeyboardService, "$title: $stateText", Toast.LENGTH_SHORT).show()
+        }
+
+        return container
     }
 
     // ---------- key rows ----------
@@ -918,6 +1105,39 @@ class CustomKeyboardService : InputMethodService() {
         }
     }
 
+    /**
+     * Determines whether the Enter key currently acts as a search / action button or as a newline return.
+     */
+    private fun isEnterActingAsSearch(): Boolean {
+        val info = currentInputEditorInfo
+        val inputType = info?.inputType ?: 0
+        val isMultiLineField = (inputType and android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0 ||
+                (inputType and android.text.InputType.TYPE_TEXT_VARIATION_LONG_MESSAGE) != 0 ||
+                (info?.imeOptions?.and(EditorInfo.IME_FLAG_NO_ENTER_ACTION) ?: 0) != 0
+
+        val behavior = covertManager.enterKeyBehavior
+        return when (behavior) {
+            "newline_only" -> false
+            "search_only" -> true
+            "auto_field" -> !isMultiLineField
+            else -> { // "auto_effect" (Default)
+                // If effect requires multiple lines (Math list, Line text peek, Covert typing), it must act as enter only
+                val requiresMultiLineEffect = (covertManager.isCovertActive) ||
+                        (covertManager.isMathEnabled) ||
+                        (covertManager.isTextPeekEnabled && covertManager.textPeekMode == "line")
+
+                if (requiresMultiLineEffect) {
+                    false
+                } else if (covertManager.isTextReplaceEnabled) {
+                    // API Text replace does not require multi-lines -> click search
+                    true
+                } else {
+                    !isMultiLineField
+                }
+            }
+        }
+    }
+
     /** Filled, pill-shaped enter/send key drawn with a hand-built glyph (no bitmap assets)
      *  and a Material-You-aware accent color, so it reads as part of the same design
      *  language as the rest of the keyboard instead of a plain text character. */
@@ -927,7 +1147,9 @@ class CustomKeyboardService : InputMethodService() {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
             background = resting
         }
-        val icon = GlyphIconView(this, GlyphIconView.Glyph.RETURN).apply {
+        val isSearch = isEnterActingAsSearch()
+        val glyph = if (isSearch) GlyphIconView.Glyph.SEARCH else GlyphIconView.Glyph.RETURN
+        val icon = GlyphIconView(this, glyph).apply {
             iconColor = enterIconColor()
             layoutParams = FrameLayout.LayoutParams(dp(ICON_GLYPH_DP), dp(ICON_GLYPH_DP), Gravity.CENTER)
         }
@@ -1356,18 +1578,26 @@ class CustomKeyboardService : InputMethodService() {
                 TriggerManager.queueTextPeek(peekPayload, this, covertManager)
             }
         }
+
+        val ic = currentInputConnection
         val info = currentInputEditorInfo
-        val inputType = info?.inputType ?: 0
-        val isMultiLine = (inputType and android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0 ||
-                (inputType and android.text.InputType.TYPE_TEXT_VARIATION_LONG_MESSAGE) != 0 ||
-                (info?.imeOptions?.and(EditorInfo.IME_FLAG_NO_ENTER_ACTION) ?: 0) != 0
+        val isSearch = isEnterActingAsSearch()
 
-        val action = info?.imeOptions?.and(EditorInfo.IME_MASK_ACTION) ?: EditorInfo.IME_ACTION_NONE
-
-        if (!isMultiLine && info != null && action != EditorInfo.IME_ACTION_NONE && action != EditorInfo.IME_ACTION_UNSPECIFIED) {
-            currentInputConnection?.performEditorAction(action)
+        if (isSearch) {
+            val rawAction = info?.imeOptions?.and(EditorInfo.IME_MASK_ACTION) ?: EditorInfo.IME_ACTION_NONE
+            val action = if (rawAction != EditorInfo.IME_ACTION_NONE && rawAction != EditorInfo.IME_ACTION_UNSPECIFIED) {
+                rawAction
+            } else {
+                EditorInfo.IME_ACTION_SEARCH
+            }
+            val performed = ic?.performEditorAction(action) ?: false
+            if (!performed) {
+                // If IME action didn't trigger, send hardware ENTER / DPAD_CENTER key event
+                ic?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+                ic?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
+            }
         } else {
-            currentInputConnection?.commitText("\n", 1)
+            ic?.commitText("\n", 1)
         }
         refreshTopBar()
     }
@@ -1430,6 +1660,25 @@ class CustomKeyboardService : InputMethodService() {
         return false
     }
 
+    /**
+     * Called immediately after text replacement succeeds to auto-click search if configured.
+     */
+    private fun triggerSearchAfterReplacement() {
+        val info = currentInputEditorInfo
+        val ic = currentInputConnection ?: return
+        val rawAction = info?.imeOptions?.and(EditorInfo.IME_MASK_ACTION) ?: EditorInfo.IME_ACTION_NONE
+        val action = if (rawAction != EditorInfo.IME_ACTION_NONE && rawAction != EditorInfo.IME_ACTION_UNSPECIFIED) {
+            rawAction
+        } else {
+            EditorInfo.IME_ACTION_SEARCH
+        }
+        val performed = ic.performEditorAction(action)
+        if (!performed) {
+            ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+            ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
+        }
+    }
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (TriggerManager.isVolumeTriggerEnabled(this) &&
             (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN)) {
@@ -1467,8 +1716,8 @@ class CustomKeyboardService : InputMethodService() {
  * inconsistent, often tiny sizes depending on the system font) - no external icon assets
  * required.
  */
-private class GlyphIconView(context: Context, private val glyph: Glyph) : View(context) {
-    enum class Glyph { RETURN, BACKSPACE, SHIFT }
+private class GlyphIconView(context: Context, var glyph: Glyph) : View(context) {
+    enum class Glyph { RETURN, SEARCH, BACKSPACE, SHIFT }
 
     var iconColor: Int = Color.BLACK
     /** Only used by Glyph.SHIFT - draws an underline bar beneath the arrow to indicate caps lock. */
@@ -1499,6 +1748,19 @@ private class GlyphIconView(context: Context, private val glyph: Glyph) : View(c
                 canvas.drawLine(right, bottom, left, bottom, paint)
                 canvas.drawLine(left, bottom, left + w * 0.18f, bottom - h * 0.16f, paint)
                 canvas.drawLine(left, bottom, left + w * 0.18f, bottom + h * 0.16f, paint)
+            }
+            Glyph.SEARCH -> {
+                // Flat magnifying glass search icon
+                val cx = w * 0.42f
+                val cy = h * 0.42f
+                val radius = w * 0.22f
+                paint.style = Paint.Style.STROKE
+                canvas.drawCircle(cx, cy, radius, paint)
+                val handleStartX = cx + radius * 0.707f
+                val handleStartY = cy + radius * 0.707f
+                val handleEndX = w * 0.78f
+                val handleEndY = h * 0.78f
+                canvas.drawLine(handleStartX, handleStartY, handleEndX, handleEndY, paint)
             }
             Glyph.BACKSPACE -> {
                 // A generously-sized arrow-box outline with a clearly-inset X, so the X never
