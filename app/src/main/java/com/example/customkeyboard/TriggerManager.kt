@@ -330,10 +330,11 @@ object TriggerManager {
         if (covertManager.isTextReplaceEnabled) {
             val replaced = onExecuteTextReplacement?.invoke(context, covertManager) ?: false
             if (replaced) {
-                val placeholder = covertManager.replacePlaceholder
+                val placeholder = covertManager.replacePlaceholder.trim()
                 val replacement = covertManager.getEffectiveReplacementValue()
                 val sourceLabel = if (covertManager.replaceSourceMode == "custom") "Pre-saved Text" else "API Data"
-                dispatchedItems.add("Replaced \"$placeholder\" with \"$replacement\" ($sourceLabel)")
+                val targetDesc = if (placeholder.isEmpty()) "ALL text in writing area" else "\"$placeholder\""
+                dispatchedItems.add("Replaced $targetDesc with \"$replacement\" ($sourceLabel)")
             }
         }
 

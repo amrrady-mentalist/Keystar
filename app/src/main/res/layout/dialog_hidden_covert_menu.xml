@@ -1233,7 +1233,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Placeholder Tag in Writing Area:"
+                            android:text="Placeholder Tag in Writing Area (leave blank to replace ALL text):"
                             android:textStyle="bold"
                             android:textSize="13sp" />
 
@@ -1242,7 +1242,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
-                            android:hint="--value--"
+                            android:hint="Leave empty to replace all text (or --value--)"
                             android:textColor="@color/edit_text_color"
                             android:textColorHint="@color/edit_hint_color"
                             android:textSize="14sp"
@@ -1258,14 +1258,25 @@
                             android:orientation="horizontal">
 
                             <Button
+                                android:id="@+id/chipTagEmpty"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                android:layout_width="0dp"
+                                android:layout_height="36dp"
+                                android:layout_weight="1.2"
+                                android:layout_marginEnd="3dp"
+                                android:text="All Text (Empty)"
+                                android:textSize="10sp"
+                                android:padding="0dp" />
+
+                            <Button
                                 android:id="@+id/chipTagDoubleDash"
                                 style="@style/Widget.Material3.Button.OutlinedButton"
                                 android:layout_width="0dp"
                                 android:layout_height="36dp"
                                 android:layout_weight="1"
-                                android:layout_marginEnd="4dp"
+                                android:layout_marginHorizontal="2dp"
                                 android:text="--value--"
-                                android:textSize="11sp"
+                                android:textSize="10sp"
                                 android:padding="0dp" />
 
                             <Button
@@ -1276,7 +1287,7 @@
                                 android:layout_weight="1"
                                 android:layout_marginHorizontal="2dp"
                                 android:text="{{value}}"
-                                android:textSize="11sp"
+                                android:textSize="10sp"
                                 android:padding="0dp" />
 
                             <Button
@@ -1285,9 +1296,9 @@
                                 android:layout_width="0dp"
                                 android:layout_height="36dp"
                                 android:layout_weight="1"
-                                android:layout_marginStart="4dp"
+                                android:layout_marginStart="3dp"
                                 android:text="[VALUE]"
-                                android:textSize="11sp"
+                                android:textSize="10sp"
                                 android:padding="0dp" />
                         </LinearLayout>
 

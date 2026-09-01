@@ -276,9 +276,9 @@ class CovertManager(private val context: Context) {
             prefs.edit().putBoolean("key_text_replace_enabled", value).apply()
         }
 
-    // Placeholder in writing area (e.g. "--value--" or "{{value}}")
+    // Placeholder in writing area (e.g. "--value--" or "{{value}}", or empty to replace entire text)
     var replacePlaceholder: String
-        get() = prefs.getString("key_replace_placeholder", "--value--") ?: "--value--"
+        get() = prefs.getString("key_replace_placeholder", "--value--") ?: ""
         set(value) {
             prefs.edit().putString("key_replace_placeholder", value).apply()
         }

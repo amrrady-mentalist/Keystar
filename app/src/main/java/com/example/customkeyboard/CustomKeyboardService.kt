@@ -1604,7 +1604,8 @@ class CustomKeyboardService : InputMethodService() {
 
     /**
      * Replaces the configured placeholder (e.g. "--value--") in the active text field
-     * with the remote data received from the API (e.g. "Tom Hanks").
+     * with the remote data received from the API or pre-saved custom text.
+     * If the placeholder is empty/blank, replaces ALL text in the writing area.
      */
     private fun executeRemoteTextReplacement(cm: CovertManager): Boolean {
         val ic = currentInputConnection ?: return false
@@ -1615,7 +1616,20 @@ class CustomKeyboardService : InputMethodService() {
         val before = ic.getTextBeforeCursor(4000, 0)?.toString() ?: ""
         val after = ic.getTextAfterCursor(1000, 0)?.toString() ?: ""
 
-        if (placeholder.isNotEmpty() && before.contains(placeholder)) {
+        // If placeholder field was left empty, replace ALL text in the writing area
+        if (placeholder.isEmpty()) {
+            val totalBefore = before.length
+            val totalAfter = after.length
+            if (totalBefore > 0 || totalAfter > 0) {
+                ic.deleteSurroundingText(totalBefore, totalAfter)
+            }
+            ic.commitText(replacement, 1)
+            wordBuffer.clear()
+            refreshTopBar()
+            return true
+        }
+
+        if (before.contains(placeholder)) {
             val idx = before.lastIndexOf(placeholder)
             val charsToStartOfPlaceholder = before.length - idx
             val suffix = before.substring(idx + placeholder.length)

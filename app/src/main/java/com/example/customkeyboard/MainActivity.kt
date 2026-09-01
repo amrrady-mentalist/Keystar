@@ -289,6 +289,7 @@ class MainActivity : AppCompatActivity() {
         val tvTextReplaceStatusTitle = dialog.findViewById<TextView>(R.id.tvTextReplaceStatusTitle)
         val layoutTextReplaceDetails = dialog.findViewById<LinearLayout>(R.id.layoutTextReplaceDetails)
         val editReplacePlaceholder = dialog.findViewById<EditText>(R.id.editReplacePlaceholder)
+        val chipTagEmpty = dialog.findViewById<Button>(R.id.chipTagEmpty)
         val chipTagDoubleDash = dialog.findViewById<Button>(R.id.chipTagDoubleDash)
         val chipTagCurly = dialog.findViewById<Button>(R.id.chipTagCurly)
         val chipTagBrackets = dialog.findViewById<Button>(R.id.chipTagBrackets)
@@ -723,6 +724,10 @@ class MainActivity : AppCompatActivity() {
             updateStatusUi()
         }
 
+        chipTagEmpty.setOnClickListener {
+            editReplacePlaceholder.setText("")
+            covertManager.replacePlaceholder = ""
+        }
         chipTagDoubleDash.setOnClickListener {
             editReplacePlaceholder.setText("--value--")
             covertManager.replacePlaceholder = "--value--"
@@ -745,7 +750,7 @@ class MainActivity : AppCompatActivity() {
             val placeholder = editReplacePlaceholder.text.toString().trim()
             val fallback = editReplaceFallbackValue.text.toString().trim()
             val url = editReplaceApiUrl.text.toString().trim()
-            if (placeholder.isNotEmpty()) covertManager.replacePlaceholder = placeholder
+            covertManager.replacePlaceholder = placeholder
             if (fallback.isNotEmpty()) {
                 covertManager.replaceFallbackValue = fallback
             }
@@ -753,7 +758,8 @@ class MainActivity : AppCompatActivity() {
             covertManager.replaceSourceMode = if (rbReplaceSourceCustom.isChecked) "custom" else "api"
             updateStatusUi()
             val sourceLabel = if (covertManager.replaceSourceMode == "custom") "Pre-saved Text" else "API Data"
-            Toast.makeText(this, "Replacement saved! Replaces \"${covertManager.replacePlaceholder}\" with $sourceLabel (\"${covertManager.getEffectiveReplacementValue()}\")", Toast.LENGTH_LONG).show()
+            val targetDesc = if (placeholder.isEmpty()) "ALL text in writing area" else "\"$placeholder\""
+            Toast.makeText(this, "Replacement saved! Replaces $targetDesc with $sourceLabel (\"${covertManager.getEffectiveReplacementValue()}\")", Toast.LENGTH_LONG).show()
         }
 
         btnFetchApiValueNow.setOnClickListener {
