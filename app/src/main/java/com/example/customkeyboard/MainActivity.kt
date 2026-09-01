@@ -196,6 +196,7 @@ class MainActivity : AppCompatActivity() {
         val tvStatusTitle = dialog.findViewById<TextView>(R.id.tvCovertStatusTitle)
         val tvCapturedWordStatus = dialog.findViewById<TextView>(R.id.tvCapturedWordStatus)
         val switchMaster = dialog.findViewById<MaterialSwitch>(R.id.switchCovertMaster)
+        val layoutCovertDetails = dialog.findViewById<LinearLayout>(R.id.layoutCovertDetails)
         val btnResetSession = dialog.findViewById<Button>(R.id.btnResetSession)
         val btnDisarmNow = dialog.findViewById<Button>(R.id.btnDisarmNow)
 
@@ -224,6 +225,7 @@ class MainActivity : AppCompatActivity() {
         // Math Effect Views
         val switchMathMaster = dialog.findViewById<MaterialSwitch>(R.id.switchMathMaster)
         val tvMathStatusTitle = dialog.findViewById<TextView>(R.id.tvMathStatusTitle)
+        val layoutMathDetails = dialog.findViewById<LinearLayout>(R.id.layoutMathDetails)
         val rgMathTargetMode = dialog.findViewById<android.widget.RadioGroup>(R.id.rgMathTargetMode)
         val rbMathModeTotal = dialog.findViewById<android.widget.RadioButton>(R.id.rbMathModeTotal)
         val rbMathModeLine = dialog.findViewById<android.widget.RadioButton>(R.id.rbMathModeLine)
@@ -257,6 +259,7 @@ class MainActivity : AppCompatActivity() {
         // Delete Peek Effect Views
         val switchDeletePeekMaster = dialog.findViewById<MaterialSwitch>(R.id.switchDeletePeekMaster)
         val tvDeletePeekStatusTitle = dialog.findViewById<TextView>(R.id.tvDeletePeekStatusTitle)
+        val layoutDeletePeekDetails = dialog.findViewById<LinearLayout>(R.id.layoutDeletePeekDetails)
         val tvLastDeletedWord = dialog.findViewById<TextView>(R.id.tvLastDeletedWord)
         val switchDeletePeekSendInject = dialog.findViewById<MaterialSwitch>(R.id.switchDeletePeekSendInject)
         val switchDeletePeekLocalNotif = dialog.findViewById<MaterialSwitch>(R.id.switchDeletePeekLocalNotif)
@@ -266,6 +269,7 @@ class MainActivity : AppCompatActivity() {
         // Any Word / Line Peek Effect Views
         val switchTextPeekMaster = dialog.findViewById<MaterialSwitch>(R.id.switchTextPeekMaster)
         val tvTextPeekStatusTitle = dialog.findViewById<TextView>(R.id.tvTextPeekStatusTitle)
+        val layoutTextPeekDetails = dialog.findViewById<LinearLayout>(R.id.layoutTextPeekDetails)
         val rgTextPeekMode = dialog.findViewById<RadioGroup>(R.id.rgTextPeekMode)
         val rbTextPeekAll = dialog.findViewById<RadioButton>(R.id.rbTextPeekAll)
         val rbTextPeekLastWord = dialog.findViewById<RadioButton>(R.id.rbTextPeekLastWord)
@@ -283,6 +287,7 @@ class MainActivity : AppCompatActivity() {
         // API Text Replace Effect Views
         val switchTextReplaceMaster = dialog.findViewById<MaterialSwitch>(R.id.switchTextReplaceMaster)
         val tvTextReplaceStatusTitle = dialog.findViewById<TextView>(R.id.tvTextReplaceStatusTitle)
+        val layoutTextReplaceDetails = dialog.findViewById<LinearLayout>(R.id.layoutTextReplaceDetails)
         val editReplacePlaceholder = dialog.findViewById<EditText>(R.id.editReplacePlaceholder)
         val chipTagDoubleDash = dialog.findViewById<Button>(R.id.chipTagDoubleDash)
         val chipTagCurly = dialog.findViewById<Button>(R.id.chipTagCurly)
@@ -308,6 +313,7 @@ class MainActivity : AppCompatActivity() {
             val isActive = covertManager.isCovertActive
             switchMaster.isChecked = isActive
             tvStatusTitle.text = if (isActive) "Covert Typing: ARMED" else "Covert Typing: DISARMED"
+            layoutCovertDetails.visibility = if (isActive) View.VISIBLE else View.GONE
 
             val typedPrimary = TypedValue()
             val typedSecondary = TypedValue()
@@ -326,22 +332,26 @@ class MainActivity : AppCompatActivity() {
             switchMathMaster.isChecked = covertManager.isMathEnabled
             tvMathStatusTitle.text = if (covertManager.isMathEnabled) "Math Magic Effect: ACTIVE" else "Math Magic Effect: OFF"
             tvMathStatusTitle.setTextColor(if (covertManager.isMathEnabled) typedPrimary.data else typedSecondary.data)
+            layoutMathDetails.visibility = if (covertManager.isMathEnabled) View.VISIBLE else View.GONE
 
             // Delete Peek Status
             switchDeletePeekMaster.isChecked = covertManager.isDeletePeekEnabled
             tvDeletePeekStatusTitle.text = if (covertManager.isDeletePeekEnabled) "Delete Peek Effect: ACTIVE" else "Delete Peek Effect: OFF"
             tvDeletePeekStatusTitle.setTextColor(if (covertManager.isDeletePeekEnabled) typedPrimary.data else typedSecondary.data)
+            layoutDeletePeekDetails.visibility = if (covertManager.isDeletePeekEnabled) View.VISIBLE else View.GONE
 
             // Text Peek Status
             switchTextPeekMaster.isChecked = covertManager.isTextPeekEnabled
             tvTextPeekStatusTitle.text = if (covertManager.isTextPeekEnabled) "Any Word / Line Peek: ACTIVE" else "Any Word / Line Peek: OFF"
             tvTextPeekStatusTitle.setTextColor(if (covertManager.isTextPeekEnabled) typedPrimary.data else typedSecondary.data)
+            layoutTextPeekDetails.visibility = if (covertManager.isTextPeekEnabled) View.VISIBLE else View.GONE
 
             // Text Replace Status
             switchTextReplaceMaster.isChecked = covertManager.isTextReplaceEnabled
             tvTextReplaceStatusTitle.text = if (covertManager.isTextReplaceEnabled) "API Text Replace: ACTIVE" else "API Text Replace: OFF"
             tvTextReplaceStatusTitle.setTextColor(if (covertManager.isTextReplaceEnabled) typedPrimary.data else typedSecondary.data)
             tvReplaceApiFetchStatus.text = "Current Remote Value: \"${covertManager.lastFetchedApiValue}\""
+            layoutTextReplaceDetails.visibility = if (covertManager.isTextReplaceEnabled) View.VISIBLE else View.GONE
 
             val lastDel = DeletePeekMemory.lastDeletedWord
             tvLastDeletedWord.text = if (lastDel.isNotEmpty()) {
@@ -358,6 +368,10 @@ class MainActivity : AppCompatActivity() {
             switchTriggerProximity.isChecked = TriggerManager.isProximityTriggerEnabled(this)
             switchTriggerHaptic.isChecked = TriggerManager.isHapticTriggerEnabled(this)
             tvTriggerPendingStatus.text = "Pending Queue: ${TriggerManager.getPendingSummary()}"
+
+            // Inject API Status
+            switchInjectApi.isChecked = covertManager.isInjectApiEnabled
+            layoutInjectSettings.visibility = if (covertManager.isInjectApiEnabled) View.VISIBLE else View.GONE
 
             val isSelectedDefault = TriggerManager.isKeyboardSelectedAsDefault(this)
             val isAnyEffectActive = covertManager.isAnyMagicEffectActive()

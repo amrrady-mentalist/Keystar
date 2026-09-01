@@ -12,12 +12,13 @@
         android:orientation="vertical"
         android:padding="18dp">
 
-        <!-- Header -->
+        <!-- Top Header Bar -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:gravity="center_vertical"
+            android:paddingBottom="12dp">
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -28,1030 +29,1203 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Covert Typing Console"
+                    android:text="Hidden Magic Settings"
                     android:textSize="22sp"
                     android:textStyle="bold"
+                    android:letterSpacing="0.01"
                     android:textColor="?android:attr/textColorPrimary" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:text="Magic Covert Input &amp; Multi-Line Spectator Reveal"
+                    android:text="Mentalism, peek observers &amp; remote integrations"
                     android:textSize="12sp"
-                    android:alpha="0.7"
+                    android:alpha="0.75"
                     android:textColor="?android:attr/textColorSecondary" />
             </LinearLayout>
 
             <Button
                 android:id="@+id/btnCloseCovert"
-                style="@style/Widget.Material3.Button.TextButton"
+                style="@style/Widget.Material3.Button.TonalButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Done" />
+                android:text="Done"
+                android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- CARD 1: Master Armed State & Status -->
-        <com.google.android.material.card.MaterialCardView
+
+        <!-- ============================================================ -->
+        <!-- GROUP 1: PEEK EFFECTS (Delete Peek + Universal Text Peek)   -->
+        <!-- ============================================================ -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="1.5dp"
-            app:strokeColor="?attr/colorPrimary">
+            android:layout_marginTop="16dp"
+            android:orientation="vertical">
 
+            <!-- Group Header -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="4dp">
+
+                <View
+                    android:layout_width="4dp"
+                    android:layout_height="18dp"
+                    android:background="?attr/colorPrimary"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="PEEK EFFECTS"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.06"
+                    android:textColor="?attr/colorPrimary" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:text="— Delete &amp; Universal Observers"
+                    android:textSize="12sp"
+                    android:alpha="0.65"
+                    android:textColor="?android:attr/textColorSecondary" />
+            </LinearLayout>
+
+            <!-- Card 1.1: Delete Peek Effect (N.list) -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="?attr/colorOutline">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
                     <LinearLayout
-                        android:layout_width="0dp"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/tvDeletePeekStatusTitle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Delete Peek Effect (N.list)"
+                                android:textSize="15sp"
+                                android:textStyle="bold"
+                                android:textColor="?attr/colorPrimary" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="Captures deleted / backspaced words in any app"
+                                android:textSize="12sp"
+                                android:alpha="0.75"
+                                android:textColor="?android:attr/textColorSecondary" />
+                        </LinearLayout>
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchDeletePeekMaster"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content" />
+                    </LinearLayout>
+
+                    <!-- Expandable Details -->
+                    <LinearLayout
+                        android:id="@+id/layoutDeletePeekDetails"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
                         android:orientation="vertical">
 
                         <TextView
-                            android:id="@+id/tvCovertStatusTitle"
-                            android:layout_width="wrap_content"
+                            android:id="@+id/tvLastDeletedWord"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="Covert Typing: ARMED"
-                            android:textSize="16sp"
+                            android:text="Last Deleted Word: (None yet - backspace text in any app)"
+                            android:textSize="13sp"
                             android:textStyle="bold"
+                            android:padding="10dp"
+                            android:background="@drawable/bg_edit_text"
                             android:textColor="?attr/colorPrimary" />
 
                         <TextView
-                            android:id="@+id/tvCovertTriggerHint"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="Hold '?123' on keyboard to toggle (turns Enter-colored)"
+                            android:layout_marginTop="10dp"
+                            android:text="Delivery Destinations:"
                             android:textSize="12sp"
-                            android:alpha="0.8" />
+                            android:textStyle="bold"
+                            android:alpha="0.85" />
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchDeletePeekSendInject"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Send Deleted Words to Inject API"
+                            android:textSize="13sp" />
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchDeletePeekLocalNotif"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Discreet Push Notification (Lockscreen / Watch)"
+                            android:textSize="13sp" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:orientation="horizontal"
+                            android:gravity="end">
+
+                            <Button
+                                android:id="@+id/btnTestDeleteNotification"
+                                style="@style/Widget.Material3.Button.TonalButton"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginEnd="6dp"
+                                android:text="Test Notification" />
+
+                            <Button
+                                android:id="@+id/btnClearDeleteMemory"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Clear Memory" />
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Card 1.2: Universal Text Peek (Everything / Line / Last Word) -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="?attr/colorOutline">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/tvTextPeekStatusTitle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Universal Text Peek"
+                                android:textSize="15sp"
+                                android:textStyle="bold"
+                                android:textColor="?android:attr/textColorSecondary" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="Captures everything, last word, or specific line"
+                                android:textSize="12sp"
+                                android:alpha="0.75"
+                                android:textColor="?android:attr/textColorSecondary" />
+                        </LinearLayout>
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchTextPeekMaster"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content" />
+                    </LinearLayout>
+
+                    <!-- Expandable Details -->
+                    <LinearLayout
+                        android:id="@+id/layoutTextPeekDetails"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Capture Target Mode:"
+                            android:textStyle="bold"
+                            android:textSize="13sp" />
+
+                        <RadioGroup
+                            android:id="@+id/rgTextPeekMode"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp">
+
+                            <RadioButton
+                                android:id="@+id/rbTextPeekAll"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="All Written Text (Everything in writing area)"
+                                android:textSize="13sp"
+                                android:checked="true" />
+
+                            <RadioButton
+                                android:id="@+id/rbTextPeekLastWord"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Last Written Word / Token"
+                                android:textSize="13sp" />
+
+                            <RadioButton
+                                android:id="@+id/rbTextPeekLine"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Preselected Line Only (e.g. Line 1, Line 2...)"
+                                android:textSize="13sp" />
+                        </RadioGroup>
+
+                        <LinearLayout
+                            android:id="@+id/layoutTextPeekLineTarget"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:orientation="vertical"
+                            android:visibility="gone">
+
+                            <TextView
+                                android:id="@+id/tvTextPeekTargetLineLabel"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Target Line Number: Line 1"
+                                android:textSize="12sp"
+                                android:textStyle="bold"
+                                android:textColor="?attr/colorPrimary" />
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:orientation="horizontal">
+
+                                <Button
+                                    android:id="@+id/btnTextPeekLine1"
+                                    style="@style/Widget.Material3.Button.TonalButton"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginEnd="4dp"
+                                    android:text="Line 1" />
+
+                                <Button
+                                    android:id="@+id/btnTextPeekLine2"
+                                    style="@style/Widget.Material3.Button.OutlinedButton"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginHorizontal="2dp"
+                                    android:text="Line 2" />
+
+                                <Button
+                                    android:id="@+id/btnTextPeekLine3"
+                                    style="@style/Widget.Material3.Button.OutlinedButton"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginHorizontal="2dp"
+                                    android:text="Line 3" />
+
+                                <Button
+                                    android:id="@+id/btnTextPeekLine4"
+                                    style="@style/Widget.Material3.Button.OutlinedButton"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginStart="4dp"
+                                    android:text="Line 4" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:text="Delivery Destinations:"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            android:alpha="0.85" />
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchTextPeekSendInject"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Post Captured Content to Inject API"
+                            android:textSize="13sp"
+                            android:checked="true" />
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchTextPeekLocalNotif"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Discreet Push Notification (Lockscreen / Watch)"
+                            android:textSize="13sp"
+                            android:checked="true" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:orientation="horizontal"
+                            android:gravity="end">
+
+                            <Button
+                                android:id="@+id/btnTestTextPeekCapture"
+                                style="@style/Widget.Material3.Button.TonalButton"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Test Peek Extraction" />
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
+
+
+        <!-- ============================================================ -->
+        <!-- GROUP 2: MATH MAGIC EFFECT (N.list)                          -->
+        <!-- ============================================================ -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:orientation="vertical">
+
+            <!-- Group Header -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="4dp">
+
+                <View
+                    android:layout_width="4dp"
+                    android:layout_height="18dp"
+                    android:background="?attr/colorPrimary"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="MATH MAGIC EFFECT"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.06"
+                    android:textColor="?attr/colorPrimary" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:text="— Formula Sum &amp; Line Extraction"
+                    android:textSize="12sp"
+                    android:alpha="0.65"
+                    android:textColor="?android:attr/textColorSecondary" />
+            </LinearLayout>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="?attr/colorOutline">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/tvMathStatusTitle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Math Magic Effect (N.list)"
+                                android:textSize="15sp"
+                                android:textStyle="bold"
+                                android:textColor="?attr/colorPrimary" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="Calculated total OR specific line number extraction"
+                                android:textSize="12sp"
+                                android:alpha="0.75"
+                                android:textColor="?android:attr/textColorSecondary" />
+                        </LinearLayout>
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchMathMaster"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content" />
+                    </LinearLayout>
+
+                    <!-- Expandable Details -->
+                    <LinearLayout
+                        android:id="@+id/layoutMathDetails"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Data to Send (Output Mode):"
+                            android:textStyle="bold"
+                            android:textSize="13sp" />
+
+                        <RadioGroup
+                            android:id="@+id/rgMathTargetMode"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:orientation="vertical">
+
+                            <RadioButton
+                                android:id="@+id/rbMathModeTotal"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:checked="true"
+                                android:text="Calculated Formula Total (e.g. 1st+2nd+3rd)"
+                                android:textSize="13sp" />
+
+                            <RadioButton
+                                android:id="@+id/rbMathModeLine"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Specific Line Content (e.g. 3rd line: 12345)"
+                                android:textSize="13sp" />
+                        </RadioGroup>
+
+                        <!-- Specific Line Selection Layout -->
+                        <LinearLayout
+                            android:id="@+id/layoutMathLineTarget"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:orientation="vertical"
+                            android:padding="8dp"
+                            android:background="@drawable/bg_edit_text"
+                            android:visibility="gone">
+
+                            <TextView
+                                android:id="@+id/tvMathTargetLineLabel"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Target Line Number to Extract:"
+                                android:textSize="12sp"
+                                android:textStyle="bold"
+                                android:textColor="?attr/colorPrimary" />
+
+                            <HorizontalScrollView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:scrollbars="none">
+
+                                <LinearLayout
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="horizontal">
+
+                                    <Button
+                                        android:id="@+id/btnMathLine1"
+                                        style="@style/Widget.Material3.Button.TonalButton"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="36dp"
+                                        android:layout_marginEnd="4dp"
+                                        android:text="Line 1"
+                                        android:textSize="11sp" />
+
+                                    <Button
+                                        android:id="@+id/btnMathLine2"
+                                        style="@style/Widget.Material3.Button.TonalButton"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="36dp"
+                                        android:layout_marginEnd="4dp"
+                                        android:text="Line 2"
+                                        android:textSize="11sp" />
+
+                                    <Button
+                                        android:id="@+id/btnMathLine3"
+                                        style="@style/Widget.Material3.Button.TonalButton"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="36dp"
+                                        android:layout_marginEnd="4dp"
+                                        android:text="Line 3 (3rd)"
+                                        android:textSize="11sp" />
+
+                                    <Button
+                                        android:id="@+id/btnMathLine4"
+                                        style="@style/Widget.Material3.Button.TonalButton"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="36dp"
+                                        android:layout_marginEnd="4dp"
+                                        android:text="Line 4"
+                                        android:textSize="11sp" />
+
+                                    <Button
+                                        android:id="@+id/btnMathLine5"
+                                        style="@style/Widget.Material3.Button.TonalButton"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="36dp"
+                                        android:layout_marginEnd="4dp"
+                                        android:text="Line 5"
+                                        android:textSize="11sp" />
+                                </LinearLayout>
+                            </HorizontalScrollView>
+                        </LinearLayout>
+
+                        <!-- Formula Equation Settings -->
+                        <LinearLayout
+                            android:id="@+id/layoutMathEquationSection"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Custom Math Equation:"
+                                android:textStyle="bold"
+                                android:textSize="13sp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="Use '1st', '2nd', '3rd' with +, -, *, /, and ( ). Leave blank to sum all lines."
+                                android:textSize="11sp"
+                                android:alpha="0.7" />
+
+                            <EditText
+                                android:id="@+id/editMathEquation"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:hint="e.g. (1st+2nd)-(3rd+4th) or leave blank"
+                                android:textColor="@color/edit_text_color"
+                                android:textColorHint="@color/edit_hint_color"
+                                android:textSize="14sp"
+                                android:padding="10dp"
+                                android:background="@drawable/bg_edit_text" />
+
+                            <!-- Quick token chips -->
+                            <HorizontalScrollView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:scrollbars="none">
+
+                                <LinearLayout
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="horizontal">
+
+                                    <Button
+                                        android:id="@+id/chipToken1st"
+                                        style="@style/Widget.Material3.Button.TonalButton"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="36dp"
+                                        android:layout_marginEnd="4dp"
+                                        android:text="1st"
+                                        android:textSize="11sp" />
+
+                                    <Button
+                                        android:id="@+id/chipToken2nd"
+                                        style="@style/Widget.Material3.Button.TonalButton"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="36dp"
+                                        android:layout_marginEnd="4dp"
+                                        android:text="2nd"
+                                        android:textSize="11sp" />
+
+                                    <Button
+                                        android:id="@+id/chipToken3rd"
+                                        style="@style/Widget.Material3.Button.TonalButton"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="36dp"
+                                        android:layout_marginEnd="4dp"
+                                        android:text="3rd"
+                                        android:textSize="11sp" />
+
+                                    <Button
+                                        android:id="@+id/chipToken4th"
+                                        style="@style/Widget.Material3.Button.TonalButton"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="36dp"
+                                        android:layout_marginEnd="4dp"
+                                        android:text="4th"
+                                        android:textSize="11sp" />
+
+                                    <Button
+                                        android:id="@+id/chipTokenPlus"
+                                        style="@style/Widget.Material3.Button.OutlinedButton"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="36dp"
+                                        android:layout_marginEnd="4dp"
+                                        android:text="+"
+                                        android:textSize="12sp" />
+
+                                    <Button
+                                        android:id="@+id/chipTokenMinus"
+                                        style="@style/Widget.Material3.Button.OutlinedButton"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="36dp"
+                                        android:layout_marginEnd="4dp"
+                                        android:text="-"
+                                        android:textSize="12sp" />
+
+                                    <Button
+                                        android:id="@+id/chipTokenMultiply"
+                                        style="@style/Widget.Material3.Button.OutlinedButton"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="36dp"
+                                        android:layout_marginEnd="4dp"
+                                        android:text="*"
+                                        android:textSize="12sp" />
+
+                                    <Button
+                                        android:id="@+id/chipTokenDivide"
+                                        style="@style/Widget.Material3.Button.OutlinedButton"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="36dp"
+                                        android:layout_marginEnd="4dp"
+                                        android:text="/"
+                                        android:textSize="12sp" />
+
+                                    <Button
+                                        android:id="@+id/chipTokenOpenParen"
+                                        style="@style/Widget.Material3.Button.OutlinedButton"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="36dp"
+                                        android:layout_marginEnd="4dp"
+                                        android:text="("
+                                        android:textSize="12sp" />
+
+                                    <Button
+                                        android:id="@+id/chipTokenCloseParen"
+                                        style="@style/Widget.Material3.Button.OutlinedButton"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="36dp"
+                                        android:text=")"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+                            </HorizontalScrollView>
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                android:orientation="horizontal"
+                                android:gravity="end">
+
+                                <Button
+                                    android:id="@+id/btnSaveMathEquation"
+                                    style="@style/Widget.Material3.Button.TonalButton"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Save Equation" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <!-- Transmission Destinations -->
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:text="Math Output Delivery Channels:"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            android:alpha="0.85" />
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchMathSendInject"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Send to Inject API"
+                            android:textSize="13sp" />
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchMathSendNotif"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Send to Local Notification (Lockscreen / Watch)"
+                            android:textSize="13sp" />
+
+                        <!-- Live Math Test Simulator -->
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:text="Live Simulator (Multi-Line Numbers):"
+                            android:textStyle="bold"
+                            android:textSize="13sp" />
+
+                        <EditText
+                            android:id="@+id/editMathSimulator"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:hint="25\n50\n12345"
+                            android:textColor="@color/edit_text_color"
+                            android:textColorHint="@color/edit_hint_color"
+                            android:textSize="13sp"
+                            android:minLines="3"
+                            android:gravity="top|start"
+                            android:padding="10dp"
+                            android:background="@drawable/bg_edit_text" />
+
+                        <TextView
+                            android:id="@+id/tvMathSimResult"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:text="Extracted Output: 12345"
+                            android:textSize="13sp"
+                            android:textStyle="bold"
+                            android:textColor="?attr/colorPrimary" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
+
+
+        <!-- ============================================================ -->
+        <!-- GROUP 3: COVERT TYPING EFFECT                                -->
+        <!-- ============================================================ -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:orientation="vertical">
+
+            <!-- Group Header -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="4dp">
+
+                <View
+                    android:layout_width="4dp"
+                    android:layout_height="18dp"
+                    android:background="?attr/colorPrimary"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="COVERT TYPING EFFECT"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.06"
+                    android:textColor="?attr/colorPrimary" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:text="— Cover sentence &amp; spectator reveal"
+                    android:textSize="12sp"
+                    android:alpha="0.65"
+                    android:textColor="?android:attr/textColorSecondary" />
+            </LinearLayout>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="?attr/colorOutline">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/tvCovertStatusTitle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Covert Typing: ARMED"
+                                android:textSize="15sp"
+                                android:textStyle="bold"
+                                android:textColor="?attr/colorPrimary" />
+
+                            <TextView
+                                android:id="@+id/tvCovertTriggerHint"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="Hold '?123' on keyboard to quick-toggle"
+                                android:textSize="12sp"
+                                android:alpha="0.75"
+                                android:textColor="?android:attr/textColorSecondary" />
+                        </LinearLayout>
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchCovertMaster"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content" />
+                    </LinearLayout>
+
+                    <!-- Expandable Details -->
+                    <LinearLayout
+                        android:id="@+id/layoutCovertDetails"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="vertical">
 
                         <TextView
                             android:id="@+id/tvCapturedWordStatus"
-                            android:layout_width="wrap_content"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="3dp"
+                            android:padding="10dp"
+                            android:background="@drawable/bg_edit_text"
                             android:text="Captured Secret Word: (None yet - type word + double space)"
                             android:textSize="13sp"
                             android:textStyle="bold"
                             android:textColor="?attr/colorPrimary" />
-                    </LinearLayout>
-
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchCovertMaster"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <Button
-                        android:id="@+id/btnResetSession"
-                        style="@style/Widget.Material3.Button.TonalButton"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginEnd="6dp"
-                        android:text="Reset Session" />
-
-                    <Button
-                        android:id="@+id/btnDisarmNow"
-                        style="@style/Widget.Material3.Button.OutlinedButton"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginStart="6dp"
-                        android:text="Disarm" />
-                </LinearLayout>
-
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- CARD 2: Line 1 Pre-saved Cover Sentence -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="?attr/colorOutline">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="1st Line: Pre-saved Cover Sentence"
-                    android:textStyle="bold"
-                    android:textSize="15sp"
-                    android:textColor="?android:attr/textColorPrimary" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="No matter what letters you type on line 1, this sentence will display letter-by-letter while you covertly enter your secret word. Finish your secret word with double space [  ]."
-                    android:textSize="12sp"
-                    android:alpha="0.75" />
-
-                <EditText
-                    android:id="@+id/editCoverSentence"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="Enter cover sentence..."
-                    android:textColor="@color/edit_text_color"
-                    android:textColorHint="@color/edit_hint_color"
-                    android:textSize="14sp"
-                    android:minLines="2"
-                    android:gravity="top|start"
-                    android:padding="12dp"
-                    android:background="@drawable/bg_edit_text" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:orientation="horizontal"
-                    android:gravity="end">
-
-                    <Button
-                        android:id="@+id/btnSaveCoverSentence"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Save Cover Sentence" />
-                </LinearLayout>
-
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- CARD 3: Multi-Line Spectator Reveal Settings (Effect 2) -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="?attr/colorOutline">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Multi-Line Spectator Reveal Settings"
-                    android:textStyle="bold"
-                    android:textSize="15sp"
-                    android:textColor="?android:attr/textColorPrimary" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="When spectators type random words on subsequent lines, their words will automatically spell out your secret word at the chosen letter position. Empty lines and spaces are ignored."
-                    android:textSize="12sp"
-                    android:alpha="0.75" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="Reveal Forced Letter Position:"
-                    android:textStyle="bold"
-                    android:textSize="13sp" />
-
-                <RadioGroup
-                    android:id="@+id/radioGroupRevealPos"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp">
-
-                    <RadioButton
-                        android:id="@+id/radioReveal1st"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="1st Letter (Acrostic: Sjakiwie / Amjridi / Mskeooe -> SAM)"
-                        android:textSize="13sp" />
-
-                    <RadioButton
-                        android:id="@+id/radioReveal2nd"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="2nd Letter (e.g. jSakiwie / mAjerid / sMkeooe)"
-                        android:textSize="13sp" />
-
-                    <RadioButton
-                        android:id="@+id/radioReveal3rd"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="3rd Letter (e.g. jaSekiwe / mjAried / skMeooe)"
-                        android:textSize="13sp" />
-
-                    <RadioButton
-                        android:id="@+id/radioReveal4th"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="4th Letter of each random word"
-                        android:textSize="13sp" />
-                </RadioGroup>
-
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- CARD 4: Inject API Integration (Effect 1) -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="?attr/colorOutline">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Inject API Dispatch"
-                            android:textStyle="bold"
-                            android:textSize="15sp"
-                            android:textColor="?android:attr/textColorPrimary" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Auto-sends the secret word to Inject API upon double-space [  ]"
-                            android:textSize="12sp"
-                            android:alpha="0.7" />
-                    </LinearLayout>
-
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchInjectApi"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/layoutInjectSettings"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:layout_marginTop="10dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="API Endpoint / Webhook URL:"
-                        android:textSize="12sp"
-                        android:alpha="0.8" />
-
-                    <EditText
-                        android:id="@+id/editInjectUrl"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:hint="https://your-api-endpoint.com/event"
-                        android:textColor="@color/edit_text_color"
-                        android:textColorHint="@color/edit_hint_color"
-                        android:textSize="13sp"
-                        android:padding="10dp"
-                        android:background="@drawable/bg_edit_text" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="Dispatched JSON Payload Format:"
-                        android:textSize="11sp"
-                        android:textStyle="bold"
-                        android:alpha="0.8" />
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="3dp"
-                        android:padding="8dp"
-                        android:background="@drawable/bg_edit_text"
-                        android:text='{"count":1417,"value":"&lt;secret_word&gt;","receiveCount":463,"source":"phone","thumperId":1,"ai":null}'
-                        android:fontFamily="monospace"
-                        android:textSize="11sp"
-                        android:textColor="?attr/colorPrimary" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="API Key / Auth Token (Optional - Leave blank if not needed):"
-                        android:textSize="12sp"
-                        android:alpha="0.8" />
-
-                    <EditText
-                        android:id="@+id/editInjectKey"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:hint="Optional Bearer token (leave blank if none)"
-                        android:textColor="@color/edit_text_color"
-                        android:textColorHint="@color/edit_hint_color"
-                        android:textSize="13sp"
-                        android:padding="10dp"
-                        android:background="@drawable/bg_edit_text" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:text="Covert Double-Space Typing Delivery Channels:"
-                        android:textSize="12sp"
-                        android:textStyle="bold"
-                        android:alpha="0.85" />
-
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchCovertSendInject"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Send Secret Word to Inject API"
-                        android:textSize="13sp" />
-
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchCovertSendNotif"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Send Secret Word to Local Notification"
-                        android:textSize="13sp" />
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:orientation="horizontal"
-                        android:gravity="end">
-
-                        <Button
-                            android:id="@+id/btnTestInjectApi"
-                            style="@style/Widget.Material3.Button.TonalButton"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Test Send Payload" />
-                    </LinearLayout>
-                </LinearLayout>
-
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- CARD 5: Math Magic Effect (N.list) -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="1.5dp"
-            app:strokeColor="?attr/colorPrimary">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:id="@+id/tvMathStatusTitle"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Math Magic Effect (N.list)"
-                            android:textSize="16sp"
-                            android:textStyle="bold"
-                            android:textColor="?attr/colorPrimary" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="Dispatches calculated total OR specific line number content (e.g. 3rd line: 12345)."
-                            android:textSize="12sp"
-                            android:alpha="0.75" />
-                    </LinearLayout>
-
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchMathMaster"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/layoutMathDetails"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Data to Send (Output Mode):"
-                        android:textStyle="bold"
-                        android:textSize="13sp" />
-
-                    <RadioGroup
-                        android:id="@+id/rgMathTargetMode"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:orientation="vertical">
-
-                        <RadioButton
-                            android:id="@+id/rbMathModeTotal"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:checked="true"
-                            android:text="Calculated Formula Total (e.g. 1st+2nd+3rd)"
-                            android:textSize="13sp" />
-
-                        <RadioButton
-                            android:id="@+id/rbMathModeLine"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Specific Line Content (e.g. 3rd line numbers: 12345)"
-                            android:textSize="13sp" />
-                    </RadioGroup>
-
-                    <!-- Specific Line Selection Layout -->
-                    <LinearLayout
-                        android:id="@+id/layoutMathLineTarget"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:orientation="vertical"
-                        android:padding="8dp"
-                        android:background="@drawable/bg_edit_text"
-                        android:visibility="gone">
-
-                        <TextView
-                            android:id="@+id/tvMathTargetLineLabel"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Target Line Number to Extract:"
-                            android:textSize="12sp"
-                            android:textStyle="bold"
-                            android:textColor="?attr/colorPrimary" />
-
-                        <HorizontalScrollView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
-                            android:scrollbars="none">
-
-                            <LinearLayout
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal">
-
-                                <Button
-                                    android:id="@+id/btnMathLine1"
-                                    style="@style/Widget.Material3.Button.TonalButton"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="36dp"
-                                    android:layout_marginEnd="4dp"
-                                    android:text="Line 1"
-                                    android:textSize="11sp" />
-
-                                <Button
-                                    android:id="@+id/btnMathLine2"
-                                    style="@style/Widget.Material3.Button.TonalButton"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="36dp"
-                                    android:layout_marginEnd="4dp"
-                                    android:text="Line 2"
-                                    android:textSize="11sp" />
-
-                                <Button
-                                    android:id="@+id/btnMathLine3"
-                                    style="@style/Widget.Material3.Button.TonalButton"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="36dp"
-                                    android:layout_marginEnd="4dp"
-                                    android:text="Line 3 (3rd)"
-                                    android:textSize="11sp" />
-
-                                <Button
-                                    android:id="@+id/btnMathLine4"
-                                    style="@style/Widget.Material3.Button.TonalButton"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="36dp"
-                                    android:layout_marginEnd="4dp"
-                                    android:text="Line 4"
-                                    android:textSize="11sp" />
-
-                                <Button
-                                    android:id="@+id/btnMathLine5"
-                                    style="@style/Widget.Material3.Button.TonalButton"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="36dp"
-                                    android:layout_marginEnd="4dp"
-                                    android:text="Line 5"
-                                    android:textSize="11sp" />
-                            </LinearLayout>
-                        </HorizontalScrollView>
-                    </LinearLayout>
-
-                    <!-- Formula Equation Settings -->
-                    <LinearLayout
-                        android:id="@+id/layoutMathEquationSection"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Custom Math Equation:"
-                            android:textStyle="bold"
-                            android:textSize="13sp" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="Use '1st', '2nd', '3rd' with +, -, *, /, and ( ). Leave blank to sum all lines."
-                            android:textSize="11sp"
-                            android:alpha="0.7" />
-
-                        <EditText
-                            android:id="@+id/editMathEquation"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
-                            android:hint="e.g. (1st+2nd)-(3rd+4th) or leave blank"
-                            android:textColor="@color/edit_text_color"
-                            android:textColorHint="@color/edit_hint_color"
-                            android:textSize="14sp"
-                            android:padding="10dp"
-                            android:background="@drawable/bg_edit_text" />
-
-                        <!-- Quick token chips -->
-                        <HorizontalScrollView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
-                            android:scrollbars="none">
-
-                            <LinearLayout
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal">
-
-                                <Button
-                                    android:id="@+id/chipToken1st"
-                                    style="@style/Widget.Material3.Button.TonalButton"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="36dp"
-                                    android:layout_marginEnd="4dp"
-                                    android:text="1st"
-                                    android:textSize="11sp" />
-
-                                <Button
-                                    android:id="@+id/chipToken2nd"
-                                    style="@style/Widget.Material3.Button.TonalButton"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="36dp"
-                                    android:layout_marginEnd="4dp"
-                                    android:text="2nd"
-                                    android:textSize="11sp" />
-
-                                <Button
-                                    android:id="@+id/chipToken3rd"
-                                    style="@style/Widget.Material3.Button.TonalButton"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="36dp"
-                                    android:layout_marginEnd="4dp"
-                                    android:text="3rd"
-                                    android:textSize="11sp" />
-
-                                <Button
-                                    android:id="@+id/chipToken4th"
-                                    style="@style/Widget.Material3.Button.TonalButton"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="36dp"
-                                    android:layout_marginEnd="4dp"
-                                    android:text="4th"
-                                    android:textSize="11sp" />
-
-                                <Button
-                                    android:id="@+id/chipTokenPlus"
-                                    style="@style/Widget.Material3.Button.OutlinedButton"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="36dp"
-                                    android:layout_marginEnd="4dp"
-                                    android:text="+"
-                                    android:textSize="12sp" />
-
-                                <Button
-                                    android:id="@+id/chipTokenMinus"
-                                    style="@style/Widget.Material3.Button.OutlinedButton"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="36dp"
-                                    android:layout_marginEnd="4dp"
-                                    android:text="-"
-                                    android:textSize="12sp" />
-
-                                <Button
-                                    android:id="@+id/chipTokenMultiply"
-                                    style="@style/Widget.Material3.Button.OutlinedButton"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="36dp"
-                                    android:layout_marginEnd="4dp"
-                                    android:text="*"
-                                    android:textSize="12sp" />
-
-                                <Button
-                                    android:id="@+id/chipTokenDivide"
-                                    style="@style/Widget.Material3.Button.OutlinedButton"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="36dp"
-                                    android:layout_marginEnd="4dp"
-                                    android:text="/"
-                                    android:textSize="12sp" />
-
-                                <Button
-                                    android:id="@+id/chipTokenOpenParen"
-                                    style="@style/Widget.Material3.Button.OutlinedButton"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="36dp"
-                                    android:layout_marginEnd="4dp"
-                                    android:text="("
-                                    android:textSize="12sp" />
-
-                                <Button
-                                    android:id="@+id/chipTokenCloseParen"
-                                    style="@style/Widget.Material3.Button.OutlinedButton"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="36dp"
-                                    android:text=")"
-                                    android:textSize="12sp" />
-                            </LinearLayout>
-                        </HorizontalScrollView>
 
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
+                            android:orientation="horizontal">
+
+                            <Button
+                                android:id="@+id/btnResetSession"
+                                style="@style/Widget.Material3.Button.TonalButton"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:layout_marginEnd="4dp"
+                                android:text="Reset Session" />
+
+                            <Button
+                                android:id="@+id/btnDisarmNow"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:layout_marginStart="4dp"
+                                android:text="Disarm" />
+                        </LinearLayout>
+
+                        <!-- Line 1 Pre-saved Cover Sentence -->
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="14dp"
+                            android:text="1st Line: Pre-saved Cover Sentence"
+                            android:textStyle="bold"
+                            android:textSize="13sp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Displays this sentence letter-by-letter on Line 1 while you enter secret word + double space [  ]."
+                            android:textSize="11sp"
+                            android:alpha="0.75" />
+
+                        <EditText
+                            android:id="@+id/editCoverSentence"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:hint="Enter cover sentence..."
+                            android:textColor="@color/edit_text_color"
+                            android:textColorHint="@color/edit_hint_color"
+                            android:textSize="13sp"
+                            android:minLines="2"
+                            android:gravity="top|start"
+                            android:padding="10dp"
+                            android:background="@drawable/bg_edit_text" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
                             android:orientation="horizontal"
                             android:gravity="end">
 
                             <Button
-                                android:id="@+id/btnSaveMathEquation"
+                                android:id="@+id/btnSaveCoverSentence"
+                                style="@style/Widget.Material3.Button.TonalButton"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Save Equation" />
+                                android:text="Save Sentence" />
                         </LinearLayout>
+
+                        <!-- Multi-Line Spectator Reveal Settings -->
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:text="Multi-Line Spectator Reveal Forced Position:"
+                            android:textStyle="bold"
+                            android:textSize="13sp" />
+
+                        <RadioGroup
+                            android:id="@+id/radioGroupRevealPos"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp">
+
+                            <RadioButton
+                                android:id="@+id/radioReveal1st"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="1st Letter (Acrostic: Sjakiwie / Amjridi / Mskeooe -> SAM)"
+                                android:textSize="13sp" />
+
+                            <RadioButton
+                                android:id="@+id/radioReveal2nd"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="2nd Letter (e.g. jSakiwie / mAjerid / sMkeooe)"
+                                android:textSize="13sp" />
+
+                            <RadioButton
+                                android:id="@+id/radioReveal3rd"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="3rd Letter (e.g. jaSekiwe / mjAried / skMeooe)"
+                                android:textSize="13sp" />
+
+                            <RadioButton
+                                android:id="@+id/radioReveal4th"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="4th Letter of each spectator word"
+                                android:textSize="13sp" />
+                        </RadioGroup>
+
                     </LinearLayout>
 
-                    <!-- Transmission Destinations -->
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:text="Math Output Delivery Channels:"
-                        android:textSize="12sp"
-                        android:textStyle="bold"
-                        android:alpha="0.85" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchMathSendInject"
+        </LinearLayout>
+
+
+        <!-- ============================================================ -->
+        <!-- GROUP 4: REPLACE TEXT EFFECT                                 -->
+        <!-- ============================================================ -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:orientation="vertical">
+
+            <!-- Group Header -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="4dp">
+
+                <View
+                    android:layout_width="4dp"
+                    android:layout_height="18dp"
+                    android:background="?attr/colorPrimary"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="TEXT REPLACEMENT EFFECT"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.06"
+                    android:textColor="?attr/colorPrimary" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:text="— Remote Variable Replacement"
+                    android:textSize="12sp"
+                    android:alpha="0.65"
+                    android:textColor="?android:attr/textColorSecondary" />
+            </LinearLayout>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="?attr/colorOutline">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Send to Inject API"
-                        android:textSize="13sp" />
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
 
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchMathSendNotif"
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/tvTextReplaceStatusTitle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="API Text Replace: OFF"
+                                android:textSize="15sp"
+                                android:textStyle="bold"
+                                android:textColor="?android:attr/textColorSecondary" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="Replaces placeholder tag with live remote value"
+                                android:textSize="12sp"
+                                android:alpha="0.75"
+                                android:textColor="?android:attr/textColorSecondary" />
+                        </LinearLayout>
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchTextReplaceMaster"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content" />
+                    </LinearLayout>
+
+                    <!-- Expandable Details -->
+                    <LinearLayout
+                        android:id="@+id/layoutTextReplaceDetails"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Send to Local Notification (Lockscreen / Smartwatch)"
-                        android:textSize="13sp" />
-
-                    <!-- Live Math Test Simulator -->
-                    <TextView
-                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
-                        android:text="Live Simulator (Multi-Line Numbers):"
-                        android:textStyle="bold"
-                        android:textSize="13sp" />
-
-                    <EditText
-                        android:id="@+id/editMathSimulator"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:hint="25\n50\n12345"
-                        android:textColor="@color/edit_text_color"
-                        android:textColorHint="@color/edit_hint_color"
-                        android:textSize="13sp"
-                        android:minLines="3"
-                        android:gravity="top|start"
-                        android:padding="10dp"
-                        android:background="@drawable/bg_edit_text" />
-
-                    <TextView
-                        android:id="@+id/tvMathSimResult"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:text="Extracted Output: 12345"
-                        android:textSize="13sp"
-                        android:textStyle="bold"
-                        android:textColor="?attr/colorPrimary" />
-
-                </LinearLayout>
-
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- CARD 6: Delete Peek Magic Effect (N.list) -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="1.5dp"
-            app:strokeColor="?attr/colorPrimary">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
                         android:orientation="vertical">
 
                         <TextView
-                            android:id="@+id/tvDeletePeekStatusTitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Delete Peek Effect (N.list)"
-                            android:textSize="16sp"
+                            android:text="Placeholder Tag in Writing Area:"
                             android:textStyle="bold"
-                            android:textColor="?attr/colorPrimary" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="Captures any secret word/thought deleted (backspaced) in any app."
-                            android:textSize="12sp"
-                            android:alpha="0.75" />
-                    </LinearLayout>
-
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchDeletePeekMaster"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/layoutDeletePeekDetails"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:id="@+id/tvLastDeletedWord"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Last Deleted Word: (None yet - backspace text in any app)"
-                        android:textSize="14sp"
-                        android:textStyle="bold"
-                        android:textColor="?attr/colorPrimary" />
-
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchDeletePeekSendInject"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:text="Send Deleted Words to Inject API"
-                        android:textSize="13sp" />
-
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchDeletePeekLocalNotif"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Discreet Push Notification (Lockscreen / Smartwatch)"
-                        android:textSize="13sp" />
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:orientation="horizontal"
-                        android:gravity="end">
-
-                        <Button
-                            android:id="@+id/btnTestDeleteNotification"
-                            style="@style/Widget.Material3.Button.TonalButton"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginEnd="6dp"
-                            android:text="Test Notification" />
-
-                        <Button
-                            android:id="@+id/btnClearDeleteMemory"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Clear Memory" />
-                    </LinearLayout>
-
-                </LinearLayout>
-
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- CARD 7: Any Word / Line Peek Effect -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="?attr/colorOutline">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:id="@+id/tvTextPeekStatusTitle"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Any Word / Line Peek: OFF"
-                            android:textSize="16sp"
-                            android:textStyle="bold"
-                            android:textColor="?android:attr/textColorSecondary" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="Captures spectator's written text, last word, or a specific line to Notification or API."
-                            android:textSize="12sp"
-                            android:alpha="0.75" />
-                    </LinearLayout>
-
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchTextPeekMaster"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Capture Target Mode:"
-                        android:textStyle="bold"
-                        android:textSize="13sp" />
-
-                    <RadioGroup
-                        android:id="@+id/rgTextPeekMode"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp">
-
-                        <RadioButton
-                            android:id="@+id/rbTextPeekAll"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="All Written Text (Everything in writing area)"
-                            android:textSize="13sp"
-                            android:checked="true" />
-
-                        <RadioButton
-                            android:id="@+id/rbTextPeekLastWord"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="Last Written Word / Token"
                             android:textSize="13sp" />
 
-                        <RadioButton
-                            android:id="@+id/rbTextPeekLine"
+                        <EditText
+                            android:id="@+id/editReplacePlaceholder"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="Preselected Line Only (e.g. Line 1, Line 2...)"
-                            android:textSize="13sp" />
-                    </RadioGroup>
+                            android:layout_marginTop="4dp"
+                            android:hint="--value--"
+                            android:textColor="@color/edit_text_color"
+                            android:textColorHint="@color/edit_hint_color"
+                            android:textSize="14sp"
+                            android:singleLine="true"
+                            android:padding="10dp"
+                            android:background="@drawable/bg_edit_text" />
 
-                    <LinearLayout
-                        android:id="@+id/layoutTextPeekLineTarget"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:orientation="vertical"
-                        android:visibility="gone">
-
-                        <TextView
-                            android:id="@+id/tvTextPeekTargetLineLabel"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Target Line Number: Line 1"
-                            android:textSize="13sp"
-                            android:textStyle="bold"
-                            android:textColor="?attr/colorPrimary" />
-
+                        <!-- Quick Chips -->
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
@@ -1059,483 +1233,534 @@
                             android:orientation="horizontal">
 
                             <Button
-                                android:id="@+id/btnTextPeekLine1"
-                                style="@style/Widget.Material3.Button.TonalButton"
+                                android:id="@+id/chipTagDoubleDash"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
                                 android:layout_width="0dp"
-                                android:layout_height="wrap_content"
+                                android:layout_height="36dp"
                                 android:layout_weight="1"
                                 android:layout_marginEnd="4dp"
-                                android:text="Line 1" />
+                                android:text="--value--"
+                                android:textSize="11sp"
+                                android:padding="0dp" />
 
                             <Button
-                                android:id="@+id/btnTextPeekLine2"
+                                android:id="@+id/chipTagCurly"
                                 style="@style/Widget.Material3.Button.OutlinedButton"
                                 android:layout_width="0dp"
-                                android:layout_height="wrap_content"
+                                android:layout_height="36dp"
                                 android:layout_weight="1"
                                 android:layout_marginHorizontal="2dp"
-                                android:text="Line 2" />
+                                android:text="{{value}}"
+                                android:textSize="11sp"
+                                android:padding="0dp" />
 
                             <Button
-                                android:id="@+id/btnTextPeekLine3"
+                                android:id="@+id/chipTagBrackets"
                                 style="@style/Widget.Material3.Button.OutlinedButton"
                                 android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:layout_marginHorizontal="2dp"
-                                android:text="Line 3" />
-
-                            <Button
-                                android:id="@+id/btnTextPeekLine4"
-                                style="@style/Widget.Material3.Button.OutlinedButton"
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
+                                android:layout_height="36dp"
                                 android:layout_weight="1"
                                 android:layout_marginStart="4dp"
-                                android:text="Line 4" />
+                                android:text="[VALUE]"
+                                android:textSize="11sp"
+                                android:padding="0dp" />
                         </LinearLayout>
-                    </LinearLayout>
-
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchTextPeekSendInject"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:text="Post Captured Content to Inject API"
-                        android:textSize="13sp"
-                        android:checked="true" />
-
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchTextPeekLocalNotif"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Discreet Push Notification (Lockscreen / Watch)"
-                        android:textSize="13sp"
-                        android:checked="true" />
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:orientation="horizontal"
-                        android:gravity="end">
-
-                        <Button
-                            android:id="@+id/btnTestTextPeekCapture"
-                            style="@style/Widget.Material3.Button.TonalButton"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Test Peek Extraction" />
-                    </LinearLayout>
-
-                </LinearLayout>
-
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- CARD 8: API Text Replace (Remote Variable Replacement) -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="?attr/colorOutline">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
 
                         <TextView
-                            android:id="@+id/tvTextReplaceStatusTitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="API Text Replace: OFF"
-                            android:textSize="16sp"
+                            android:layout_marginTop="10dp"
+                            android:text="Fallback / Manual Replacement Text:"
                             android:textStyle="bold"
-                            android:textColor="?android:attr/textColorSecondary" />
+                            android:textSize="13sp" />
+
+                        <EditText
+                            android:id="@+id/editReplaceFallbackValue"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:hint="Tom Hanks"
+                            android:textColor="@color/edit_text_color"
+                            android:textColorHint="@color/edit_hint_color"
+                            android:textSize="14sp"
+                            android:singleLine="true"
+                            android:padding="10dp"
+                            android:background="@drawable/bg_edit_text" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="Replaces text like --value-- with remote information received from the API."
+                            android:layout_marginTop="10dp"
+                            android:text="Custom API Fetch URL (Optional):"
+                            android:textStyle="bold"
+                            android:textSize="13sp" />
+
+                        <EditText
+                            android:id="@+id/editReplaceApiUrl"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:hint="https://api.inject.app/v1/event"
+                            android:textColor="@color/edit_text_color"
+                            android:textColorHint="@color/edit_hint_color"
+                            android:textSize="13sp"
+                            android:singleLine="true"
+                            android:padding="10dp"
+                            android:background="@drawable/bg_edit_text" />
+
+                        <TextView
+                            android:id="@+id/tvReplaceApiFetchStatus"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:text="Current Remote Value: &quot;Tom Hanks&quot;"
                             android:textSize="12sp"
-                            android:alpha="0.75" />
-                    </LinearLayout>
+                            android:textStyle="bold"
+                            android:textColor="?attr/colorPrimary" />
 
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchTextReplaceMaster"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Placeholder Tag in Writing Area:"
-                        android:textStyle="bold"
-                        android:textSize="13sp" />
-
-                    <EditText
-                        android:id="@+id/editReplacePlaceholder"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:hint="--value--"
-                        android:textColor="@color/edit_text_color"
-                        android:textColorHint="@color/edit_hint_color"
-                        android:textSize="14sp"
-                        android:singleLine="true"
-                        android:padding="10dp"
-                        android:background="@drawable/bg_edit_text" />
-
-                    <!-- Quick Placeholder Selection Chips -->
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:orientation="horizontal">
-
-                        <Button
-                            android:id="@+id/chipTagDoubleDash"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
-                            android:layout_width="0dp"
-                            android:layout_height="36dp"
-                            android:layout_weight="1"
-                            android:layout_marginEnd="4dp"
-                            android:text="--value--"
-                            android:textSize="11sp"
-                            android:padding="0dp" />
-
-                        <Button
-                            android:id="@+id/chipTagCurly"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
-                            android:layout_width="0dp"
-                            android:layout_height="36dp"
-                            android:layout_weight="1"
-                            android:layout_marginHorizontal="2dp"
-                            android:text="{{value}}"
-                            android:textSize="11sp"
-                            android:padding="0dp" />
-
-                        <Button
-                            android:id="@+id/chipTagBrackets"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
-                            android:layout_width="0dp"
-                            android:layout_height="36dp"
-                            android:layout_weight="1"
-                            android:layout_marginStart="4dp"
-                            android:text="[VALUE]"
-                            android:textSize="11sp"
-                            android:padding="0dp" />
-                    </LinearLayout>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:text="Fallback / Manual Replacement Text:"
-                        android:textStyle="bold"
-                        android:textSize="13sp" />
-
-                    <EditText
-                        android:id="@+id/editReplaceFallbackValue"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:hint="Tom Hanks"
-                        android:textColor="@color/edit_text_color"
-                        android:textColorHint="@color/edit_hint_color"
-                        android:textSize="14sp"
-                        android:singleLine="true"
-                        android:padding="10dp"
-                        android:background="@drawable/bg_edit_text" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:text="Custom API Fetch URL (Optional, uses Inject API by default):"
-                        android:textStyle="bold"
-                        android:textSize="13sp" />
-
-                    <EditText
-                        android:id="@+id/editReplaceApiUrl"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:hint="https://api.inject.app/v1/event"
-                        android:textColor="@color/edit_text_color"
-                        android:textColorHint="@color/edit_hint_color"
-                        android:textSize="13sp"
-                        android:singleLine="true"
-                        android:padding="10dp"
-                        android:background="@drawable/bg_edit_text" />
-
-                    <TextView
-                        android:id="@+id/tvReplaceApiFetchStatus"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:text="Current Remote Value: &quot;Tom Hanks&quot;"
-                        android:textSize="12sp"
-                        android:textStyle="bold"
-                        android:textColor="?attr/colorPrimary" />
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:orientation="horizontal"
-                        android:gravity="end">
-
-                        <Button
-                            android:id="@+id/btnFetchApiValueNow"
-                            style="@style/Widget.Material3.Button.TonalButton"
-                            android:layout_width="wrap_content"
+                        <LinearLayout
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginEnd="6dp"
-                            android:text="Fetch API Now" />
+                            android:layout_marginTop="10dp"
+                            android:orientation="horizontal"
+                            android:gravity="end">
 
-                        <Button
-                            android:id="@+id/btnSaveReplaceSettings"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Save Settings" />
+                            <Button
+                                android:id="@+id/btnFetchApiValueNow"
+                                style="@style/Widget.Material3.Button.TonalButton"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginEnd="6dp"
+                                android:text="Fetch API Now" />
+
+                            <Button
+                                android:id="@+id/btnSaveReplaceSettings"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Save Settings" />
+                        </LinearLayout>
+
                     </LinearLayout>
 
                 </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
 
-        <!-- CARD 7: Hardware & Sensor Triggers -->
-        <com.google.android.material.card.MaterialCardView
+
+        <!-- ============================================================ -->
+        <!-- GROUP 5: UNIVERSAL SETTINGS & TRIGGERS                       -->
+        <!-- ============================================================ -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="?attr/colorOutline">
+            android:layout_marginTop="24dp"
+            android:orientation="vertical">
 
+            <!-- Group Header -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="4dp">
+
+                <View
+                    android:layout_width="4dp"
+                    android:layout_height="18dp"
+                    android:background="?attr/colorPrimary"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="UNIVERSAL SETTINGS &amp; TRIGGERS"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.06"
+                    android:textColor="?attr/colorPrimary" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:text="— Global Triggers &amp; API"
+                    android:textSize="12sp"
+                    android:alpha="0.65"
+                    android:textColor="?android:attr/textColorSecondary" />
+            </LinearLayout>
+
+            <!-- Card 5.1: Hardware & Sensor Triggers -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="?attr/colorOutline">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
                     <LinearLayout
-                        android:layout_width="0dp"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Hardware &amp; Sensor Triggers"
+                                android:textSize="15sp"
+                                android:textStyle="bold"
+                                android:textColor="?attr/colorPrimary" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="Queue peeks until Volume key or Proximity wave fires"
+                                android:textSize="12sp"
+                                android:alpha="0.75"
+                                android:textColor="?android:attr/textColorSecondary" />
+                        </LinearLayout>
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchRequireTrigger"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content" />
+                    </LinearLayout>
+
+                    <!-- Expandable Details -->
+                    <LinearLayout
+                        android:id="@+id/layoutTriggerDetails"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
                         android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvTriggerPendingStatus"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Pending Queue: None (Ready)"
+                            android:textSize="13sp"
+                            android:textStyle="bold"
+                            android:textColor="?attr/colorPrimary" />
+
+                        <TextView
+                            android:id="@+id/tvTriggerProximityStatus"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Proximity Sensor: FAR"
+                            android:textSize="12sp"
+                            android:alpha="0.8" />
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchTriggerVolume"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:text="Volume Buttons Trigger (Vol Up / Down)"
+                            android:textSize="13sp" />
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchTriggerProximity"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Proximity Sensor Trigger (Hand Wave / Cover)"
+                            android:textSize="13sp" />
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchTriggerHaptic"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Tactile Haptic Pulse on Trigger"
+                            android:textSize="13sp" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:orientation="horizontal"
+                            android:gravity="end">
+
+                            <Button
+                                android:id="@+id/btnFireTriggerTest"
+                                style="@style/Widget.Material3.Button.TonalButton"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginEnd="6dp"
+                                android:text="Fire Trigger Now" />
+
+                            <Button
+                                android:id="@+id/btnClearTriggerQueue"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Clear Queue" />
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Card 5.2: API & Network Settings -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="?attr/colorOutline">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="API &amp; Notification Settings"
+                                android:textStyle="bold"
+                                android:textSize="15sp"
+                                android:textColor="?android:attr/textColorPrimary" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Configure Inject API endpoint &amp; global transmission"
+                                android:textSize="12sp"
+                                android:alpha="0.75"
+                                android:textColor="?android:attr/textColorSecondary" />
+                        </LinearLayout>
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchInjectApi"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content" />
+                    </LinearLayout>
+
+                    <!-- Expandable Details -->
+                    <LinearLayout
+                        android:id="@+id/layoutInjectSettings"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginTop="10dp">
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Hardware &amp; Sensor Triggers"
-                            android:textSize="16sp"
+                            android:text="API Endpoint / Webhook URL:"
+                            android:textSize="12sp"
+                            android:alpha="0.8" />
+
+                        <EditText
+                            android:id="@+id/editInjectUrl"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:hint="https://your-api-endpoint.com/event"
+                            android:textColor="@color/edit_text_color"
+                            android:textColorHint="@color/edit_hint_color"
+                            android:textSize="13sp"
+                            android:padding="10dp"
+                            android:background="@drawable/bg_edit_text" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:text="Dispatched JSON Payload Format:"
+                            android:textSize="11sp"
                             android:textStyle="bold"
+                            android:alpha="0.8" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:padding="8dp"
+                            android:background="@drawable/bg_edit_text"
+                            android:text='{"count":1417,"value":"&lt;payload&gt;","receiveCount":463,"source":"phone","thumperId":1,"ai":null}'
+                            android:fontFamily="monospace"
+                            android:textSize="11sp"
                             android:textColor="?attr/colorPrimary" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="Restricts sending API or Notification peeks until a physical trigger fires."
+                            android:layout_marginTop="8dp"
+                            android:text="API Key / Auth Token (Optional):"
                             android:textSize="12sp"
-                            android:alpha="0.75" />
+                            android:alpha="0.8" />
+
+                        <EditText
+                            android:id="@+id/editInjectKey"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:hint="Optional Bearer token"
+                            android:textColor="@color/edit_text_color"
+                            android:textColorHint="@color/edit_hint_color"
+                            android:textSize="13sp"
+                            android:padding="10dp"
+                            android:background="@drawable/bg_edit_text" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:text="Covert Double-Space Typing Delivery Channels:"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            android:alpha="0.85" />
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchCovertSendInject"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Send Secret Word to Inject API"
+                            android:textSize="13sp" />
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchCovertSendNotif"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Send Secret Word to Local Notification"
+                            android:textSize="13sp" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:orientation="horizontal"
+                            android:gravity="end">
+
+                            <Button
+                                android:id="@+id/btnTestInjectApi"
+                                style="@style/Widget.Material3.Button.TonalButton"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Test Send Payload" />
+                        </LinearLayout>
                     </LinearLayout>
 
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchRequireTrigger"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
                 </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Card 5.3: Testing & Interactive Scratchpad -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="24dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="?attr/colorOutline">
 
                 <LinearLayout
-                    android:id="@+id/layoutTriggerDetails"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:orientation="vertical">
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
-                    <!-- Pending payloads in memory indicator -->
                     <TextView
-                        android:id="@+id/tvTriggerPendingStatus"
-                        android:layout_width="match_parent"
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Pending Queue: None (Ready)"
-                        android:textSize="13sp"
+                        android:text="Testing (Interactive Typing Area)"
                         android:textStyle="bold"
-                        android:textColor="?attr/colorPrimary" />
+                        android:textSize="15sp"
+                        android:textColor="?android:attr/textColorPrimary" />
 
                     <TextView
-                        android:id="@+id/tvTriggerProximityStatus"
-                        android:layout_width="match_parent"
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Proximity Sensor: FAR"
+                        android:layout_marginTop="2dp"
+                        android:text="Practice live effects: Test Covert Typing, Math extraction, Text Peek, and Text Replacement directly here."
                         android:textSize="12sp"
-                        android:alpha="0.8" />
+                        android:alpha="0.75"
+                        android:textColor="?android:attr/textColorSecondary" />
 
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchTriggerVolume"
+                    <EditText
+                        android:id="@+id/editCovertSandbox"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="10dp"
-                        android:text="Volume Buttons Trigger (Vol Up / Down)"
-                        android:textSize="13sp" />
-
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchTriggerProximity"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Proximity Sensor Trigger (Hand Wave / Cover)"
-                        android:textSize="13sp" />
-
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchTriggerHaptic"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Tactile Haptic Pulse on Trigger"
-                        android:textSize="13sp" />
+                        android:hint="Line 1: Type covert sentence...\nLine 2: Spectator 1\nLine 3: Spectator 2\nOr test math / replacement tags..."
+                        android:textColor="@color/edit_text_color"
+                        android:textColorHint="@color/edit_hint_color"
+                        android:textSize="14sp"
+                        android:minLines="4"
+                        android:gravity="top|start"
+                        android:padding="12dp"
+                        android:background="@drawable/bg_edit_text" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
+                        android:layout_marginTop="6dp"
                         android:orientation="horizontal"
-                        android:gravity="end">
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:id="@+id/tvSandboxLiveStatus"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Status: Ready"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            android:textColor="?attr/colorPrimary" />
 
                         <Button
-                            android:id="@+id/btnFireTriggerTest"
-                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:id="@+id/btnClearCovertSandbox"
+                            style="@style/Widget.Material3.Button.TextButton"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginEnd="6dp"
-                            android:text="Fire Trigger Now" />
-
-                        <Button
-                            android:id="@+id/btnClearTriggerQueue"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Clear Queue" />
+                            android:text="Clear Sandbox" />
                     </LinearLayout>
 
                 </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- CARD 8: Live Interactive Multi-Line Scratchpad -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:layout_marginBottom="24dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="?attr/colorOutline">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Live Covert &amp; Spectator Scratchpad"
-                    android:textStyle="bold"
-                    android:textSize="15sp"
-                    android:textColor="?android:attr/textColorPrimary" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="Practice the entire effect here: Type secret word + [  ] on Line 1, then hit Enter and type random letters on subsequent lines."
-                    android:textSize="12sp"
-                    android:alpha="0.7" />
-
-                <EditText
-                    android:id="@+id/editCovertSandbox"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:hint="Line 1: Covert sentence will type here...\nLine 2: Spectator 1 random word\nLine 3: Spectator 2 random word"
-                    android:textColor="@color/edit_text_color"
-                    android:textColorHint="@color/edit_hint_color"
-                    android:textSize="14sp"
-                    android:minLines="4"
-                    android:gravity="top|start"
-                    android:padding="12dp"
-                    android:background="@drawable/bg_edit_text" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        android:id="@+id/tvSandboxLiveStatus"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Status: Ready"
-                        android:textSize="12sp"
-                        android:textStyle="bold"
-                        android:textColor="?attr/colorPrimary" />
-
-                    <Button
-                        android:id="@+id/btnClearCovertSandbox"
-                        style="@style/Widget.Material3.Button.TextButton"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Clear Sandbox" />
-                </LinearLayout>
-
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
 
     </LinearLayout>
 </ScrollView>
