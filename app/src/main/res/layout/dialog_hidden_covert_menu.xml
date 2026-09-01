@@ -1094,6 +1094,31 @@
                                 android:textSize="13sp" />
                         </RadioGroup>
 
+                        <!-- Delivery Channels on Double Space -->
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:text="Double Space [  ] Delivery Destinations:"
+                            android:textStyle="bold"
+                            android:textSize="13sp" />
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchCovertSendInject"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Send to Inject API after 2 spaces"
+                            android:textSize="13sp" />
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchCovertSendNotif"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Send to Local Notification after 2 spaces"
+                            android:textSize="13sp" />
+
                     </LinearLayout>
 
                 </LinearLayout>
@@ -1266,11 +1291,42 @@
                                 android:padding="0dp" />
                         </LinearLayout>
 
+                        <!-- Source Mode Selection -->
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
-                            android:text="Fallback / Manual Replacement Text:"
+                            android:text="Replacement Value Source (Replace --value-- with):"
+                            android:textStyle="bold"
+                            android:textSize="13sp" />
+
+                        <RadioGroup
+                            android:id="@+id/rgReplaceSourceMode"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:orientation="vertical">
+
+                            <RadioButton
+                                android:id="@+id/rbReplaceSourceApi"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="1. Received information from API"
+                                android:textSize="13sp" />
+
+                            <RadioButton
+                                android:id="@+id/rbReplaceSourceCustom"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="2. Specific pre-saved custom text"
+                                android:textSize="13sp" />
+                        </RadioGroup>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:text="Specific Pre-saved Text / Fallback:"
                             android:textStyle="bold"
                             android:textSize="13sp" />
 
@@ -1279,7 +1335,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
-                            android:hint="Tom Hanks"
+                            android:hint="time time time"
                             android:textColor="@color/edit_text_color"
                             android:textColorHint="@color/edit_hint_color"
                             android:textSize="14sp"
@@ -1640,30 +1696,6 @@
                             android:padding="10dp"
                             android:background="@drawable/bg_edit_text" />
 
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="10dp"
-                            android:text="Covert Double-Space Typing Delivery Channels:"
-                            android:textSize="12sp"
-                            android:textStyle="bold"
-                            android:alpha="0.85" />
-
-                        <com.google.android.material.materialswitch.MaterialSwitch
-                            android:id="@+id/switchCovertSendInject"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:text="Send Secret Word to Inject API"
-                            android:textSize="13sp" />
-
-                        <com.google.android.material.materialswitch.MaterialSwitch
-                            android:id="@+id/switchCovertSendNotif"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:text="Send Secret Word to Local Notification"
-                            android:textSize="13sp" />
 
                         <LinearLayout
                             android:layout_width="match_parent"

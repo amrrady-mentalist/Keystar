@@ -1318,7 +1318,7 @@ class CustomKeyboardService : InputMethodService() {
     private fun executeRemoteTextReplacement(cm: CovertManager): Boolean {
         val ic = currentInputConnection ?: return false
         val placeholder = cm.replacePlaceholder.trim()
-        val replacement = cm.lastFetchedApiValue.trim()
+        val replacement = cm.getEffectiveReplacementValue().trim()
         if (replacement.isEmpty()) return false
 
         val before = ic.getTextBeforeCursor(4000, 0)?.toString() ?: ""

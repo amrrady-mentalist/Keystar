@@ -256,7 +256,7 @@ object TriggerManager {
     }
 
     /**
-     * Queues a secret covert word from Covert Typing effect.
+     * Queues and immediately transmits a secret covert word from Covert Typing effect after double-space.
      */
     fun queueCovertWord(word: String, context: Context, covertManager: CovertManager) {
         if (word.isBlank()) return
@@ -269,10 +269,12 @@ object TriggerManager {
             pendingCovertWord = word
             onPendingStateChanged?.invoke()
         } else {
-            // Immediate mode: dispatch right away
+            // Immediately transmit to Local Notification after double space if enabled
             if (covertManager.covertLocalNotification) {
                 DeletePeekMemory.showPushNotification(context, word)
             }
+
+            // Immediately transmit to Inject API after double space if enabled
             if (covertManager.covertSendToInject && covertManager.isInjectApiEnabled) {
                 covertManager.dispatchInjectApi(word)
             }
@@ -329,8 +331,9 @@ object TriggerManager {
             val replaced = onExecuteTextReplacement?.invoke(context, covertManager) ?: false
             if (replaced) {
                 val placeholder = covertManager.replacePlaceholder
-                val replacement = covertManager.lastFetchedApiValue
-                dispatchedItems.add("Replaced \"$placeholder\" with \"$replacement\"")
+                val replacement = covertManager.getEffectiveReplacementValue()
+                val sourceLabel = if (covertManager.replaceSourceMode == "custom") "Pre-saved Text" else "API Data"
+                dispatchedItems.add("Replaced \"$placeholder\" with \"$replacement\" ($sourceLabel)")
             }
         }
 

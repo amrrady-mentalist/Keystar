@@ -114,7 +114,7 @@ class CovertManager(private val context: Context) {
         }
 
     var covertLocalNotification: Boolean
-        get() = prefs.getBoolean("key_covert_local_notification", false)
+        get() = prefs.getBoolean("key_covert_local_notification", true)
         set(value) {
             prefs.edit().putBoolean("key_covert_local_notification", value).apply()
         }
@@ -303,12 +303,30 @@ class CovertManager(private val context: Context) {
             prefs.edit().putString("key_last_fetched_api_value", value).apply()
         }
 
-    // Fallback value if API is unreachable
+    // Specific Pre-saved Custom Text / Fallback value (e.g. "time time time" or "Tom Hanks")
     var replaceFallbackValue: String
         get() = prefs.getString("key_replace_fallback_value", "Tom Hanks") ?: "Tom Hanks"
         set(value) {
             prefs.edit().putString("key_replace_fallback_value", value).apply()
         }
+
+    // Replacement value source mode: "api" (Received information from API) or "custom" (Specific pre-saved text)
+    var replaceSourceMode: String
+        get() = prefs.getString("key_replace_source_mode", "api") ?: "api"
+        set(value) {
+            prefs.edit().putString("key_replace_source_mode", value).apply()
+        }
+
+    /**
+     * Resolves the effective replacement string based on the chosen source mode.
+     */
+    fun getEffectiveReplacementValue(): String {
+        return if (replaceSourceMode == "custom") {
+            replaceFallbackValue.ifEmpty { "Tom Hanks" }
+        } else {
+            lastFetchedApiValue.ifEmpty { replaceFallbackValue.ifEmpty { "Tom Hanks" } }
+        }
+    }
 
     /**
      * Fetches the latest replacement value from the configured API / Webhook (GET or POST).

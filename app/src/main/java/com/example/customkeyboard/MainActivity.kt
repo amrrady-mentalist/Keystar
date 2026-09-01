@@ -292,6 +292,9 @@ class MainActivity : AppCompatActivity() {
         val chipTagDoubleDash = dialog.findViewById<Button>(R.id.chipTagDoubleDash)
         val chipTagCurly = dialog.findViewById<Button>(R.id.chipTagCurly)
         val chipTagBrackets = dialog.findViewById<Button>(R.id.chipTagBrackets)
+        val rgReplaceSourceMode = dialog.findViewById<RadioGroup>(R.id.rgReplaceSourceMode)
+        val rbReplaceSourceApi = dialog.findViewById<RadioButton>(R.id.rbReplaceSourceApi)
+        val rbReplaceSourceCustom = dialog.findViewById<RadioButton>(R.id.rbReplaceSourceCustom)
         val editReplaceFallbackValue = dialog.findViewById<EditText>(R.id.editReplaceFallbackValue)
         val editReplaceApiUrl = dialog.findViewById<EditText>(R.id.editReplaceApiUrl)
         val tvReplaceApiFetchStatus = dialog.findViewById<TextView>(R.id.tvReplaceApiFetchStatus)
@@ -350,7 +353,9 @@ class MainActivity : AppCompatActivity() {
             switchTextReplaceMaster.isChecked = covertManager.isTextReplaceEnabled
             tvTextReplaceStatusTitle.text = if (covertManager.isTextReplaceEnabled) "API Text Replace: ACTIVE" else "API Text Replace: OFF"
             tvTextReplaceStatusTitle.setTextColor(if (covertManager.isTextReplaceEnabled) typedPrimary.data else typedSecondary.data)
-            tvReplaceApiFetchStatus.text = "Current Remote Value: \"${covertManager.lastFetchedApiValue}\""
+            val effectiveVal = covertManager.getEffectiveReplacementValue()
+            val sourceLabel = if (covertManager.replaceSourceMode == "custom") "Pre-saved Text" else "API Data"
+            tvReplaceApiFetchStatus.text = "Active Replacement: \"$effectiveVal\" (Source: $sourceLabel)"
             layoutTextReplaceDetails.visibility = if (covertManager.isTextReplaceEnabled) View.VISIBLE else View.GONE
 
             val lastDel = DeletePeekMemory.lastDeletedWord
@@ -466,7 +471,11 @@ class MainActivity : AppCompatActivity() {
         editReplacePlaceholder.setText(covertManager.replacePlaceholder)
         editReplaceFallbackValue.setText(covertManager.replaceFallbackValue)
         editReplaceApiUrl.setText(covertManager.replaceApiUrl)
-        tvReplaceApiFetchStatus.text = "Current Remote Value: \"${covertManager.lastFetchedApiValue}\""
+        if (covertManager.replaceSourceMode == "custom") {
+            rbReplaceSourceCustom.isChecked = true
+        } else {
+            rbReplaceSourceApi.isChecked = true
+        }
 
         updateStatusUi()
         updateMathSimulator()
@@ -727,6 +736,11 @@ class MainActivity : AppCompatActivity() {
             covertManager.replacePlaceholder = "[VALUE]"
         }
 
+        rgReplaceSourceMode.setOnCheckedChangeListener { _, checkedId ->
+            covertManager.replaceSourceMode = if (checkedId == R.id.rbReplaceSourceCustom) "custom" else "api"
+            updateStatusUi()
+        }
+
         btnSaveReplaceSettings.setOnClickListener {
             val placeholder = editReplacePlaceholder.text.toString().trim()
             val fallback = editReplaceFallbackValue.text.toString().trim()
@@ -734,18 +748,19 @@ class MainActivity : AppCompatActivity() {
             if (placeholder.isNotEmpty()) covertManager.replacePlaceholder = placeholder
             if (fallback.isNotEmpty()) {
                 covertManager.replaceFallbackValue = fallback
-                covertManager.lastFetchedApiValue = fallback
             }
             covertManager.replaceApiUrl = url
+            covertManager.replaceSourceMode = if (rbReplaceSourceCustom.isChecked) "custom" else "api"
             updateStatusUi()
-            Toast.makeText(this, "Replacement settings saved! Tag: \"${covertManager.replacePlaceholder}\"", Toast.LENGTH_SHORT).show()
+            val sourceLabel = if (covertManager.replaceSourceMode == "custom") "Pre-saved Text" else "API Data"
+            Toast.makeText(this, "Replacement saved! Replaces \"${covertManager.replacePlaceholder}\" with $sourceLabel (\"${covertManager.getEffectiveReplacementValue()}\")", Toast.LENGTH_LONG).show()
         }
 
         btnFetchApiValueNow.setOnClickListener {
             Toast.makeText(this, "Fetching latest API value...", Toast.LENGTH_SHORT).show()
             covertManager.fetchLatestApiValue { success, result ->
                 runOnUiThread {
-                    tvReplaceApiFetchStatus.text = "Current Remote Value: \"${covertManager.lastFetchedApiValue}\""
+                    updateStatusUi()
                     Toast.makeText(this, if (success) "Fetched API Value: \"$result\"" else "API Fetch Result: $result", Toast.LENGTH_LONG).show()
                 }
             }
