@@ -70,10 +70,10 @@ class CustomKeyboardService : InputMethodService() {
 
     private fun getTopBarHeightDp(): Int {
         return when (prefs.getString("keyboard_height", "normal")) {
-            "compact" -> 36
-            "tall" -> 42
-            "extra_tall" -> 46
-            else -> 38
+            "compact" -> 42
+            "tall" -> 50
+            "extra_tall" -> 54
+            else -> 46
         }
     }
 
@@ -385,22 +385,37 @@ class CustomKeyboardService : InputMethodService() {
         return bar
     }
 
-    private fun buildSuggestionsScroll(items: List<Dictionary.SuggestionItem>): HorizontalScrollView {
-        val inner = LinearLayout(this).apply {
+    private fun buildSuggestionsScroll(items: List<Dictionary.SuggestionItem>): LinearLayout {
+        val container = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
         }
-        items.forEach { item ->
+        val hasEmojis = items.any { it.isEmoji }
+        items.forEachIndexed { index, item ->
+            if (index > 0) {
+                container.addView(createSuggestionDivider())
+            }
             if (item.isEmoji) {
-                inner.addView(emojiChip(item.text))
+                container.addView(emojiChip(item.text))
             } else {
-                inner.addView(suggestionChip(item))
+                container.addView(suggestionChip(item, hasEmojis))
             }
         }
-        return HorizontalScrollView(this).apply {
-            isHorizontalScrollBarEnabled = false
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
-            addView(inner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        return container
+    }
+
+    private fun createSuggestionDivider(): View {
+        val divColor = if (isDarkMode()) Color.argb(45, 255, 255, 255) else Color.argb(35, 0, 0, 0)
+        return View(this).apply {
+            setBackgroundColor(divColor)
+            val w = dp(1)
+            val h = dp(18)
+            layoutParams = LinearLayout.LayoutParams(w, h).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                marginStart = dp(1)
+                marginEnd = dp(1)
+            }
         }
     }
 
@@ -408,11 +423,12 @@ class CustomKeyboardService : InputMethodService() {
         val resting = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
         return TextView(this).apply {
             text = emoji
-            textSize = getEmojiFontSize()
+            textSize = 17f
+            includeFontPadding = false
             gravity = Gravity.CENTER
-            setPadding(dp(10), 0, dp(10), 0)
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT).apply {
-                setMargins(dp(2), dp(2), dp(2), dp(2))
+            setPadding(dp(4), 0, dp(4), 0)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 0.75f).apply {
+                setMargins(dp(2), dp(4), dp(2), dp(4))
             }
             background = resting
             applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP) {
@@ -428,12 +444,16 @@ class CustomKeyboardService : InputMethodService() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        commonEmojis.forEach { emoji ->
+        commonEmojis.forEachIndexed { index, emoji ->
+            if (index > 0) {
+                inner.addView(createSuggestionDivider())
+            }
             inner.addView(TextView(this).apply {
                 text = emoji
-                textSize = getEmojiFontSize()
+                textSize = 18f
+                includeFontPadding = false
                 gravity = Gravity.CENTER
-                setPadding(dp(8), 0, dp(8), 0)
+                setPadding(dp(10), 0, dp(10), 0)
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT)
                 applyKeyTouchBehavior(this, pressHighlightColor(), null, KEY_RADIUS_DP) {
                     currentInputConnection?.commitText(emoji, 1)
@@ -447,7 +467,7 @@ class CustomKeyboardService : InputMethodService() {
         }
     }
 
-    private fun suggestionChip(item: Dictionary.SuggestionItem): TextView {
+    private fun suggestionChip(item: Dictionary.SuggestionItem, hasEmojis: Boolean = false): TextView {
         val isPrimary = item.isPrimary
         val isCorrection = item.isCorrection
         val isNextWord = item.isNextWord
@@ -465,11 +485,15 @@ class CustomKeyboardService : InputMethodService() {
             })
             setTypeface(if (isPrimary || isCorrection) Typeface.DEFAULT_BOLD else Typeface.DEFAULT)
             textSize = 15f
+            includeFontPadding = false
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
             gravity = Gravity.CENTER
-            setPadding(dp(13), 0, dp(13), 0)
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT).apply {
+            setPadding(dp(4), 0, dp(4), 0)
+            val weight = if (hasEmojis) 1.25f else 1f
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight).apply {
                 if (isPrimary || isCorrection) {
-                    setMargins(dp(2), dp(2), dp(2), dp(2))
+                    setMargins(dp(2), dp(3), dp(2), dp(3))
                 }
             }
             if (resting != null) background = resting

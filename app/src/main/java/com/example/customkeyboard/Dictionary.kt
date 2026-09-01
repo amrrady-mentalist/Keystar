@@ -1025,117 +1025,79 @@ object Dictionary {
             }
 
             // Contextual Emojis for prefix AND top completion candidate
-            val prefixEmojis = getEmojisForWord(prefix, limit = 4)
+            val prefixEmojis = getEmojisForWord(prefix, limit = 2)
             emojiCompletions.addAll(prefixEmojis)
-            if (wordCompletions.isNotEmpty()) {
+            if (wordCompletions.isNotEmpty() && emojiCompletions.size < 2) {
                 val topWord = wordCompletions.first().text
-                val topEmojis = getEmojisForWord(topWord, limit = 4)
+                val topEmojis = getEmojisForWord(topWord, limit = 2 - emojiCompletions.size)
                 emojiCompletions.addAll(topEmojis)
             }
 
-            // Interleave: Top 2 words -> Top 1-2 emojis -> Next 2 words -> Next emojis -> Remaining words
-            var wordIdx = 0
-            var emojiIdx = 0
-
-            // 1. Top 2 words
-            while (wordIdx < wordCompletions.size && wordIdx < 2) {
-                result.add(wordCompletions[wordIdx++])
-            }
-            // 2. Top 1-2 Emojis (Immediately visible on top bar!)
-            while (emojiIdx < emojiCompletions.size && emojiIdx < 2) {
-                val em = emojiCompletions[emojiIdx++]
-                if (seenEmojis.add(em)) {
-                    result.add(SuggestionItem(text = em, isEmoji = true))
+            // Selection strategy: 2 words + up to 2 emojis, OR up to 3 words if no emojis
+            if (emojiCompletions.isNotEmpty()) {
+                // Up to 2 words
+                wordCompletions.take(2).forEach { result.add(it) }
+                // Up to 2 emojis
+                emojiCompletions.take(2).forEach { em ->
+                    if (seenEmojis.add(em)) {
+                        result.add(SuggestionItem(text = em, isEmoji = true))
+                    }
                 }
-            }
-            // 3. Next 2 words
-            val targetWords = wordIdx + 2
-            while (wordIdx < wordCompletions.size && wordIdx < targetWords) {
-                result.add(wordCompletions[wordIdx++])
-            }
-            // 4. Next emojis
-            while (emojiIdx < emojiCompletions.size && emojiIdx < 4) {
-                val em = emojiCompletions[emojiIdx++]
-                if (seenEmojis.add(em)) {
-                    result.add(SuggestionItem(text = em, isEmoji = true))
+                // If only 1 word was added, fill with a second word candidate if available
+                if (result.count { !it.isEmoji } < 2 && wordCompletions.size > result.count { !it.isEmoji }) {
+                    val remaining = wordCompletions.filter { cand -> result.none { it.text == cand.text } }.take(2 - result.count { !it.isEmoji })
+                    result.addAll(remaining)
                 }
-            }
-            // 5. Remaining words
-            while (wordIdx < wordCompletions.size && result.size < limit) {
-                result.add(wordCompletions[wordIdx++])
-            }
-
-            // Fallback exact typed word if not present
-            if (result.none { it.text.equals(prefix, ignoreCase = true) }) {
-                result.add(SuggestionItem(text = prefix, isEmoji = false))
+            } else {
+                // Exactly up to 3 word suggestions
+                wordCompletions.take(3).forEach { result.add(it) }
+                if (result.size < 3 && !result.any { it.text.equals(prefix, ignoreCase = true) }) {
+                    result.add(SuggestionItem(text = prefix, isEmoji = false))
+                }
             }
 
         } else if (previousWord.isNotBlank()) {
             // --- PRIORITY 2: Next-Word Predictions & Emojis after space (e.g., "foot " -> "ball", "prints", "step", "🦶", "👣") ---
             val prevClean = previousWord.trim()
 
-            val nextWords = getNextWords(prevClean, isArabic, limit = 8)
-            val emojis = getEmojisForWord(prevClean, limit = 4)
+            val nextWords = getNextWords(prevClean, isArabic, limit = 6)
+            val emojis = getEmojisForWord(prevClean, limit = 2)
 
-            var nwIdx = 0
-            var emIdx = 0
-
-            // 1. Top 2 Next words
-            while (nwIdx < nextWords.size && nwIdx < 2) {
-                val nw = nextWords[nwIdx++]
-                val nwKey = if (isArabic) normalizeArabic(nw) else nw.lowercase()
-                if (seenWords.add(nwKey)) {
-                    result.add(SuggestionItem(text = nw, isEmoji = false, isNextWord = true, isPrimary = result.isEmpty()))
+            if (emojis.isNotEmpty()) {
+                // 2 next words + up to 2 emojis
+                var wCount = 0
+                for (nw in nextWords) {
+                    val nwKey = if (isArabic) normalizeArabic(nw) else nw.lowercase()
+                    if (seenWords.add(nwKey)) {
+                        result.add(SuggestionItem(text = nw, isEmoji = false, isNextWord = true, isPrimary = result.isEmpty()))
+                        wCount++
+                        if (wCount >= 2) break
+                    }
                 }
-            }
-
-            // 2. Top 1-2 Contextual Emojis for previous word (Immediately visible on top bar!)
-            while (emIdx < emojis.size && emIdx < 2) {
-                val em = emojis[emIdx++]
-                if (seenEmojis.add(em)) {
-                    result.add(SuggestionItem(text = em, isEmoji = true))
+                var eCount = 0
+                for (em in emojis) {
+                    if (seenEmojis.add(em)) {
+                        result.add(SuggestionItem(text = em, isEmoji = true))
+                        eCount++
+                        if (eCount >= 2) break
+                    }
                 }
-            }
-
-            // 3. Next 2 words
-            val targetNw = nwIdx + 2
-            while (nwIdx < nextWords.size && nwIdx < targetNw) {
-                val nw = nextWords[nwIdx++]
-                val nwKey = if (isArabic) normalizeArabic(nw) else nw.lowercase()
-                if (seenWords.add(nwKey)) {
-                    result.add(SuggestionItem(text = nw, isEmoji = false, isNextWord = true))
-                }
-            }
-
-            // 4. Next emojis
-            while (emIdx < emojis.size && emIdx < 4) {
-                val em = emojis[emIdx++]
-                if (seenEmojis.add(em)) {
-                    result.add(SuggestionItem(text = em, isEmoji = true))
-                }
-            }
-
-            // 5. Remaining next words
-            while (nwIdx < nextWords.size && result.size < limit) {
-                val nw = nextWords[nwIdx++]
-                val nwKey = if (isArabic) normalizeArabic(nw) else nw.lowercase()
-                if (seenWords.add(nwKey)) {
-                    result.add(SuggestionItem(text = nw, isEmoji = false, isNextWord = true))
-                }
-            }
-
-            // Morphological derivations of previous word
-            val morphForms = getMorphologicalForms(prevClean, isArabic)
-            for (form in morphForms) {
-                val formKey = if (isArabic) normalizeArabic(form) else form.lowercase()
-                if (seenWords.add(formKey) && result.size < limit) {
-                    result.add(SuggestionItem(text = form, isEmoji = false))
+            } else {
+                // Up to 3 next words
+                var wCount = 0
+                for (nw in nextWords) {
+                    val nwKey = if (isArabic) normalizeArabic(nw) else nw.lowercase()
+                    if (seenWords.add(nwKey)) {
+                        result.add(SuggestionItem(text = nw, isEmoji = false, isNextWord = true, isPrimary = result.isEmpty()))
+                        wCount++
+                        if (wCount >= 3) break
+                    }
                 }
             }
 
         } else {
-            // Default top words when input is empty
-            val fallback = topWords(isArabic, limit = 8)
+            // Default top words when input is empty (up to 3 words)
+            val fallback = topWords(isArabic, limit = 3)
             for (fw in fallback) {
                 result.add(SuggestionItem(text = fw, isEmoji = false, isNextWord = true))
             }
