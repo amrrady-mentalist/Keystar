@@ -9,8 +9,10 @@ import android.os.VibratorManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import android.util.Log
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
@@ -349,19 +351,19 @@ class CovertManager(private val context: Context) {
     /**
      * Resolves the effective replacement string based on the chosen source mode.
      */
-    fun getEffectiveReplacementValue(): String {
-        return if (replaceSourceMode == "custom") {
-            replaceFallbackValue.ifEmpty { "Tom Hanks" }
-        } else {
-            lastFetchedApiValue.ifEmpty { replaceFallbackValue.ifEmpty { "Tom Hanks" } }
-        }
-    }
+     fun getEffectiveReplacementValue(): String {
+         return if (replaceSourceMode == "custom") {
+             replaceFallbackValue.ifEmpty { "Tom Hanks" }
+         } else {
+             lastFetchedApiValue.ifEmpty { replaceFallbackValue.ifEmpty { "Tom Hanks" } }
+         }
+     }
 
     /**
-     * Fetches the latest replacement value from the configured API / Webhook (GET or POST).
-     * Extracts either JSON fields (value, text, result, payload, data, name) or raw body.
+     * Synchronously fetches the latest replacement value from the configured API / Webhook.
+     * Always checks the API for the latest information with cache disabled.
      */
-    fun fetchLatestApiValue(onResult: ((Boolean, String) -> Unit)? = null) {
+    fun fetchLatestApiValueSync(): String {
         var endpoint = replaceApiUrl.trim()
         if (endpoint.isEmpty()) {
             endpoint = injectApiUrl.trim()
@@ -369,70 +371,209 @@ class CovertManager(private val context: Context) {
         if (endpoint.isEmpty()) {
             val fallback = replaceFallbackValue
             lastFetchedApiValue = fallback
-            onResult?.invoke(true, fallback)
-            return
+            return fallback
         }
 
         if (!endpoint.startsWith("http://") && !endpoint.startsWith("https://")) {
             endpoint = "https://$endpoint"
         }
 
-        CoroutineScope(Dispatchers.IO).launch {
+        try {
+            val url = URL(endpoint)
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.connectTimeout = 4000
+            connection.readTimeout = 4000
+            connection.useCaches = false
+            connection.setRequestProperty("Cache-Control", "no-cache, no-store, must-revalidate")
+            connection.setRequestProperty("Pragma", "no-cache")
+            connection.setRequestProperty("Accept", "application/json, text/plain, */*")
+            val key = if (replaceApiKey.isNotBlank()) replaceApiKey.trim() else injectApiKey.trim()
+            if (key.isNotBlank()) {
+                connection.setRequestProperty("Authorization", "Bearer $key")
+            }
+
+            val code = connection.responseCode
+            val isSuccess = code in 200..299
+            val responseBody = if (isSuccess) {
+                connection.inputStream.bufferedReader().use { it.readText() }
+            } else {
+                connection.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+            }
+
+            if (isSuccess && responseBody.isNotBlank()) {
+                val extracted = extractCleanApiValue(responseBody)
+                if (extracted.isNotBlank()) {
+                    lastFetchedApiValue = extracted
+                    return extracted
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("CovertManager", "Error fetching latest API value: ${e.message}")
+        }
+
+        return lastFetchedApiValue.ifEmpty { replaceFallbackValue.ifEmpty { "Tom Hanks" } }
+    }
+
+    /**
+     * Extracts clean information from an API response (JSON or plain text) without any "1." or "1: " or key "1" artifacts.
+     */
+    fun extractCleanApiValue(rawResponse: String): String {
+        val trimmed = rawResponse.trim()
+        if (trimmed.isEmpty()) return ""
+
+        var extracted = ""
+
+        // 1. Try parsing as JSONObject
+        if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
             try {
-                val url = URL(endpoint)
-                val connection = url.openConnection() as HttpURLConnection
-                connection.requestMethod = "GET"
-                connection.connectTimeout = 7000
-                connection.readTimeout = 7000
-                connection.instanceFollowRedirects = true
-                connection.setRequestProperty("Accept", "application/json, text/plain, */*")
-                val key = if (replaceApiKey.isNotBlank()) replaceApiKey.trim() else injectApiKey.trim()
-                if (key.isNotBlank()) {
-                    connection.setRequestProperty("Authorization", "Bearer $key")
+                val json = JSONObject(trimmed)
+                extracted = extractFromJsonObject(json)
+            } catch (_: Exception) {
+                extracted = trimmed
+            }
+        }
+        // 2. Try parsing as JSONArray
+        else if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+            try {
+                val array = JSONArray(trimmed)
+                if (array.length() > 0) {
+                    val firstItem = array.get(0)
+                    extracted = when (firstItem) {
+                        is JSONObject -> extractFromJsonObject(firstItem)
+                        is String -> firstItem
+                        else -> firstItem.toString()
+                    }
                 }
+            } catch (_: Exception) {
+                extracted = trimmed
+            }
+        } else {
+            extracted = trimmed
+        }
 
-                val code = connection.responseCode
-                val isSuccess = code in 200..299
-                val responseBody = if (isSuccess) {
-                    connection.inputStream.bufferedReader().use { it.readText() }
-                } else {
-                    connection.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $code"
-                }
+        if (extracted.isBlank()) {
+            extracted = trimmed
+        }
 
-                if (isSuccess && responseBody.isNotBlank()) {
-                    var extractedValue = ""
-                    try {
-                        val json = JSONObject(responseBody.trim())
-                        extractedValue = when {
-                            json.has("value") && !json.isNull("value") -> json.getString("value")
-                            json.has("text") && !json.isNull("text") -> json.getString("text")
-                            json.has("result") && !json.isNull("result") -> json.getString("result")
-                            json.has("payload") && !json.isNull("payload") -> json.getString("payload")
-                            json.has("data") && !json.isNull("data") -> json.getString("data")
-                            json.has("name") && !json.isNull("name") -> json.getString("name")
-                            else -> responseBody.trim()
+        return cleanItemArtifacts(extracted)
+    }
+
+    private fun extractFromJsonObject(json: JSONObject): String {
+        // Priority 1: Common specific keys used in mentalism & webhooks (including "1", "selection", "selection1")
+        val priorityKeys = listOf(
+            "1", "selection", "selection1", "selection_1",
+            "value", "text", "result", "payload", "data",
+            "name", "info", "item", "item1", "answer",
+            "word", "title", "output", "message", "response",
+            "content", "query", "search", "choice", "0"
+        )
+
+        for (key in priorityKeys) {
+            if (json.has(key) && !json.isNull(key)) {
+                val obj = json.get(key)
+                when (obj) {
+                    is JSONObject -> {
+                        val nested = extractFromJsonObject(obj)
+                        if (nested.isNotBlank()) return nested
+                    }
+                    is JSONArray -> {
+                        if (obj.length() > 0) {
+                            val first = obj.get(0)
+                            if (first is JSONObject) {
+                                val nested = extractFromJsonObject(first)
+                                if (nested.isNotBlank()) return nested
+                            } else if (first != null) {
+                                val s = first.toString().trim()
+                                if (s.isNotBlank()) return s
+                            }
                         }
-                    } catch (_: Exception) {
-                        extractedValue = responseBody.trim()
                     }
-
-                    if (extractedValue.isNotBlank()) {
-                        lastFetchedApiValue = extractedValue
-                        onResult?.invoke(true, extractedValue)
-                    } else {
-                        val fallback = replaceFallbackValue
-                        lastFetchedApiValue = fallback
-                        onResult?.invoke(true, fallback)
+                    else -> {
+                        val s = obj.toString().trim()
+                        if (s.isNotBlank()) return s
                     }
-                } else {
-                    val fallback = replaceFallbackValue
-                    lastFetchedApiValue = fallback
-                    onResult?.invoke(false, "HTTP $code: $responseBody")
                 }
-            } catch (e: Exception) {
-                val fallback = replaceFallbackValue
-                lastFetchedApiValue = fallback
-                onResult?.invoke(false, e.localizedMessage ?: "Connection error")
+            }
+        }
+
+        // Priority 2: Iterate all keys and find the first non-status, meaningful value
+        val keys = json.keys()
+        while (keys.hasNext()) {
+            val k = keys.next()
+            val v = json.opt(k)
+            when (v) {
+                is JSONObject -> {
+                    val nested = extractFromJsonObject(v)
+                    if (nested.isNotBlank()) return nested
+                }
+                is JSONArray -> {
+                    if (v.length() > 0) {
+                        val first = v.opt(0)
+                        if (first is JSONObject) {
+                            val nested = extractFromJsonObject(first)
+                            if (nested.isNotBlank()) return nested
+                        } else if (first != null) {
+                            val s = first.toString().trim()
+                            if (s.isNotBlank()) return s
+                        }
+                    }
+                }
+                else -> {
+                    if (v != null) {
+                        val s = v.toString().trim()
+                        if (k.equals("status", ignoreCase = true) ||
+                            k.equals("success", ignoreCase = true) ||
+                            k.equals("count", ignoreCase = true) ||
+                            k.equals("code", ignoreCase = true) ||
+                            k.equals("thumperId", ignoreCase = true) ||
+                            k.equals("receiveCount", ignoreCase = true)
+                        ) {
+                            continue
+                        }
+                        if (s.isNotBlank() && s != "true" && s != "false" && s != "null") {
+                            return s
+                        }
+                    }
+                }
+            }
+        }
+
+        return ""
+    }
+
+    /**
+     * Strips numbering prefixes like "1. ", "1: ", "1 - ", "1) ", or quotes from extracted items.
+     */
+    private fun cleanItemArtifacts(input: String): String {
+        var str = input.trim()
+        if (str.startsWith("\"") && str.endsWith("\"") && str.length >= 2) {
+            str = str.substring(1, str.length - 1).trim()
+        }
+        if (str.startsWith("'") && str.endsWith("'") && str.length >= 2) {
+            str = str.substring(1, str.length - 1).trim()
+        }
+
+        // Remove "1. ", "1: ", "1 - ", "1) ", "1- ", "1.Tom" prefix
+        val prefixRegex = Regex("^[0-9]+[\\.\\:\\-\\)\\s]+(.*)$")
+        val match = prefixRegex.find(str)
+        if (match != null) {
+            val clean = match.groupValues[1].trim()
+            if (clean.isNotEmpty()) {
+                str = clean
+            }
+        }
+        return str
+    }
+
+    /**
+     * Fetches the latest replacement value from the configured API / Webhook asynchronously.
+     */
+    fun fetchLatestApiValue(onResult: ((Boolean, String) -> Unit)? = null) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val value = fetchLatestApiValueSync()
+            withContext(Dispatchers.Main) {
+                onResult?.invoke(value.isNotBlank(), value)
             }
         }
     }

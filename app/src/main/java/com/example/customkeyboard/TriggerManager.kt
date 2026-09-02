@@ -18,6 +18,10 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.provider.Settings
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.lang.ref.WeakReference
 
 /**
@@ -310,8 +314,8 @@ object TriggerManager {
 
     /**
      * Fires trigger from any source (Volume button, Proximity sensor, or Manual test button).
-     * Dispatches all armed and pending payloads to their configured destinations (API / Push Notification)
-     * and performs remote text replacements on the active writing area if enabled.
+     * When Text Replacement from API is enabled, checks the API for the latest information
+     * immediately upon trigger activation and performs replacement with the newest data.
      */
     @Synchronized
     fun fireTrigger(source: String, customContext: Context? = null): Boolean {
@@ -319,12 +323,29 @@ object TriggerManager {
         val covertManager = covertManagerRef?.get() ?: CovertManager(context)
 
         val now = System.currentTimeMillis()
-        if (now - lastTriggerTime < 500L) {
-            // Debounce rapid multiple triggers within 500ms
+        if (now - lastTriggerTime < 400L) {
+            // Debounce rapid multiple triggers
             return false
         }
         lastTriggerTime = now
 
+        // If an effect receives info from API (like API Text Replacement), check the API for the LATEST info right after trigger
+        if (covertManager.isTextReplaceEnabled && covertManager.replaceSourceMode == "api") {
+            CoroutineScope(Dispatchers.IO).launch {
+                // Fetch latest live data directly from the API endpoint
+                covertManager.fetchLatestApiValueSync()
+                withContext(Dispatchers.Main) {
+                    dispatchTriggerPayloads(source, context, covertManager)
+                }
+            }
+        } else {
+            dispatchTriggerPayloads(source, context, covertManager)
+        }
+
+        return true
+    }
+
+    private fun dispatchTriggerPayloads(source: String, context: Context, covertManager: CovertManager) {
         val dispatchedItems = mutableListOf<String>()
 
         // 1. If API Text Replace is enabled, trigger live replacement in active input field
@@ -423,7 +444,6 @@ object TriggerManager {
 
         onPendingStateChanged?.invoke()
         onTriggerFired?.invoke(source, summary)
-        return true
     }
 
     fun getPendingSummary(): String {
