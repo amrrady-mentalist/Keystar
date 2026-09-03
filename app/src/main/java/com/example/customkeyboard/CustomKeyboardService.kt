@@ -45,6 +45,7 @@ class CustomKeyboardService : InputMethodService() {
     private var symbolsPage = 1
     private val wordBuffer = StringBuilder()
     private var lastCommittedWord = ""
+    private var selectedClipboardEffectTab = "covert"
 
     private lateinit var rootContainer: LinearLayout
     private lateinit var topBarContainer: LinearLayout
@@ -629,7 +630,7 @@ class CustomKeyboardService : InputMethodService() {
 
     private fun buildClipboardPanel(): ScrollView {
         val scroll = ScrollView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(220))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(235))
             isFillViewport = true
         }
         val mainLayout = LinearLayout(this).apply {
@@ -641,7 +642,7 @@ class CustomKeyboardService : InputMethodService() {
         val effectBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(6), dp(4), dp(6), dp(6))
+            setPadding(dp(4), dp(4), dp(4), dp(4))
             val barBg = GradientDrawable().apply {
                 setColor(specialKeyColor())
                 cornerRadius = dp(8).toFloat()
@@ -652,59 +653,87 @@ class CustomKeyboardService : InputMethodService() {
             }
         }
 
-        // Effect 1: Covert Typing (Disguise Mask)
+        // Effect 1: Covert Typing (Google Incognito Fedora & Glasses)
         effectBar.addView(createEffectIconButton(
             iconRes = R.drawable.ic_effect_covert,
             title = "Covert Typing",
-            isActive = covertManager.isCovertActive
+            isActive = covertManager.isCovertActive,
+            isSelectedTab = selectedClipboardEffectTab == "covert"
         ) {
-            covertManager.toggleCovert()
+            if (selectedClipboardEffectTab != "covert") {
+                selectedClipboardEffectTab = "covert"
+            } else {
+                covertManager.toggleCovert()
+            }
             render()
         })
 
-        // Effect 2: Math Magic Equation (Calculator)
+        // Effect 2: Math Magic Equation (Google Material Calculator)
         effectBar.addView(createEffectIconButton(
             iconRes = R.drawable.ic_effect_math,
             title = "Math Equation",
-            isActive = covertManager.isMathEnabled
+            isActive = covertManager.isMathEnabled,
+            isSelectedTab = selectedClipboardEffectTab == "math"
         ) {
-            covertManager.isMathEnabled = !covertManager.isMathEnabled
+            if (selectedClipboardEffectTab != "math") {
+                selectedClipboardEffectTab = "math"
+            } else {
+                covertManager.isMathEnabled = !covertManager.isMathEnabled
+            }
             render()
         })
 
-        // Effect 3: Delete Peek (Trash Bin + Eye)
+        // Effect 3: Delete Peek (Material Trash Bin + Peek Eye)
         effectBar.addView(createEffectIconButton(
             iconRes = R.drawable.ic_effect_delete_peek,
             title = "Delete Peek",
-            isActive = covertManager.isDeletePeekEnabled
+            isActive = covertManager.isDeletePeekEnabled,
+            isSelectedTab = selectedClipboardEffectTab == "delete_peek"
         ) {
-            covertManager.isDeletePeekEnabled = !covertManager.isDeletePeekEnabled
+            if (selectedClipboardEffectTab != "delete_peek") {
+                selectedClipboardEffectTab = "delete_peek"
+            } else {
+                covertManager.isDeletePeekEnabled = !covertManager.isDeletePeekEnabled
+            }
             render()
         })
 
-        // Effect 4: Any Word / Line Text Peek (Reading Eye)
+        // Effect 4: Any Word / Line Text Peek (Material Visibility Eye)
         effectBar.addView(createEffectIconButton(
             iconRes = R.drawable.ic_effect_text_peek,
-            title = "Text Peek (${covertManager.textPeekMode.replace('_', ' ')})",
-            isActive = covertManager.isTextPeekEnabled
+            title = "Text Peek",
+            isActive = covertManager.isTextPeekEnabled,
+            isSelectedTab = selectedClipboardEffectTab == "text_peek"
         ) {
-            covertManager.isTextPeekEnabled = !covertManager.isTextPeekEnabled
+            if (selectedClipboardEffectTab != "text_peek") {
+                selectedClipboardEffectTab = "text_peek"
+            } else {
+                covertManager.isTextPeekEnabled = !covertManager.isTextPeekEnabled
+            }
             render()
         })
 
-        // Effect 5: API Text Replace (Swap Arrows)
+        // Effect 5: API Text Replace (Material Swap Arrows)
         effectBar.addView(createEffectIconButton(
             iconRes = R.drawable.ic_effect_replace,
             title = "Text Replace",
-            isActive = covertManager.isTextReplaceEnabled
+            isActive = covertManager.isTextReplaceEnabled,
+            isSelectedTab = selectedClipboardEffectTab == "replace"
         ) {
-            covertManager.isTextReplaceEnabled = !covertManager.isTextReplaceEnabled
+            if (selectedClipboardEffectTab != "replace") {
+                selectedClipboardEffectTab = "replace"
+            } else {
+                covertManager.isTextReplaceEnabled = !covertManager.isTextReplaceEnabled
+            }
             render()
         })
 
         mainLayout.addView(effectBar)
 
-        // 2. Enter Button Behavior Toggle Chip Row
+        // 2. Active Effect Sub-Effects & Line Selector Inspector Card
+        mainLayout.addView(buildSubEffectsPanel(selectedClipboardEffectTab))
+
+        // 3. Enter Button Behavior Toggle Chip Row
         val enterToggleRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -753,7 +782,7 @@ class CustomKeyboardService : InputMethodService() {
         }
         mainLayout.addView(enterToggleRow)
 
-        // 3. Regular Clipboard Item List
+        // 4. Regular Clipboard Item List
         val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val items = clipHistory.getAll()
 
@@ -810,27 +839,693 @@ class CustomKeyboardService : InputMethodService() {
     }
 
     /**
+     * Dedicated Sub-Effects inspector card that dynamically adapts to whichever magic effect is selected.
+     * Includes interactive line selectors, stepper wheels, sub-effect toggle switches, and mode chips.
+     */
+    private fun buildSubEffectsPanel(effectKey: String): View {
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val bg = GradientDrawable().apply {
+                setColor(if (isDarkMode()) Color.parseColor("#1F2225") else Color.parseColor("#F8F9FA"))
+                cornerRadius = dp(10).toFloat()
+                setStroke(dp(1), if (isDarkMode()) Color.parseColor("#34383C") else Color.parseColor("#E0E0E0"))
+            }
+            background = bg
+            setPadding(dp(10), dp(8), dp(10), dp(10))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = dp(6)
+            }
+        }
+
+        // Header: Icon + Title + Master Armed/Standby Switch
+        val isMasterActive = when (effectKey) {
+            "covert" -> covertManager.isCovertActive
+            "math" -> covertManager.isMathEnabled
+            "delete_peek" -> covertManager.isDeletePeekEnabled
+            "text_peek" -> covertManager.isTextPeekEnabled
+            "replace" -> covertManager.isTextReplaceEnabled
+            else -> false
+        }
+        val effectTitle = when (effectKey) {
+            "covert" -> "Covert Typing Engine"
+            "math" -> "Math Magic Equation"
+            "delete_peek" -> "Delete Peek Magic"
+            "text_peek" -> "Universal Text Peek"
+            "replace" -> "API Text Replace"
+            else -> "Magic Effect"
+        }
+        val effectIconRes = when (effectKey) {
+            "covert" -> R.drawable.ic_effect_covert
+            "math" -> R.drawable.ic_effect_math
+            "delete_peek" -> R.drawable.ic_effect_delete_peek
+            "text_peek" -> R.drawable.ic_effect_text_peek
+            "replace" -> R.drawable.ic_effect_replace
+            else -> R.drawable.ic_clipboard
+        }
+
+        val headerRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, dp(6))
+        }
+
+        val headerIcon = ImageView(this).apply {
+            setImageResource(effectIconRes)
+            setColorFilter(if (isMasterActive) (if (isDarkMode()) Color.parseColor("#00E676") else Color.parseColor("#2E7D32")) else textColor())
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            layoutParams = LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginEnd = dp(8) }
+        }
+        val headerTitle = TextView(this).apply {
+            text = effectTitle
+            setTextColor(textColor())
+            setTypeface(Typeface.DEFAULT_BOLD)
+            textSize = 13.5f
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        val masterSwitch = createCustomSwitchView(isMasterActive) { newChecked ->
+            when (effectKey) {
+                "covert" -> covertManager.isCovertActive = newChecked
+                "math" -> covertManager.isMathEnabled = newChecked
+                "delete_peek" -> covertManager.isDeletePeekEnabled = newChecked
+                "text_peek" -> covertManager.isTextPeekEnabled = newChecked
+                "replace" -> covertManager.isTextReplaceEnabled = newChecked
+            }
+            val status = if (newChecked) "ARMED" else "OFF"
+            Toast.makeText(this@CustomKeyboardService, "$effectTitle: $status", Toast.LENGTH_SHORT).show()
+            render()
+        }
+
+        headerRow.addView(headerIcon)
+        headerRow.addView(headerTitle)
+        headerRow.addView(masterSwitch)
+        panel.addView(headerRow)
+
+        // Subtle divider
+        val div = View(this).apply {
+            setBackgroundColor(if (isDarkMode()) Color.parseColor("#34383C") else Color.parseColor("#E0E0E0"))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)).apply {
+                bottomMargin = dp(6)
+            }
+        }
+        panel.addView(div)
+
+        // Sub-Effects based on effectKey
+        when (effectKey) {
+            "math" -> {
+                // Target Mode Chips (Formula Total vs Specific Line)
+                panel.addView(buildOptionChipsRow(
+                    label = "Target Calculation Mode",
+                    options = listOf("total" to "∑ Total Formula", "line" to "🎯 Specific Line"),
+                    selectedKey = covertManager.mathTargetMode
+                ) { newMode ->
+                    covertManager.mathTargetMode = newMode
+                    render()
+                })
+
+                // Line Number Selector & Wheel
+                panel.addView(buildLineSelectorWheel(
+                    currentLine = covertManager.mathTargetLine,
+                    maxLines = 10,
+                    label = "Target Line Number (N.list)",
+                    subtitle = if (covertManager.mathTargetMode == "line") "Extracts spectator's number from line #" else "Can also reference line # in formula"
+                ) { newLine ->
+                    covertManager.mathTargetLine = newLine
+                    render()
+                })
+
+                // Sub-effect toggles
+                panel.addView(buildSubEffectToggleRow(
+                    title = "Send to Inject API",
+                    subtitle = "Webhook POST result to spectator remote server",
+                    isChecked = covertManager.mathSendToInject
+                ) {
+                    covertManager.mathSendToInject = it
+                    render()
+                })
+
+                panel.addView(buildSubEffectToggleRow(
+                    title = "Local Push Notification",
+                    subtitle = "Preview result in system notification shade",
+                    isChecked = covertManager.mathLocalNotification
+                ) {
+                    covertManager.mathLocalNotification = it
+                    render()
+                })
+
+                // Formula Presets quick row
+                panel.addView(buildOptionChipsRow(
+                    label = "Formula Equation",
+                    options = listOf(
+                        "L1+L2" to "L1 + L2",
+                        "L1-L2" to "L1 - L2",
+                        "L1*L2" to "L1 × L2",
+                        "L1+L2+L3" to "L1+L2+L3"
+                    ),
+                    selectedKey = covertManager.mathEquation
+                ) { eq ->
+                    covertManager.mathEquation = eq
+                    Toast.makeText(this, "Formula set: $eq", Toast.LENGTH_SHORT).show()
+                    render()
+                })
+            }
+
+            "text_peek" -> {
+                // Peek Scope Chips
+                panel.addView(buildOptionChipsRow(
+                    label = "Peek Target Scope",
+                    options = listOf(
+                        "all" to "All Text",
+                        "cursor_line" to "Cursor Line",
+                        "line" to "🎯 Line Number"
+                    ),
+                    selectedKey = covertManager.textPeekMode
+                ) { newScope ->
+                    covertManager.textPeekMode = newScope
+                    render()
+                })
+
+                // Line Number Selector & Wheel
+                panel.addView(buildLineSelectorWheel(
+                    currentLine = covertManager.textPeekTargetLine,
+                    maxLines = 10,
+                    label = "Target Line Number",
+                    subtitle = "Reads spectator text on this specific line"
+                ) { newLine ->
+                    covertManager.textPeekTargetLine = newLine
+                    render()
+                })
+
+                // Sub-effect toggles
+                panel.addView(buildSubEffectToggleRow(
+                    title = "Send to Inject API",
+                    subtitle = "Webhook POST text peek payload remotely",
+                    isChecked = covertManager.textPeekSendToInject
+                ) {
+                    covertManager.textPeekSendToInject = it
+                    render()
+                })
+
+                panel.addView(buildSubEffectToggleRow(
+                    title = "Local Push Notification",
+                    subtitle = "Show peeked text in system notifications",
+                    isChecked = covertManager.textPeekLocalNotification
+                ) {
+                    covertManager.textPeekLocalNotification = it
+                    render()
+                })
+            }
+
+            "covert" -> {
+                // Letter Reveal Position Wheel / Stepper
+                val posLabels = listOf(
+                    0 to "1st Letter",
+                    1 to "2nd Letter",
+                    2 to "3rd Letter",
+                    -1 to "Last Letter"
+                )
+                panel.addView(buildPositionSelectorWheel(
+                    currentPos = covertManager.revealLetterPosition,
+                    options = posLabels,
+                    label = "Secret Reveal Letter Position",
+                    subtitle = "Which character embeds the secret word on line 2"
+                ) { newPos ->
+                    covertManager.revealLetterPosition = newPos
+                    render()
+                })
+
+                panel.addView(buildSubEffectToggleRow(
+                    title = "Send to Inject API",
+                    subtitle = "Transmit secret word upon capture to webhook",
+                    isChecked = covertManager.covertSendToInject
+                ) {
+                    covertManager.covertSendToInject = it
+                    render()
+                })
+
+                panel.addView(buildSubEffectToggleRow(
+                    title = "Local Push Notification",
+                    subtitle = "Show captured secret word in status bar",
+                    isChecked = covertManager.covertLocalNotification
+                ) {
+                    covertManager.covertLocalNotification = it
+                    render()
+                })
+
+                panel.addView(buildSubEffectToggleRow(
+                    title = "Spacebar Double-Tap Trigger",
+                    subtitle = "Double space triggers secret word capture",
+                    isChecked = covertManager.stealthSpacebarTrigger
+                ) {
+                    covertManager.stealthSpacebarTrigger = it
+                    render()
+                })
+
+                panel.addView(buildSubEffectToggleRow(
+                    title = "Stealth Haptic Feedback",
+                    subtitle = "Subtle vibration confirmation on secret capture",
+                    isChecked = covertManager.stealthHapticFeedback
+                ) {
+                    covertManager.stealthHapticFeedback = it
+                    render()
+                })
+            }
+
+            "delete_peek" -> {
+                panel.addView(TextView(this).apply {
+                    text = "Captures and exposes text deleted by the spectator using backspace."
+                    setTextColor(textColor())
+                    alpha = 0.75f
+                    textSize = 11.5f
+                    setPadding(0, 0, 0, dp(6))
+                })
+
+                panel.addView(buildSubEffectToggleRow(
+                    title = "Send to Inject API",
+                    subtitle = "Forward deleted characters/words to webhook",
+                    isChecked = covertManager.deletePeekSendToInject
+                ) {
+                    covertManager.deletePeekSendToInject = it
+                    render()
+                })
+
+                panel.addView(buildSubEffectToggleRow(
+                    title = "Local Push Notification",
+                    subtitle = "Display deleted text peek in notification",
+                    isChecked = covertManager.deletePeekLocalNotification
+                ) {
+                    covertManager.deletePeekLocalNotification = it
+                    render()
+                })
+            }
+
+            "replace" -> {
+                panel.addView(buildOptionChipsRow(
+                    label = "Value Source",
+                    options = listOf("api" to "🌐 Remote API", "custom" to "✍️ Custom Text"),
+                    selectedKey = covertManager.replaceSourceMode
+                ) { newSrc ->
+                    covertManager.replaceSourceMode = newSrc
+                    render()
+                })
+
+                panel.addView(TextView(this).apply {
+                    val preview = covertManager.getEffectiveReplacementValue()
+                    text = "Placeholder: ${covertManager.replacePlaceholder}\nEffective Value: \"$preview\""
+                    setTextColor(textColor())
+                    textSize = 11.5f
+                    setPadding(0, dp(2), 0, dp(4))
+                })
+            }
+        }
+
+        return panel
+    }
+
+    /**
+     * Interactive Line Number Selector and Wheel Stepper with quick selection chips.
+     */
+    private fun buildLineSelectorWheel(
+        currentLine: Int,
+        maxLines: Int = 10,
+        label: String,
+        subtitle: String,
+        onLineSelected: (Int) -> Unit
+    ): View {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(4), 0, dp(6))
+        }
+
+        val titleView = TextView(this).apply {
+            text = label
+            setTextColor(textColor())
+            setTypeface(Typeface.DEFAULT_BOLD)
+            textSize = 12f
+        }
+        val subView = TextView(this).apply {
+            text = subtitle
+            setTextColor(textColor())
+            alpha = 0.65f
+            textSize = 10.5f
+            setPadding(0, 0, 0, dp(4))
+        }
+        container.addView(titleView)
+        container.addView(subView)
+
+        // Wheel Stepper Row: [ ◀ ]  [ Line 3 ]  [ ▶ ]
+        val stepperRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(2), 0, dp(4))
+        }
+
+        // Decrement button
+        val decBtn = TextView(this).apply {
+            text = "◀"
+            textSize = 13f
+            setTextColor(if (currentLine > 1) textColor() else Color.GRAY)
+            gravity = Gravity.CENTER
+            val size = dp(34)
+            layoutParams = LinearLayout.LayoutParams(size, size)
+            val btnBg = GradientDrawable().apply {
+                setColor(specialKeyColor())
+                cornerRadius = dp(17).toFloat()
+                setStroke(dp(1), if (isDarkMode()) Color.parseColor("#3C4043") else Color.parseColor("#DADCE0"))
+            }
+            background = btnBg
+            if (currentLine > 1) {
+                applyKeyTouchBehavior(this, pressHighlightColor(), null, 17) {
+                    onLineSelected(currentLine - 1)
+                }
+            }
+        }
+
+        // Center wheel indicator
+        val centerBadge = TextView(this).apply {
+            text = "Line $currentLine"
+            textSize = 14f
+            setTypeface(Typeface.DEFAULT_BOLD)
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            val bg = GradientDrawable().apply {
+                setColor(accentColor())
+                cornerRadius = dp(17).toFloat()
+            }
+            background = bg
+            layoutParams = LinearLayout.LayoutParams(0, dp(34), 1f).apply {
+                setMargins(dp(8), 0, dp(8), 0)
+            }
+        }
+
+        // Increment button
+        val incBtn = TextView(this).apply {
+            text = "▶"
+            textSize = 13f
+            setTextColor(if (currentLine < maxLines) textColor() else Color.GRAY)
+            gravity = Gravity.CENTER
+            val size = dp(34)
+            layoutParams = LinearLayout.LayoutParams(size, size)
+            val btnBg = GradientDrawable().apply {
+                setColor(specialKeyColor())
+                cornerRadius = dp(17).toFloat()
+                setStroke(dp(1), if (isDarkMode()) Color.parseColor("#3C4043") else Color.parseColor("#DADCE0"))
+            }
+            background = btnBg
+            if (currentLine < maxLines) {
+                applyKeyTouchBehavior(this, pressHighlightColor(), null, 17) {
+                    onLineSelected(currentLine + 1)
+                }
+            }
+        }
+
+        stepperRow.addView(decBtn)
+        stepperRow.addView(centerBadge)
+        stepperRow.addView(incBtn)
+        container.addView(stepperRow)
+
+        // Quick line selector horizontal scroll chips: [Line 1] [Line 2] [Line 3] ...
+        val scroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+        val chipRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(2), 0, dp(2))
+        }
+
+        for (i in 1..maxLines) {
+            val isSelected = i == currentLine
+            val chip = TextView(this).apply {
+                text = "Line $i"
+                textSize = 11f
+                setTypeface(if (isSelected) Typeface.DEFAULT_BOLD else Typeface.DEFAULT)
+                setTextColor(if (isSelected) Color.WHITE else textColor())
+                gravity = Gravity.CENTER
+                setPadding(dp(8), dp(4), dp(8), dp(4))
+                val chipBg = GradientDrawable().apply {
+                    setColor(if (isSelected) accentColor() else specialKeyColor())
+                    cornerRadius = dp(12).toFloat()
+                    if (!isSelected) {
+                        setStroke(dp(1), if (isDarkMode()) Color.parseColor("#3C4043") else Color.parseColor("#DADCE0"))
+                    }
+                }
+                background = chipBg
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                    setMargins(dp(2), 0, dp(2), 0)
+                }
+                setOnClickListener {
+                    onLineSelected(i)
+                }
+            }
+            chipRow.addView(chip)
+        }
+        scroll.addView(chipRow)
+        container.addView(scroll)
+
+        return container
+    }
+
+    /**
+     * Stepper wheel for reveal character positions (0, 1, 2, -1).
+     */
+    private fun buildPositionSelectorWheel(
+        currentPos: Int,
+        options: List<Pair<Int, String>>,
+        label: String,
+        subtitle: String,
+        onSelect: (Int) -> Unit
+    ): View {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(4), 0, dp(6))
+        }
+
+        val titleView = TextView(this).apply {
+            text = label
+            setTextColor(textColor())
+            setTypeface(Typeface.DEFAULT_BOLD)
+            textSize = 12f
+        }
+        val subView = TextView(this).apply {
+            text = subtitle
+            setTextColor(textColor())
+            alpha = 0.65f
+            textSize = 10.5f
+            setPadding(0, 0, 0, dp(4))
+        }
+        container.addView(titleView)
+        container.addView(subView)
+
+        val chipRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(2), 0, dp(2))
+        }
+
+        options.forEach { (posValue, posLabel) ->
+            val isSelected = currentPos == posValue
+            val chip = TextView(this).apply {
+                text = posLabel
+                textSize = 11f
+                setTypeface(if (isSelected) Typeface.DEFAULT_BOLD else Typeface.DEFAULT)
+                setTextColor(if (isSelected) Color.WHITE else textColor())
+                gravity = Gravity.CENTER
+                setPadding(dp(6), dp(4), dp(6), dp(4))
+                val chipBg = GradientDrawable().apply {
+                    setColor(if (isSelected) accentColor() else specialKeyColor())
+                    cornerRadius = dp(12).toFloat()
+                    if (!isSelected) {
+                        setStroke(dp(1), if (isDarkMode()) Color.parseColor("#3C4043") else Color.parseColor("#DADCE0"))
+                    }
+                }
+                background = chipBg
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    setMargins(dp(2), 0, dp(2), 0)
+                }
+                setOnClickListener {
+                    onSelect(posValue)
+                }
+            }
+            chipRow.addView(chip)
+        }
+        container.addView(chipRow)
+
+        return container
+    }
+
+    /**
+     * Reusable toggle row with title, description, and interactive switch.
+     */
+    private fun buildSubEffectToggleRow(
+        title: String,
+        subtitle: String,
+        isChecked: Boolean,
+        onToggle: (Boolean) -> Unit
+    ): View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(5), 0, dp(5))
+        }
+
+        val textCol = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+
+        val tvTitle = TextView(this).apply {
+            text = title
+            setTextColor(textColor())
+            setTypeface(Typeface.DEFAULT_BOLD)
+            textSize = 12.5f
+        }
+        val tvSub = TextView(this).apply {
+            text = subtitle
+            setTextColor(textColor())
+            alpha = 0.65f
+            textSize = 10.5f
+        }
+        textCol.addView(tvTitle)
+        textCol.addView(tvSub)
+
+        val switchView = createCustomSwitchView(isChecked) {
+            onToggle(!isChecked)
+        }
+
+        row.addView(textCol)
+        row.addView(switchView)
+
+        row.setOnClickListener {
+            onToggle(!isChecked)
+        }
+
+        return row
+    }
+
+    /**
+     * Custom styled pill toggle switch with smooth active indicator.
+     */
+    private fun createCustomSwitchView(isChecked: Boolean, onClick: (Boolean) -> Unit): View {
+        val track = FrameLayout(this).apply {
+            val w = dp(42)
+            val h = dp(24)
+            layoutParams = LinearLayout.LayoutParams(w, h).apply {
+                marginStart = dp(6)
+            }
+            val bg = GradientDrawable().apply {
+                if (isChecked) {
+                    setColor(Color.parseColor("#00E676")) // Neon emerald active
+                } else {
+                    setColor(if (isDarkMode()) Color.parseColor("#455A64") else Color.parseColor("#B0BEC5"))
+                }
+                cornerRadius = dp(12).toFloat()
+            }
+            background = bg
+        }
+
+        val thumb = View(this).apply {
+            val thumbSize = dp(18)
+            val bg = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.WHITE)
+            }
+            background = bg
+            val params = FrameLayout.LayoutParams(thumbSize, thumbSize).apply {
+                gravity = if (isChecked) (Gravity.END or Gravity.CENTER_VERTICAL) else (Gravity.START or Gravity.CENTER_VERTICAL)
+                if (isChecked) marginEnd = dp(3) else marginStart = dp(3)
+            }
+            layoutParams = params
+        }
+
+        track.addView(thumb)
+        track.setOnClickListener {
+            onClick(!isChecked)
+        }
+        return track
+    }
+
+    /**
+     * Segmented option chips row.
+     */
+    private fun buildOptionChipsRow(
+        label: String,
+        options: List<Pair<String, String>>,
+        selectedKey: String,
+        onSelect: (String) -> Unit
+    ): View {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(4), 0, dp(4))
+        }
+
+        val titleView = TextView(this).apply {
+            text = label
+            setTextColor(textColor())
+            setTypeface(Typeface.DEFAULT_BOLD)
+            textSize = 12f
+            setPadding(0, 0, 0, dp(3))
+        }
+        container.addView(titleView)
+
+        val chipRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+
+        options.forEach { (key, optTitle) ->
+            val isSelected = key == selectedKey
+            val chip = TextView(this).apply {
+                text = optTitle
+                textSize = 11f
+                setTypeface(if (isSelected) Typeface.DEFAULT_BOLD else Typeface.DEFAULT)
+                setTextColor(if (isSelected) Color.WHITE else textColor())
+                gravity = Gravity.CENTER
+                setPadding(dp(8), dp(4), dp(8), dp(4))
+                val chipBg = GradientDrawable().apply {
+                    setColor(if (isSelected) accentColor() else specialKeyColor())
+                    cornerRadius = dp(12).toFloat()
+                    if (!isSelected) {
+                        setStroke(dp(1), if (isDarkMode()) Color.parseColor("#3C4043") else Color.parseColor("#DADCE0"))
+                    }
+                }
+                background = chipBg
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    setMargins(dp(2), 0, dp(2), 0)
+                }
+                setOnClickListener {
+                    onSelect(key)
+                }
+            }
+            chipRow.addView(chip)
+        }
+        container.addView(chipRow)
+
+        return container
+    }
+
+    /**
      * Helper to construct a toggle button with sharper icon and a vivid active/inactive indicator light for the clipboard bar.
      */
     private fun createEffectIconButton(
         iconRes: Int,
         title: String,
         isActive: Boolean,
+        isSelectedTab: Boolean,
         onToggle: () -> Unit
     ): View {
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, dp(48), 1f).apply {
+            layoutParams = LinearLayout.LayoutParams(0, dp(50), 1f).apply {
                 setMargins(dp(2), dp(1), dp(2), dp(1))
             }
             val bg = GradientDrawable().apply {
                 if (isActive) {
                     setColor(if (isDarkMode()) Color.parseColor("#1B382B") else Color.parseColor("#E8F5E9"))
-                    setStroke(dp(2), if (isDarkMode()) Color.parseColor("#00E676") else Color.parseColor("#2E7D32"))
+                    val strokeColor = if (isSelectedTab) accentColor() else (if (isDarkMode()) Color.parseColor("#00E676") else Color.parseColor("#2E7D32"))
+                    setStroke(dp(2), strokeColor)
                 } else {
-                    setColor(if (isDarkMode()) Color.parseColor("#25282B") else Color.parseColor("#F1F3F4"))
-                    setStroke(dp(1), if (isDarkMode()) Color.parseColor("#3C4043") else Color.parseColor("#DADCE0"))
+                    setColor(if (isSelectedTab) (if (isDarkMode()) Color.parseColor("#32363A") else Color.parseColor("#E8EAED")) else (if (isDarkMode()) Color.parseColor("#25282B") else Color.parseColor("#F1F3F4")))
+                    val strokeColor = if (isSelectedTab) accentColor() else (if (isDarkMode()) Color.parseColor("#3C4043") else Color.parseColor("#DADCE0"))
+                    setStroke(if (isSelectedTab) dp(2) else dp(1), strokeColor)
                 }
                 cornerRadius = dp(8).toFloat()
             }
@@ -867,8 +1562,6 @@ class CustomKeyboardService : InputMethodService() {
 
         applyKeyTouchBehavior(container, pressHighlightColor(), null, KEY_RADIUS_DP) {
             onToggle()
-            val stateText = if (!isActive) "ON" else "OFF"
-            Toast.makeText(this@CustomKeyboardService, "$title: $stateText", Toast.LENGTH_SHORT).show()
         }
 
         return container
