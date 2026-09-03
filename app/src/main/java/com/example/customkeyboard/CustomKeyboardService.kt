@@ -35,7 +35,7 @@ import kotlin.math.abs
 class CustomKeyboardService : InputMethodService() {
 
     private enum class Lang { EN, AR }
-    private enum class Mode { LETTERS, SYMBOLS, EMOJI, CLIPBOARD }
+    private enum class Mode { LETTERS, NUMBERS, SYMBOLS, EMOJI, CLIPBOARD }
 
     private var currentLang = Lang.EN
     private var currentMode = Mode.LETTERS
@@ -84,6 +84,15 @@ class CustomKeyboardService : InputMethodService() {
             "large" -> 25f
             "extra_large" -> 28f
             else -> 23f
+        }
+    }
+
+    private fun getSuggestionFontSize(): Float {
+        return when (prefs.getString("key_font_size", "normal")) {
+            "small" -> 19f
+            "large" -> 24f
+            "extra_large" -> 27f
+            else -> 22f
         }
     }
 
@@ -275,6 +284,9 @@ class CustomKeyboardService : InputMethodService() {
             Mode.EMOJI -> {
                 rootContainer.addView(buildEmojiPanel())
             }
+            Mode.NUMBERS -> {
+                rootContainer.addView(buildNumbersView())
+            }
             Mode.SYMBOLS -> {
                 val pageRows = if (symbolsPage == 1) KeyboardLayoutData.symbolsPage1Rows else KeyboardLayoutData.symbolsPage2Rows
                 rootContainer.addView(buildRow(KeyboardLayoutData.numberRow))
@@ -292,7 +304,7 @@ class CustomKeyboardService : InputMethodService() {
             }
         }
 
-        if (currentMode != Mode.CLIPBOARD) {
+        if (currentMode != Mode.CLIPBOARD && currentMode != Mode.NUMBERS) {
             rootContainer.addView(buildBottomRow())
         }
     }
@@ -389,16 +401,72 @@ class CustomKeyboardService : InputMethodService() {
                 })
             }
             else -> {
-                bar.addView(buildCommonEmojiScroll())
-                bar.addView(iconButton(R.drawable.ic_clipboard, "Clipboard") { switchMode(Mode.CLIPBOARD) })
-                bar.addView(iconButton(R.drawable.ic_settings, "Settings") {
-                    val intent = android.content.Intent(this, MainActivity::class.java)
-                    intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                    startActivity(intent)
-                })
+                bar.addView(buildStandardToolbar())
             }
         }
         return bar
+    }
+
+    private fun buildStandardToolbar(): View {
+        val bar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        bar.addView(toolbarIconButton(R.drawable.ic_grid, "Menu") {
+            Toast.makeText(this, "Quick Tools", Toast.LENGTH_SHORT).show()
+        })
+        bar.addView(toolbarIconButton(R.drawable.ic_clipboard, "Clipboard") {
+            switchMode(Mode.CLIPBOARD)
+        })
+        bar.addView(toolbarIconButton(R.drawable.ic_emoji_toolbar, "Emojis") {
+            switchMode(if (currentMode == Mode.EMOJI) Mode.LETTERS else Mode.EMOJI)
+        })
+        bar.addView(toolbarIconButton(R.drawable.ic_settings, "Settings") {
+            val intent = android.content.Intent(this, MainActivity::class.java).apply {
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+        })
+        bar.addView(toolbarIconButton(R.drawable.ic_translate, "Language") {
+            switchLanguage()
+        })
+        bar.addView(toolbarIconButton(R.drawable.ic_mic, "Voice") {
+            triggerVoiceInput()
+        })
+
+        return bar
+    }
+
+    private fun toolbarIconButton(drawableResId: Int, contentDesc: String, onClick: () -> Unit): View {
+        val size = dp(32)
+        val pad = dp(5)
+        return FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+            val iv = ImageView(this@CustomKeyboardService).apply {
+                setImageResource(drawableResId)
+                setColorFilter(textColor())
+                contentDescription = contentDesc
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                setPadding(pad, pad, pad, pad)
+                layoutParams = FrameLayout.LayoutParams(size, size, Gravity.CENTER)
+            }
+            addView(iv)
+            applyKeyTouchBehavior(this, pressHighlightColor(), null, KEY_RADIUS_DP) { onClick() }
+        }
+    }
+
+    private fun triggerVoiceInput() {
+        try {
+            val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Voice input not available", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun buildSuggestionsScroll(items: List<Dictionary.SuggestionItem>): LinearLayout {
@@ -500,12 +568,12 @@ class CustomKeyboardService : InputMethodService() {
                 else -> textColor()
             })
             setTypeface(if (isPrimary || isCorrection) Typeface.DEFAULT_BOLD else Typeface.DEFAULT)
-            textSize = 15f
+            textSize = getSuggestionFontSize()
             includeFontPadding = false
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
             gravity = Gravity.CENTER
-            setPadding(dp(4), 0, dp(4), 0)
+            setPadding(dp(6), 0, dp(6), 0)
             val weight = if (hasEmojis) 1.25f else 1f
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight).apply {
                 if (isPrimary || isCorrection) {
@@ -529,7 +597,7 @@ class CustomKeyboardService : InputMethodService() {
     }
 
     private fun iconButton(drawableResId: Int, contentDesc: String, onClick: () -> Unit): View {
-        val size = dp(28)
+        val size = dp(32)
         val pad = dp(5)
         return ImageView(this).apply {
             setImageResource(drawableResId)
@@ -539,7 +607,7 @@ class CustomKeyboardService : InputMethodService() {
             setPadding(pad, pad, pad, pad)
             layoutParams = LinearLayout.LayoutParams(size, size).apply {
                 marginStart = dp(3)
-                marginEnd = dp(1)
+                marginEnd = dp(2)
             }
             applyKeyTouchBehavior(this, pressHighlightColor(), null, KEY_RADIUS_DP) { onClick() }
         }
@@ -742,7 +810,7 @@ class CustomKeyboardService : InputMethodService() {
     }
 
     /**
-     * Helper to construct a flat white icon toggle button with active indicator light for the clipboard bar.
+     * Helper to construct a toggle button with sharper icon and a vivid active/inactive indicator light for the clipboard bar.
      */
     private fun createEffectIconButton(
         iconRes: Int,
@@ -753,32 +821,44 @@ class CustomKeyboardService : InputMethodService() {
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, dp(44), 1f).apply {
+            layoutParams = LinearLayout.LayoutParams(0, dp(48), 1f).apply {
                 setMargins(dp(2), dp(1), dp(2), dp(1))
             }
             val bg = GradientDrawable().apply {
-                setColor(if (isActive) (if (isDarkMode()) Color.parseColor("#383B3E") else Color.parseColor("#D2E3FC")) else Color.TRANSPARENT)
-                cornerRadius = dp(6).toFloat()
+                if (isActive) {
+                    setColor(if (isDarkMode()) Color.parseColor("#1B382B") else Color.parseColor("#E8F5E9"))
+                    setStroke(dp(2), if (isDarkMode()) Color.parseColor("#00E676") else Color.parseColor("#2E7D32"))
+                } else {
+                    setColor(if (isDarkMode()) Color.parseColor("#25282B") else Color.parseColor("#F1F3F4"))
+                    setStroke(dp(1), if (isDarkMode()) Color.parseColor("#3C4043") else Color.parseColor("#DADCE0"))
+                }
+                cornerRadius = dp(8).toFloat()
             }
             background = bg
         }
 
         val icon = ImageView(this).apply {
             setImageResource(iconRes)
-            // Strict requirement: All flat white icons
-            setColorFilter(if (isActive) Color.WHITE else Color.parseColor("#B0FFFFFF"))
+            setColorFilter(if (isActive) (if (isDarkMode()) Color.WHITE else Color.parseColor("#1B5E20")) else (if (isDarkMode()) Color.parseColor("#90A4AE") else Color.parseColor("#5F6368")))
             scaleType = ImageView.ScaleType.FIT_CENTER
-            layoutParams = LinearLayout.LayoutParams(dp(20), dp(20))
+            layoutParams = LinearLayout.LayoutParams(dp(22), dp(22))
         }
 
         val indicator = View(this).apply {
             val dot = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(if (isActive) accentColor() else Color.parseColor("#60FFFFFF"))
+                if (isActive) {
+                    setColor(Color.parseColor("#00E676")) // Vivid neon emerald green
+                    setStroke(dp(2), Color.parseColor("#B9F6CA")) // Bright luminous glow ring
+                } else {
+                    setColor(if (isDarkMode()) Color.parseColor("#455A64") else Color.parseColor("#B0BEC5")) // Clear visible standby
+                    setStroke(dp(1), if (isDarkMode()) Color.parseColor("#607D8B") else Color.parseColor("#90A4AE"))
+                }
             }
             background = dot
-            layoutParams = LinearLayout.LayoutParams(dp(5), dp(5)).apply {
-                topMargin = dp(3)
+            val dotSize = dp(8)
+            layoutParams = LinearLayout.LayoutParams(dotSize, dotSize).apply {
+                topMargin = dp(4)
             }
         }
 
@@ -982,11 +1062,15 @@ class CustomKeyboardService : InputMethodService() {
         }
 
         when (currentMode) {
-            Mode.SYMBOLS, Mode.EMOJI -> {
+            Mode.SYMBOLS -> {
+                row.addView(make123Key("ABC", weight = 1.4f) { switchMode(Mode.LETTERS) })
+                row.addView(makeSpecialKey("123", weight = 1.1f) { switchMode(Mode.NUMBERS) })
+            }
+            Mode.EMOJI -> {
                 row.addView(make123Key("ABC", weight = 1.5f) { switchMode(Mode.LETTERS) })
             }
             else -> {
-                row.addView(make123Key("?123", weight = 1.5f) { switchMode(Mode.SYMBOLS) })
+                row.addView(make123Key("?123", weight = 1.5f) { switchMode(Mode.NUMBERS) })
                 row.addView(makeSpecialKey("🙂", weight = 1f) { switchMode(Mode.EMOJI) })
             }
         }
@@ -1001,6 +1085,200 @@ class CustomKeyboardService : InputMethodService() {
         row.addView(makeEnterKey(weight = 1.5f))
 
         return row
+    }
+
+    // ---------- dedicated numbers page (matching Gboard screenshot) ----------
+
+    private fun buildNumbersView(): View {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+
+        // 1. Upper 3 rows block (Left math column + Right 3x3 numbers & actions)
+        val upperBlock = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp() * 3))
+        }
+
+        // Left column: (+ - *) box spanning 2 rows + (/) key spanning 1 row
+        upperBlock.addView(buildMathOperatorColumn())
+
+        // Right 3-row layout
+        val rightLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 6.75f)
+        }
+
+        // Row 1: 1 2 3 %
+        val r1 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
+        }
+        r1.addView(makeNumberKey("1", weight = 1.8f) { commitLetter("1") })
+        r1.addView(makeNumberKey("2", weight = 1.8f) { commitLetter("2") })
+        r1.addView(makeNumberKey("3", weight = 1.8f) { commitLetter("3") })
+        r1.addView(makeNumberSpecialKey("%", weight = 1.35f) { commitSymbol("%") })
+        rightLayout.addView(r1)
+
+        // Row 2: 4 5 6 ␣
+        val r2 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
+        }
+        r2.addView(makeNumberKey("4", weight = 1.8f) { commitLetter("4") })
+        r2.addView(makeNumberKey("5", weight = 1.8f) { commitLetter("5") })
+        r2.addView(makeNumberKey("6", weight = 1.8f) { commitLetter("6") })
+        r2.addView(makeNumberSpaceKey(weight = 1.35f))
+        rightLayout.addView(r2)
+
+        // Row 3: 7 8 9 ⌫
+        val r3 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
+        }
+        r3.addView(makeNumberKey("7", weight = 1.8f) { commitLetter("7") })
+        r3.addView(makeNumberKey("8", weight = 1.8f) { commitLetter("8") })
+        r3.addView(makeNumberKey("9", weight = 1.8f) { commitLetter("9") })
+        r3.addView(makeBackspaceKey(weight = 1.35f))
+        rightLayout.addView(r3)
+
+        upperBlock.addView(rightLayout)
+        container.addView(upperBlock)
+
+        // 2. Row 4: ABC , !?# 0 = . ↵
+        val r4 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
+        }
+        r4.addView(makeSpecialKey("ABC", weight = 1.25f) { switchMode(Mode.LETTERS) })
+        r4.addView(makeSpecialKey(",", weight = 0.85f) { commitPunctuationOrSpace(",") })
+        r4.addView(makeSpecialKey("!?#", weight = 1.15f) { switchMode(Mode.SYMBOLS) })
+        r4.addView(makeNumberKey("0", weight = 1.8f) { commitLetter("0") })
+        r4.addView(makeSpecialKey("=", weight = 0.95f) { commitSymbol("=") })
+        r4.addView(makeSpecialKey(".", weight = 0.85f) { commitPunctuationOrSpace(".") })
+        r4.addView(makeEnterKey(weight = 1.35f))
+
+        container.addView(r4)
+
+        return container
+    }
+
+    private fun buildMathOperatorColumn(): View {
+        val col = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.25f)
+        }
+
+        // Top box spanning 2 rows
+        val topBox = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp() * 2))
+            val resting = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
+            background = resting
+        }
+
+        val opsLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        }
+
+        listOf("+", "-", "*").forEach { op ->
+            val tv = TextView(this).apply {
+                text = op
+                gravity = Gravity.CENTER
+                setTextColor(textColor())
+                setTypeface(Typeface.DEFAULT_BOLD)
+                textSize = 21f
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
+                applyKeyTouchBehavior(this, pressHighlightColor(), null, KEY_RADIUS_DP) {
+                    commitSymbol(op)
+                }
+            }
+            opsLayout.addView(tv)
+        }
+
+        val scrollTrack = View(this).apply {
+            val trackBg = GradientDrawable().apply {
+                setColor(if (isDarkMode()) Color.parseColor("#5A5D60") else Color.parseColor("#BDC1C6"))
+                cornerRadius = dp(2).toFloat()
+            }
+            background = trackBg
+            val w = dp(2)
+            layoutParams = FrameLayout.LayoutParams(w, dp(34)).apply {
+                gravity = Gravity.CENTER_VERTICAL or Gravity.END
+                marginEnd = dp(3)
+            }
+        }
+
+        topBox.addView(opsLayout)
+        topBox.addView(scrollTrack)
+        col.addView(topBox)
+
+        // Bottom box (Row 3): '/' key
+        val divKey = TextView(this).apply {
+            text = "/"
+            gravity = Gravity.CENTER
+            setTextColor(textColor())
+            setTypeface(Typeface.DEFAULT_BOLD)
+            textSize = 21f
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
+            val resting = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
+            background = resting
+            applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP) {
+                commitSymbol("/")
+            }
+        }
+        col.addView(divKey)
+
+        return col
+    }
+
+    private fun makeNumberKey(label: String, weight: Float, onClick: () -> Unit): TextView {
+        val resting = keyBackground(keyColor(), KEY_RADIUS_DP)
+        return TextView(this).apply {
+            text = label
+            gravity = Gravity.CENTER
+            setTextColor(textColor())
+            setTypeface(Typeface.DEFAULT_BOLD)
+            textSize = getLetterFontSize() + 3f
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
+            background = resting
+            applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP) { onClick() }
+        }
+    }
+
+    private fun makeNumberSpecialKey(label: String, weight: Float, onClick: () -> Unit): TextView {
+        val resting = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
+        return TextView(this).apply {
+            text = label
+            gravity = Gravity.CENTER
+            setTextColor(textColor())
+            setTypeface(Typeface.DEFAULT_BOLD)
+            textSize = 21f
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
+            background = resting
+            applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP) { onClick() }
+        }
+    }
+
+    private fun makeNumberSpaceKey(weight: Float): View {
+        val resting = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
+        val container = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
+            background = resting
+        }
+        val iv = ImageView(this).apply {
+            setImageResource(R.drawable.ic_space_bar)
+            setColorFilter(textColor())
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            val iconSize = dp(20)
+            layoutParams = FrameLayout.LayoutParams(iconSize, iconSize, Gravity.CENTER)
+        }
+        container.addView(iv)
+        applyKeyTouchBehavior(container, pressHighlightColor(), resting, KEY_RADIUS_DP) {
+            commitPunctuationOrSpace(" ")
+        }
+        return container
     }
 
     private fun spacer(weight: Float): View {

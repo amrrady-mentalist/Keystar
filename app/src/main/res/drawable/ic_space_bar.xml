@@ -3,8 +3,8 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <!-- Bold, Sharp Bidirectional Swap / Replace Arrows -->
+    <!-- Space bar symbol ␣ matching Screenshot 2 row 2 right -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M6.5,10L1.5,15l5,5v-3.2h8.5v-3.6H6.5V10zM22.5,9l-5,-5v3.2H9v3.6h8.5V14L22.5,9z"/>
+        android:pathData="M19,13v3H5v-3H3v4c0,0.55 0.45,1 1,1h16c0.55,0 1,-0.45 1,-1v-4H19z"/>
 </vector>

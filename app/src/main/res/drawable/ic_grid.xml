@@ -1,0 +1,10 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- 4 rounded squares grid icon -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M4,11h5c0.55,0 1,-0.45 1,-1V5c0,-0.55 -0.45,-1 -1,-1H4C3.45,4 3,4.45 3,5v5C3,10.55 3.45,11 4,11zM4,20h5c0.55,0 1,-0.45 1,-1v-5c0,-0.55 -0.45,-1 -1,-1H4c-0.55,0 -1,0.45 -1,1v5C3,19.55 3.45,20 4,20zM14,5v5c0,0.55 0.45,1 1,1h5c0.55,0 1,-0.45 1,-1V5c0,-0.55 -0.45,-1 -1,-1h-5C14.45,4 14,4.45 14,5zM15,20h5c0.55,0 1,-0.45 1,-1v-5c0,-0.55 -0.45,-1 -1,-1h-5c-0.55,0 -1,0.45 -1,1v5C14,19.55 14.45,20 15,20z"/>
+</vector>
