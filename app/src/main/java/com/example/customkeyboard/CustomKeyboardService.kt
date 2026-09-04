@@ -216,6 +216,28 @@ class CustomKeyboardService : InputMethodService() {
         render()
     }
 
+    override fun onUpdateSelection(
+        oldSelStart: Int,
+        oldSelEnd: Int,
+        newSelStart: Int,
+        newSelEnd: Int,
+        candidatesStart: Int,
+        candidatesEnd: Int
+    ) {
+        super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
+        if (oldSelStart != newSelStart || oldSelEnd != newSelEnd) {
+            val (currentWord, prevWord) = getActiveTypingContext()
+            wordBuffer.clear()
+            if (currentWord.isNotEmpty()) {
+                wordBuffer.append(currentWord)
+            }
+            if (prevWord.isNotEmpty()) {
+                lastCommittedWord = prevWord
+            }
+            refreshTopBar()
+        }
+    }
+
     // ---------- theming ----------
 
     private fun isDarkMode(): Boolean {
@@ -477,24 +499,35 @@ class CustomKeyboardService : InputMethodService() {
         }
     }
 
-    private fun buildSuggestionsScroll(items: List<Dictionary.SuggestionItem>): LinearLayout {
+    private fun buildSuggestionsScroll(items: List<Dictionary.SuggestionItem>): View {
+        val scroll = HorizontalScrollView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+            isHorizontalScrollBarEnabled = false
+            isFillViewport = true
+            overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+        }
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
         }
         val hasEmojis = items.any { it.isEmoji }
+        val isFewItems = items.size <= 3
         items.forEachIndexed { index, item ->
             if (index > 0) {
                 container.addView(createSuggestionDivider())
             }
             if (item.isEmoji) {
-                container.addView(emojiChip(item.text))
+                container.addView(emojiChip(item.text, isFewItems))
             } else {
-                container.addView(suggestionChip(item, hasEmojis))
+                container.addView(suggestionChip(item, hasEmojis, isFewItems))
             }
         }
-        return container
+        scroll.addView(container)
+        return scroll
     }
 
     private fun createSuggestionDivider(): View {
@@ -511,16 +544,22 @@ class CustomKeyboardService : InputMethodService() {
         }
     }
 
-    private fun emojiChip(emoji: String): TextView {
+    private fun emojiChip(emoji: String, isFewItems: Boolean = false): TextView {
         val resting = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
         return TextView(this).apply {
             text = emoji
             textSize = 17f
             includeFontPadding = false
             gravity = Gravity.CENTER
-            setPadding(dp(4), 0, dp(4), 0)
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 0.75f).apply {
-                setMargins(dp(2), dp(4), dp(2), dp(4))
+            setPadding(dp(8), 0, dp(8), 0)
+            layoutParams = if (isFewItems) {
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 0.75f).apply {
+                    setMargins(dp(2), dp(4), dp(2), dp(4))
+                }
+            } else {
+                LinearLayout.LayoutParams(dp(44), ViewGroup.LayoutParams.MATCH_PARENT).apply {
+                    setMargins(dp(2), dp(4), dp(2), dp(4))
+                }
             }
             background = resting
             applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP) {
@@ -559,7 +598,11 @@ class CustomKeyboardService : InputMethodService() {
         }
     }
 
-    private fun suggestionChip(item: Dictionary.SuggestionItem, hasEmojis: Boolean = false): TextView {
+    private fun suggestionChip(
+        item: Dictionary.SuggestionItem,
+        hasEmojis: Boolean = false,
+        isFewItems: Boolean = false
+    ): TextView {
         val isPrimary = item.isPrimary
         val isCorrection = item.isCorrection
         val isNextWord = item.isNextWord
@@ -581,17 +624,25 @@ class CustomKeyboardService : InputMethodService() {
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
             gravity = Gravity.CENTER
-            setPadding(dp(6), 0, dp(6), 0)
-            val weight = if (hasEmojis) 1.25f else 1f
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight).apply {
-                if (isPrimary || isCorrection) {
-                    setMargins(dp(2), dp(3), dp(2), dp(3))
+            setPadding(dp(12), 0, dp(12), 0)
+            layoutParams = if (isFewItems) {
+                val weight = if (hasEmojis) 1.25f else 1f
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight).apply {
+                    if (isPrimary || isCorrection) {
+                        setMargins(dp(2), dp(3), dp(2), dp(3))
+                    }
+                }
+            } else {
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT).apply {
+                    if (isPrimary || isCorrection) {
+                        setMargins(dp(2), dp(3), dp(2), dp(3))
+                    }
                 }
             }
             if (resting != null) background = resting
             applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP) {
-                val (activeWord, _) = getActiveTypingContext()
-                Dictionary.recordUsedWord(item.text)
+                val (activeWord, prev) = getActiveTypingContext()
+                Dictionary.recordUsedWord(item.text, prev)
                 lastCommittedWord = item.text
                 val lengthToDelete = if (activeWord.isNotEmpty()) activeWord.length else wordBuffer.length
                 if (lengthToDelete > 0) {
@@ -1771,7 +1822,7 @@ class CustomKeyboardService : InputMethodService() {
             }
             else -> {
                 row.addView(make123Key("?123", weight = 1.5f) { switchMode(Mode.NUMBERS) })
-                row.addView(makeSpecialKey("🙂", weight = 1f) { switchMode(Mode.EMOJI) })
+                row.addView(makeCommaEmojiKey(weight = 1f))
             }
         }
 
@@ -2089,6 +2140,58 @@ class CustomKeyboardService : InputMethodService() {
         }
     }
 
+    private fun makeCommaEmojiKey(weight: Float): View {
+        val resting = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
+        val container = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
+            background = resting
+            isClickable = true
+            isHapticFeedbackEnabled = true
+        }
+
+        val tvComma = TextView(this).apply {
+            text = ","
+            gravity = Gravity.CENTER
+            setTextColor(textColor())
+            setTypeface(Typeface.DEFAULT_BOLD)
+            textSize = 20f
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        container.addView(tvComma)
+
+        val tvEmojiHint = TextView(this).apply {
+            text = "🙂"
+            textSize = 10f
+            alpha = 0.6f
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP or Gravity.END
+            ).apply {
+                topMargin = dp(2)
+                marginEnd = dp(4)
+            }
+        }
+        container.addView(tvEmojiHint)
+
+        applyKeyTouchBehavior(
+            container,
+            pressHighlightColor(),
+            resting,
+            KEY_RADIUS_DP,
+            onLongClick = {
+                switchMode(Mode.EMOJI)
+            }
+        ) {
+            commitPunctuationOrSpace(",")
+        }
+
+        return container
+    }
+
     /**
      * Determines whether the Enter key currently acts as a search / action button or as a newline return.
      */
@@ -2374,18 +2477,32 @@ class CustomKeyboardService : InputMethodService() {
         pressColor: Int,
         restingBackground: Drawable?,
         radiusDp: Int,
+        onLongClick: (() -> Unit)? = null,
         onTap: () -> Unit
     ) {
         view.isClickable = true
         view.isHapticFeedbackEnabled = true
         var pressed = false
+        var isLongPressed = false
+        val longPressHandler = Handler(Looper.getMainLooper())
+        val longPressRunnable = Runnable {
+            if (pressed) {
+                isLongPressed = true
+                view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
+                onLongClick?.invoke()
+            }
+        }
         view.setOnTouchListener { v, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     pressed = true
+                    isLongPressed = false
+                    if (onLongClick != null) {
+                        longPressHandler.postDelayed(longPressRunnable, 380)
+                    }
                     v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
                     v.background = keyBackground(pressColor, radiusDp)
-                    v.animate().scaleX(1.2f).scaleY(1.2f).setDuration(45).start()
+                    v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(45).start()
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -2394,21 +2511,26 @@ class CustomKeyboardService : InputMethodService() {
                         event.y >= -margin && event.y <= v.height + margin
                     if (!within && pressed) {
                         pressed = false
+                        longPressHandler.removeCallbacks(longPressRunnable)
                         v.background = restingBackground
                         v.animate().scaleX(1f).scaleY(1f).setDuration(80).start()
                     }
                     true
                 }
                 MotionEvent.ACTION_UP -> {
+                    longPressHandler.removeCallbacks(longPressRunnable)
                     v.animate().scaleX(1f).scaleY(1f).setDuration(80).start()
                     v.background = restingBackground
                     if (pressed) {
                         pressed = false
-                        onTap()
+                        if (!isLongPressed) {
+                            onTap()
+                        }
                     }
                     true
                 }
                 MotionEvent.ACTION_CANCEL -> {
+                    longPressHandler.removeCallbacks(longPressRunnable)
                     pressed = false
                     v.background = restingBackground
                     v.animate().scaleX(1f).scaleY(1f).setDuration(80).start()
@@ -2460,14 +2582,19 @@ class CustomKeyboardService : InputMethodService() {
     // Word boundaries no longer silently rewrite what was typed - suggestions are only ever
     // applied when the user explicitly taps a suggestion chip in the top bar.
     private fun commitPunctuationOrSpace(boundary: String) {
-        if (wordBuffer.isNotEmpty()) {
-            lastCommittedWord = wordBuffer.toString().trim()
-            Dictionary.recordUsedWord(lastCommittedWord)
+        val (activeWord, prev) = getActiveTypingContext()
+        if (activeWord.isNotEmpty()) {
+            Dictionary.recordUsedWord(activeWord, prev)
+            lastCommittedWord = activeWord
+        } else if (wordBuffer.isNotEmpty()) {
+            val typed = wordBuffer.toString().trim()
+            Dictionary.recordUsedWord(typed, lastCommittedWord)
+            lastCommittedWord = typed
         } else {
             val textBefore = currentInputConnection?.getTextBeforeCursor(40, 0)?.toString()?.trim() ?: ""
-            val prev = textBefore.split(Regex("\\s+")).lastOrNull { it.isNotEmpty() } ?: ""
-            if (prev.isNotEmpty()) {
-                lastCommittedWord = prev
+            val p = textBefore.split(Regex("\\s+")).lastOrNull { it.isNotEmpty() } ?: ""
+            if (p.isNotEmpty()) {
+                lastCommittedWord = p
             }
         }
         handleKeyCommit(boundary, isLetter = false)
