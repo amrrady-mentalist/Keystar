@@ -343,7 +343,7 @@ class CovertManager(private val context: Context) {
      * - "search_only": Enter key always clicks search / sends editor action only
      */
     var enterKeyBehavior: String
-        get() = prefs.getString("key_enter_behavior", "auto_effect") ?: "auto_effect"
+        get() = prefs.getString("key_enter_behavior", "auto_field") ?: "auto_field"
         set(value) {
             prefs.edit().putString("key_enter_behavior", value).apply()
         }

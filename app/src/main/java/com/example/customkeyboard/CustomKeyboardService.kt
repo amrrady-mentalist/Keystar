@@ -7,6 +7,7 @@ import android.content.res.Configuration
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
@@ -197,6 +198,13 @@ class CustomKeyboardService : InputMethodService() {
     override fun onFinishInputView(finishingInput: Boolean) {
         super.onFinishInputView(finishingInput)
         // Keep trigger session alive so triggers work even if spectator dismissed keyboard
+    }
+
+    override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
+        super.onStartInput(attribute, restarting)
+        if (isInputViewShown) {
+            render()
+        }
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
@@ -802,8 +810,8 @@ class CustomKeyboardService : InputMethodService() {
         }
 
         val enterModes = listOf(
-            Triple("auto_effect", "Based on Effect", "⚡ Effect"),
             Triple("auto_field", "Based on Field", "📝 Field"),
+            Triple("auto_effect", "Based on Effect", "⚡ Effect"),
             Triple("newline_only", "Next Line Only", "↵ Next Line"),
             Triple("search_only", "Search Action Only", "🔍 Search")
         )
@@ -2192,36 +2200,134 @@ class CustomKeyboardService : InputMethodService() {
         return container
     }
 
+    private enum class EnterActionType {
+        NEWLINE,
+        SEARCH,
+        SEND,
+        GO,
+        NEXT,
+        PREVIOUS,
+        DONE
+    }
+
     /**
-     * Determines whether the Enter key currently acts as a search / action button or as a newline return.
+     * Determines the exact enter action and visual glyph based on the typing field (EditorInfo).
+     * In normal mode, the enter button acts ONLY based on the typing field:
+     * - Search bar -> Searches (magnifying glass)
+     * - Note-taking area / multi-line text -> Newline (return arrow)
+     * - Chat / messaging -> Sends (send paper airplane)
+     * - Browser URL bar -> Go (forward arrow)
+     * - Form next field -> Next (next arrow)
+     * - Form done field -> Done (checkmark)
      */
-    private fun isEnterActingAsSearch(): Boolean {
-        val info = currentInputEditorInfo
-        val inputType = info?.inputType ?: 0
-        val isMultiLineField = (inputType and android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0 ||
-                (inputType and android.text.InputType.TYPE_TEXT_VARIATION_LONG_MESSAGE) != 0 ||
-                (info?.imeOptions?.and(EditorInfo.IME_FLAG_NO_ENTER_ACTION) ?: 0) != 0
+    private fun getEnterActionType(): EnterActionType {
+        val info = currentInputEditorInfo ?: return EnterActionType.NEWLINE
 
-        val behavior = covertManager.enterKeyBehavior
-        return when (behavior) {
-            "newline_only" -> false
-            "search_only" -> true
-            "auto_field" -> !isMultiLineField
-            else -> { // "auto_effect" (Default)
-                // If effect requires multiple lines (Math list, Line text peek, Covert typing), it must act as enter only
-                val requiresMultiLineEffect = (covertManager.isCovertActive) ||
-                        (covertManager.isMathEnabled) ||
-                        (covertManager.isTextPeekEnabled && (covertManager.textPeekMode == "line" || covertManager.textPeekMode == "cursor_line" || covertManager.textPeekMode == "last_word"))
-
-                if (requiresMultiLineEffect) {
-                    false
-                } else if (covertManager.isTextReplaceEnabled) {
-                    // API Text replace does not require multi-lines -> click search
-                    true
-                } else {
-                    !isMultiLineField
+        // If covert typing mode is actively on, handle any covert overrides
+        if (covertManager.isCovertActive) {
+            when (covertManager.enterKeyBehavior) {
+                "newline_only" -> return EnterActionType.NEWLINE
+                "search_only" -> return EnterActionType.SEARCH
+                "auto_effect" -> {
+                    val requiresMultiLineEffect = covertManager.isCovertActive ||
+                            covertManager.isMathEnabled ||
+                            (covertManager.isTextPeekEnabled && (covertManager.textPeekMode == "line" || covertManager.textPeekMode == "cursor_line" || covertManager.textPeekMode == "last_word"))
+                    if (requiresMultiLineEffect) {
+                        return EnterActionType.NEWLINE
+                    } else if (covertManager.isTextReplaceEnabled) {
+                        return EnterActionType.SEARCH
+                    }
                 }
+                // "auto_field" proceeds to standard field inspection below
             }
+        }
+
+        // Normal mode: enter button acts strictly based on the active typing field.
+        val inputType = info.inputType
+        val imeOptions = info.imeOptions
+        val typeVariation = inputType and android.text.InputType.TYPE_MASK_VARIATION
+        val rawAction = imeOptions and EditorInfo.IME_MASK_ACTION
+
+        val isMultiLineFlag = (inputType and android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0 ||
+                (inputType and android.text.InputType.TYPE_TEXT_FLAG_IME_MULTI_LINE) != 0
+        val isLongMessage = typeVariation == android.text.InputType.TYPE_TEXT_VARIATION_LONG_MESSAGE
+        val hasNoEnterActionFlag = (imeOptions and EditorInfo.IME_FLAG_NO_ENTER_ACTION) != 0
+
+        // 1. Note-taking area or multi-line text area
+        if (hasNoEnterActionFlag) {
+            return EnterActionType.NEWLINE
+        }
+        if (isMultiLineFlag || isLongMessage) {
+            // In note taking apps, document editors, and multiline text areas, Enter must always go to the next line.
+            // Only if an app explicitly specifies SEARCH or SEND without no-enter flag should an action be triggered.
+            if (rawAction != EditorInfo.IME_ACTION_SEARCH && rawAction != EditorInfo.IME_ACTION_SEND) {
+                return EnterActionType.NEWLINE
+            }
+        }
+
+        // 2. Search bar
+        val isSearch = rawAction == EditorInfo.IME_ACTION_SEARCH ||
+                info.actionId == EditorInfo.IME_ACTION_SEARCH ||
+                typeVariation == android.text.InputType.TYPE_TEXT_VARIATION_FILTER ||
+                typeVariation == android.text.InputType.TYPE_TEXT_VARIATION_WEB_EDIT_TEXT ||
+                info.actionLabel?.toString()?.contains("search", ignoreCase = true) == true ||
+                info.actionLabel?.toString()?.contains("بحث", ignoreCase = true) == true ||
+                info.hintText?.toString()?.contains("search", ignoreCase = true) == true ||
+                info.hintText?.toString()?.contains("بحث", ignoreCase = true) == true ||
+                info.fieldName?.contains("search", ignoreCase = true) == true
+        if (isSearch) {
+            return EnterActionType.SEARCH
+        }
+
+        // 3. Send action (e.g. Chat apps)
+        val isSend = rawAction == EditorInfo.IME_ACTION_SEND ||
+                info.actionId == EditorInfo.IME_ACTION_SEND ||
+                typeVariation == android.text.InputType.TYPE_TEXT_VARIATION_SHORT_MESSAGE ||
+                info.actionLabel?.toString()?.contains("send", ignoreCase = true) == true ||
+                info.actionLabel?.toString()?.contains("إرسال", ignoreCase = true) == true
+        if (isSend) {
+            return EnterActionType.SEND
+        }
+
+        // 4. Go action (e.g. Browser URL bar)
+        val isGo = rawAction == EditorInfo.IME_ACTION_GO ||
+                info.actionId == EditorInfo.IME_ACTION_GO ||
+                typeVariation == android.text.InputType.TYPE_TEXT_VARIATION_URI ||
+                info.actionLabel?.toString()?.contains("go", ignoreCase = true) == true
+        if (isGo) {
+            return EnterActionType.GO
+        }
+
+        // 5. Next action (e.g. Form input field)
+        val isNext = rawAction == EditorInfo.IME_ACTION_NEXT ||
+                info.actionId == EditorInfo.IME_ACTION_NEXT ||
+                info.actionLabel?.toString()?.contains("next", ignoreCase = true) == true ||
+                info.actionLabel?.toString()?.contains("التالي", ignoreCase = true) == true
+        if (isNext) {
+            return EnterActionType.NEXT
+        }
+
+        // 6. Previous action
+        val isPrevious = rawAction == EditorInfo.IME_ACTION_PREVIOUS ||
+                info.actionId == EditorInfo.IME_ACTION_PREVIOUS
+        if (isPrevious) {
+            return EnterActionType.PREVIOUS
+        }
+
+        // 7. Done action (e.g. Single-line form finish)
+        val isDone = rawAction == EditorInfo.IME_ACTION_DONE ||
+                info.actionId == EditorInfo.IME_ACTION_DONE ||
+                info.actionLabel?.toString()?.contains("done", ignoreCase = true) == true ||
+                info.actionLabel?.toString()?.contains("تم", ignoreCase = true) == true
+        if (isDone) {
+            return EnterActionType.DONE
+        }
+
+        // 8. Fallback
+        return if (isMultiLineFlag || isLongMessage) {
+            EnterActionType.NEWLINE
+        } else {
+            EnterActionType.NEWLINE
         }
     }
 
@@ -2234,8 +2340,16 @@ class CustomKeyboardService : InputMethodService() {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
             background = resting
         }
-        val isSearch = isEnterActingAsSearch()
-        val glyph = if (isSearch) GlyphIconView.Glyph.SEARCH else GlyphIconView.Glyph.RETURN
+        val actionType = getEnterActionType()
+        val glyph = when (actionType) {
+            EnterActionType.SEARCH -> GlyphIconView.Glyph.SEARCH
+            EnterActionType.SEND -> GlyphIconView.Glyph.SEND
+            EnterActionType.GO -> GlyphIconView.Glyph.GO
+            EnterActionType.NEXT -> GlyphIconView.Glyph.NEXT
+            EnterActionType.PREVIOUS -> GlyphIconView.Glyph.PREVIOUS
+            EnterActionType.DONE -> GlyphIconView.Glyph.DONE
+            EnterActionType.NEWLINE -> GlyphIconView.Glyph.RETURN
+        }
         val icon = GlyphIconView(this, glyph).apply {
             iconColor = enterIconColor()
             layoutParams = FrameLayout.LayoutParams(dp(ICON_GLYPH_DP), dp(ICON_GLYPH_DP), Gravity.CENTER)
@@ -2693,25 +2807,111 @@ class CustomKeyboardService : InputMethodService() {
 
         val ic = currentInputConnection
         val info = currentInputEditorInfo
-        val isSearch = isEnterActingAsSearch()
+        val actionType = getEnterActionType()
 
-        if (isSearch) {
-            val rawAction = info?.imeOptions?.and(EditorInfo.IME_MASK_ACTION) ?: EditorInfo.IME_ACTION_NONE
-            val action = if (rawAction != EditorInfo.IME_ACTION_NONE && rawAction != EditorInfo.IME_ACTION_UNSPECIFIED) {
-                rawAction
-            } else {
-                EditorInfo.IME_ACTION_SEARCH
+        when (actionType) {
+            EnterActionType.NEWLINE -> {
+                val inputType = info?.inputType ?: 0
+                val isMultiLineFlag = (inputType and android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0 ||
+                        (inputType and android.text.InputType.TYPE_TEXT_FLAG_IME_MULTI_LINE) != 0 ||
+                        (inputType and android.text.InputType.TYPE_MASK_VARIATION) == android.text.InputType.TYPE_TEXT_VARIATION_LONG_MESSAGE ||
+                        (info?.imeOptions?.and(EditorInfo.IME_FLAG_NO_ENTER_ACTION) ?: 0) != 0
+
+                if (isMultiLineFlag) {
+                    ic?.commitText("\n", 1)
+                } else {
+                    val rawAction = info?.imeOptions?.and(EditorInfo.IME_MASK_ACTION) ?: EditorInfo.IME_ACTION_NONE
+                    if (rawAction != EditorInfo.IME_ACTION_NONE && rawAction != EditorInfo.IME_ACTION_UNSPECIFIED) {
+                        val performed = ic?.performEditorAction(rawAction) ?: false
+                        if (!performed) {
+                            sendHardwareEnter(ic)
+                        }
+                    } else if (info?.actionId != null && info.actionId != 0) {
+                        val performed = ic?.performEditorAction(info.actionId) ?: false
+                        if (!performed) {
+                            sendHardwareEnter(ic)
+                        }
+                    } else {
+                        val performed = ic?.performEditorAction(EditorInfo.IME_ACTION_UNSPECIFIED) ?: false
+                        if (!performed) {
+                            sendHardwareEnter(ic)
+                        }
+                    }
+                }
             }
-            val performed = ic?.performEditorAction(action) ?: false
-            if (!performed) {
-                // If IME action didn't trigger, send hardware ENTER / DPAD_CENTER key event
-                ic?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
-                ic?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
+            EnterActionType.SEARCH -> {
+                val action = if (info?.actionId != null && info.actionId != 0) {
+                    info.actionId
+                } else {
+                    EditorInfo.IME_ACTION_SEARCH
+                }
+                val performed = ic?.performEditorAction(action) ?: false
+                if (!performed) {
+                    sendHardwareEnter(ic)
+                }
             }
-        } else {
-            ic?.commitText("\n", 1)
+            EnterActionType.SEND -> {
+                val action = if (info?.actionId != null && info.actionId != 0) {
+                    info.actionId
+                } else {
+                    EditorInfo.IME_ACTION_SEND
+                }
+                val performed = ic?.performEditorAction(action) ?: false
+                if (!performed) {
+                    sendHardwareEnter(ic)
+                }
+            }
+            EnterActionType.GO -> {
+                val action = if (info?.actionId != null && info.actionId != 0) {
+                    info.actionId
+                } else {
+                    EditorInfo.IME_ACTION_GO
+                }
+                val performed = ic?.performEditorAction(action) ?: false
+                if (!performed) {
+                    sendHardwareEnter(ic)
+                }
+            }
+            EnterActionType.NEXT -> {
+                val action = if (info?.actionId != null && info.actionId != 0) {
+                    info.actionId
+                } else {
+                    EditorInfo.IME_ACTION_NEXT
+                }
+                val performed = ic?.performEditorAction(action) ?: false
+                if (!performed) {
+                    sendHardwareEnter(ic)
+                }
+            }
+            EnterActionType.PREVIOUS -> {
+                val action = if (info?.actionId != null && info.actionId != 0) {
+                    info.actionId
+                } else {
+                    EditorInfo.IME_ACTION_PREVIOUS
+                }
+                val performed = ic?.performEditorAction(action) ?: false
+                if (!performed) {
+                    sendHardwareEnter(ic)
+                }
+            }
+            EnterActionType.DONE -> {
+                val action = if (info?.actionId != null && info.actionId != 0) {
+                    info.actionId
+                } else {
+                    EditorInfo.IME_ACTION_DONE
+                }
+                val performed = ic?.performEditorAction(action) ?: false
+                if (!performed) {
+                    sendHardwareEnter(ic)
+                }
+            }
         }
         refreshTopBar()
+    }
+
+    private fun sendHardwareEnter(ic: android.view.inputmethod.InputConnection?) {
+        ic?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+        ic?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
     }
 
     /**
@@ -2911,7 +3111,7 @@ class CustomKeyboardService : InputMethodService() {
  * required.
  */
 private class GlyphIconView(context: Context, var glyph: Glyph) : View(context) {
-    enum class Glyph { RETURN, SEARCH, BACKSPACE, SHIFT }
+    enum class Glyph { RETURN, SEARCH, SEND, GO, NEXT, PREVIOUS, DONE, BACKSPACE, SHIFT }
 
     var iconColor: Int = Color.BLACK
     /** Only used by Glyph.SHIFT - draws an underline bar beneath the arrow to indicate caps lock. */
@@ -2933,15 +3133,16 @@ private class GlyphIconView(context: Context, var glyph: Glyph) : View(context) 
 
         when (glyph) {
             Glyph.RETURN -> {
+                paint.style = Paint.Style.STROKE
                 val left = w * 0.24f
-                val right = w * 0.76f
-                val top = h * 0.26f
-                val bottom = h * 0.66f
-                canvas.drawLine(left, top, right, top, paint)
+                val right = w * 0.74f
+                val top = h * 0.30f
+                val bottom = h * 0.65f
                 canvas.drawLine(right, top, right, bottom, paint)
                 canvas.drawLine(right, bottom, left, bottom, paint)
-                canvas.drawLine(left, bottom, left + w * 0.18f, bottom - h * 0.16f, paint)
-                canvas.drawLine(left, bottom, left + w * 0.18f, bottom + h * 0.16f, paint)
+                val headSize = w * 0.16f
+                canvas.drawLine(left, bottom, left + headSize, bottom - headSize, paint)
+                canvas.drawLine(left, bottom, left + headSize, bottom + headSize, paint)
             }
             Glyph.SEARCH -> {
                 // Flat magnifying glass search icon
@@ -2955,6 +3156,61 @@ private class GlyphIconView(context: Context, var glyph: Glyph) : View(context) 
                 val handleEndX = w * 0.78f
                 val handleEndY = h * 0.78f
                 canvas.drawLine(handleStartX, handleStartY, handleEndX, handleEndY, paint)
+            }
+            Glyph.SEND -> {
+                paint.style = Paint.Style.STROKE
+                val path = Path().apply {
+                    moveTo(w * 0.24f, h * 0.26f)
+                    lineTo(w * 0.80f, h * 0.50f)
+                    lineTo(w * 0.24f, h * 0.74f)
+                    lineTo(w * 0.38f, h * 0.50f)
+                    close()
+                }
+                canvas.drawPath(path, paint)
+                canvas.drawLine(w * 0.38f, h * 0.50f, w * 0.80f, h * 0.50f, paint)
+            }
+            Glyph.GO -> {
+                paint.style = Paint.Style.STROKE
+                val startX = w * 0.25f
+                val endX = w * 0.75f
+                val midY = h * 0.50f
+                canvas.drawLine(startX, midY, endX, midY, paint)
+                val headSize = w * 0.18f
+                canvas.drawLine(endX, midY, endX - headSize, midY - headSize, paint)
+                canvas.drawLine(endX, midY, endX - headSize, midY + headSize, paint)
+            }
+            Glyph.NEXT -> {
+                paint.style = Paint.Style.STROKE
+                val startX = w * 0.22f
+                val endX = w * 0.64f
+                val midY = h * 0.50f
+                canvas.drawLine(startX, midY, endX, midY, paint)
+                val headSize = w * 0.16f
+                canvas.drawLine(endX, midY, endX - headSize, midY - headSize, paint)
+                canvas.drawLine(endX, midY, endX - headSize, midY + headSize, paint)
+                canvas.drawLine(w * 0.76f, h * 0.32f, w * 0.76f, h * 0.68f, paint)
+            }
+            Glyph.PREVIOUS -> {
+                paint.style = Paint.Style.STROKE
+                val startX = w * 0.78f
+                val endX = w * 0.36f
+                val midY = h * 0.50f
+                canvas.drawLine(startX, midY, endX, midY, paint)
+                val headSize = w * 0.16f
+                canvas.drawLine(endX, midY, endX + headSize, midY - headSize, paint)
+                canvas.drawLine(endX, midY, endX + headSize, midY + headSize, paint)
+                canvas.drawLine(w * 0.24f, h * 0.32f, w * 0.24f, h * 0.68f, paint)
+            }
+            Glyph.DONE -> {
+                paint.style = Paint.Style.STROKE
+                val p1X = w * 0.24f
+                val p1Y = h * 0.52f
+                val p2X = w * 0.42f
+                val p2Y = h * 0.70f
+                val p3X = w * 0.76f
+                val p3Y = h * 0.32f
+                canvas.drawLine(p1X, p1Y, p2X, p2Y, paint)
+                canvas.drawLine(p2X, p2Y, p3X, p3Y, paint)
             }
             Glyph.BACKSPACE -> {
                 // A generously-sized arrow-box outline with a clearly-inset X, so the X never
