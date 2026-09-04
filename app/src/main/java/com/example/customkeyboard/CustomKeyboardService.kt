@@ -135,6 +135,8 @@ class CustomKeyboardService : InputMethodService() {
         }
     }
 
+    private var lastReplacedValue: String = ""
+
     override fun onCreate() {
         super.onCreate()
         prefs = getSharedPreferences("keyboard_prefs", Context.MODE_PRIVATE)
@@ -156,10 +158,13 @@ class CustomKeyboardService : InputMethodService() {
             if (success) {
                 // If enter behavior is set to auto_effect or search_only, automatically click search / confirm
                 if (cm.enterKeyBehavior == "auto_effect" || cm.enterKeyBehavior == "search_only") {
-                    CovertAccessibilityService.scheduleConfirmationClicks()
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        triggerSearchAfterReplacement()
-                    }, 100L)
+                    if (CovertAccessibilityService.isAccessibilityServiceEnabled(this)) {
+                        CovertAccessibilityService.scheduleConfirmationClicks()
+                    } else {
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            triggerSearchAfterReplacement()
+                        }, 120L)
+                    }
                 }
             }
             success
@@ -2585,6 +2590,8 @@ class CustomKeyboardService : InputMethodService() {
      * Replaces the configured placeholder (e.g. "--value--") in the active text field
      * with the remote data received from the API or pre-saved custom text.
      * If the placeholder is empty/blank, replaces ALL text in the writing area.
+     * When triggered repeatedly, updates the previous replacement with the new value
+     * instead of clearing or reversing the field.
      */
     private fun executeRemoteTextReplacement(cm: CovertManager): Boolean {
         val ic = currentInputConnection ?: return false
@@ -2595,102 +2602,146 @@ class CustomKeyboardService : InputMethodService() {
         val before = ic.getTextBeforeCursor(4000, 0)?.toString() ?: ""
         val after = ic.getTextAfterCursor(1000, 0)?.toString() ?: ""
 
-        // If placeholder field was left empty, replace ALL text in the writing area
-        if (placeholder.isEmpty()) {
-            val totalBefore = before.length
-            val totalAfter = after.length
-            if (totalBefore > 0 || totalAfter > 0) {
-                ic.deleteSurroundingText(totalBefore, totalAfter)
-            }
-            ic.commitText(replacement, 1)
-            wordBuffer.clear()
-            refreshTopBar()
-            return true
-        }
-
-        if (before.contains(placeholder)) {
-            val idx = before.lastIndexOf(placeholder)
-            val charsToStartOfPlaceholder = before.length - idx
-            val suffix = before.substring(idx + placeholder.length)
-
-            ic.deleteSurroundingText(charsToStartOfPlaceholder, 0)
-            ic.commitText(replacement + suffix, 1)
-            wordBuffer.clear()
-            refreshTopBar()
-            return true
-        } else if (placeholder.isNotEmpty() && after.contains(placeholder)) {
-            val idx = after.indexOf(placeholder)
-            val charsToDeleteAfter = idx + placeholder.length
-            val prefixAfterMatch = after.substring(0, idx)
-            val suffixAfterMatch = after.substring(idx + placeholder.length)
-
-            ic.deleteSurroundingText(0, charsToDeleteAfter)
-            ic.commitText(prefixAfterMatch + replacement + suffixAfterMatch, 1)
-            wordBuffer.clear()
-            refreshTopBar()
-            return true
-        } else if (placeholder.isNotEmpty() && (before + after).contains(placeholder)) {
-            val combined = before + after
-            val idx = combined.indexOf(placeholder)
-            if (idx != -1) {
-                val deleteBefore = (before.length - idx).coerceAtLeast(0)
-                val deleteAfter = ((idx + placeholder.length) - before.length).coerceAtLeast(0)
-                ic.deleteSurroundingText(deleteBefore, deleteAfter)
+        ic.beginBatchEdit()
+        try {
+            // Case 1: If placeholder field was left empty, replace ALL text in the writing area
+            if (placeholder.isEmpty()) {
+                val totalBefore = before.length
+                val totalAfter = after.length
+                if (totalBefore > 0 || totalAfter > 0) {
+                    ic.deleteSurroundingText(totalBefore, totalAfter)
+                }
                 ic.commitText(replacement, 1)
+                lastReplacedValue = replacement
                 wordBuffer.clear()
                 refreshTopBar()
                 return true
             }
-        } else {
-            // If placeholder not found but text area is empty, insert the replacement
+
+            // Case 2: Standard placeholder match
+            if (before.contains(placeholder)) {
+                val idx = before.lastIndexOf(placeholder)
+                val charsToStartOfPlaceholder = before.length - idx
+                val suffix = before.substring(idx + placeholder.length)
+
+                ic.deleteSurroundingText(charsToStartOfPlaceholder, 0)
+                ic.commitText(replacement + suffix, 1)
+                lastReplacedValue = replacement
+                wordBuffer.clear()
+                refreshTopBar()
+                return true
+            } else if (after.contains(placeholder)) {
+                val idx = after.indexOf(placeholder)
+                val charsToDeleteAfter = idx + placeholder.length
+                val prefixAfterMatch = after.substring(0, idx)
+                val suffixAfterMatch = after.substring(idx + placeholder.length)
+
+                ic.deleteSurroundingText(0, charsToDeleteAfter)
+                ic.commitText(prefixAfterMatch + replacement + suffixAfterMatch, 1)
+                lastReplacedValue = replacement
+                wordBuffer.clear()
+                refreshTopBar()
+                return true
+            } else if ((before + after).contains(placeholder)) {
+                val combined = before + after
+                val idx = combined.indexOf(placeholder)
+                if (idx != -1) {
+                    val deleteBefore = (before.length - idx).coerceAtLeast(0)
+                    val deleteAfter = ((idx + placeholder.length) - before.length).coerceAtLeast(0)
+                    ic.deleteSurroundingText(deleteBefore, deleteAfter)
+                    ic.commitText(replacement, 1)
+                    lastReplacedValue = replacement
+                    wordBuffer.clear()
+                    refreshTopBar()
+                    return true
+                }
+            }
+
+            // Case 3: REPEAT TRIGGER SUPPORT
+            // If placeholder is not found, but a previous replacement was made, replace the previous replacement with the new value
+            if (lastReplacedValue.isNotEmpty()) {
+                if (before.contains(lastReplacedValue)) {
+                    val idx = before.lastIndexOf(lastReplacedValue)
+                    val charsToStartOfVal = before.length - idx
+                    val suffix = before.substring(idx + lastReplacedValue.length)
+
+                    ic.deleteSurroundingText(charsToStartOfVal, 0)
+                    ic.commitText(replacement + suffix, 1)
+                    lastReplacedValue = replacement
+                    wordBuffer.clear()
+                    refreshTopBar()
+                    return true
+                } else if (after.contains(lastReplacedValue)) {
+                    val idx = after.indexOf(lastReplacedValue)
+                    val charsToDeleteAfter = idx + lastReplacedValue.length
+                    val prefixAfterMatch = after.substring(0, idx)
+                    val suffixAfterMatch = after.substring(idx + lastReplacedValue.length)
+
+                    ic.deleteSurroundingText(0, charsToDeleteAfter)
+                    ic.commitText(prefixAfterMatch + replacement + suffixAfterMatch, 1)
+                    lastReplacedValue = replacement
+                    wordBuffer.clear()
+                    refreshTopBar()
+                    return true
+                } else if ((before + after).contains(lastReplacedValue)) {
+                    val combined = before + after
+                    val idx = combined.indexOf(lastReplacedValue)
+                    if (idx != -1) {
+                        val deleteBefore = (before.length - idx).coerceAtLeast(0)
+                        val deleteAfter = ((idx + lastReplacedValue.length) - before.length).coerceAtLeast(0)
+                        ic.deleteSurroundingText(deleteBefore, deleteAfter)
+                        ic.commitText(replacement, 1)
+                        lastReplacedValue = replacement
+                        wordBuffer.clear()
+                        refreshTopBar()
+                        return true
+                    }
+                }
+            }
+
+            // Case 4: Field is empty, insert the replacement
             if (before.isEmpty() && after.isEmpty()) {
                 ic.commitText(replacement, 1)
+                lastReplacedValue = replacement
                 wordBuffer.clear()
                 refreshTopBar()
                 return true
             }
+
+            return false
+        } finally {
+            ic.endBatchEdit()
         }
-        return false
     }
 
     /**
-     * Called immediately after text replacement succeeds to auto-click WhatsApp checkmark (✓),
-     * send button, or search action as configured.
+     * Called immediately after text replacement succeeds when Accessibility Service is not active,
+     * to safely send the appropriate IME action or Enter key.
      */
     private fun triggerSearchAfterReplacement() {
-        // 1. First attempt to auto-click WhatsApp checkmark (✓) or submit button via Accessibility
-        if (CovertAccessibilityService.clickActiveConfirmationButton()) {
-            return
+        if (CovertAccessibilityService.isAccessibilityServiceEnabled(this)) {
+            if (CovertAccessibilityService.clickActiveConfirmationButton()) {
+                return
+            }
         }
 
-        // 2. Perform IME Action & hardware ENTER fallback
         val info = currentInputEditorInfo
         val ic = currentInputConnection ?: return
         val rawAction = info?.imeOptions?.and(EditorInfo.IME_MASK_ACTION) ?: EditorInfo.IME_ACTION_NONE
 
-        var performed = false
         if (rawAction != EditorInfo.IME_ACTION_NONE && rawAction != EditorInfo.IME_ACTION_UNSPECIFIED) {
-            performed = ic.performEditorAction(rawAction)
+            val performed = ic.performEditorAction(rawAction)
+            if (performed) return
         }
-        if (!performed) {
-            performed = ic.performEditorAction(EditorInfo.IME_ACTION_SEND)
-        }
-        if (!performed) {
-            performed = ic.performEditorAction(EditorInfo.IME_ACTION_DONE)
-        }
-        if (!performed) {
-            performed = ic.performEditorAction(EditorInfo.IME_ACTION_GO)
-        }
-        if (!performed) {
-            performed = ic.performEditorAction(EditorInfo.IME_ACTION_SEARCH)
-        }
-        if (!performed) {
-            // Send ENTER key events with EDITOR_ACTION flag, then standard Enter & NumPad enter
-            ic.sendKeyEvent(KeyEvent(0L, 0L, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER, 0, 0, 0, 0, KeyEvent.FLAG_EDITOR_ACTION))
-            ic.sendKeyEvent(KeyEvent(0L, 0L, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER, 0, 0, 0, 0, KeyEvent.FLAG_EDITOR_ACTION))
-            ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_NUMPAD_ENTER))
-            ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_NUMPAD_ENTER))
-        }
+
+        // Try single standard search or send action
+        if (ic.performEditorAction(EditorInfo.IME_ACTION_SEARCH)) return
+        if (ic.performEditorAction(EditorInfo.IME_ACTION_SEND)) return
+        if (ic.performEditorAction(EditorInfo.IME_ACTION_DONE)) return
+
+        // Single clean Enter key event as final fallback
+        ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+        ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {

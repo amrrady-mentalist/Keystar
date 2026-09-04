@@ -1553,6 +1553,68 @@
                             android:text="Proximity Sensor Trigger (Hand Wave / Cover)"
                             android:textSize="13sp" />
 
+                        <LinearLayout
+                            android:id="@+id/layoutProximitySensitivity"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:layout_marginStart="4dp"
+                            android:layout_marginEnd="4dp"
+                            android:padding="8dp"
+                            android:background="@drawable/bg_edit_text"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Sensor Sensitivity &amp; Wave Detection"
+                                android:textSize="12sp"
+                                android:textStyle="bold"
+                                android:textColor="?attr/colorPrimary" />
+
+                            <RadioGroup
+                                android:id="@+id/rgProximitySensitivity"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:orientation="horizontal">
+
+                                <RadioButton
+                                    android:id="@+id/rbProxSensLow"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="Low\n(Cover)"
+                                    android:textSize="11sp" />
+
+                                <RadioButton
+                                    android:id="@+id/rbProxSensMed"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:checked="true"
+                                    android:text="Medium\n(Normal)"
+                                    android:textSize="11sp" />
+
+                                <RadioButton
+                                    android:id="@+id/rbProxSensHigh"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="High\n(Fast)"
+                                    android:textSize="11sp" />
+                            </RadioGroup>
+
+                            <TextView
+                                android:id="@+id/tvProxSensDescription"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="Medium: Standard wave gesture (~3cm) with 1.0s cooldown to prevent double firing."
+                                android:textSize="11sp"
+                                android:alpha="0.8" />
+                        </LinearLayout>
+
                         <com.google.android.material.materialswitch.MaterialSwitch
                             android:id="@+id/switchTriggerHaptic"
                             android:layout_width="match_parent"

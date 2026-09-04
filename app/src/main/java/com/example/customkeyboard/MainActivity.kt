@@ -309,6 +309,12 @@ class MainActivity : AppCompatActivity() {
         val tvTriggerProximityStatus = dialog.findViewById<TextView>(R.id.tvTriggerProximityStatus)
         val switchTriggerVolume = dialog.findViewById<MaterialSwitch>(R.id.switchTriggerVolume)
         val switchTriggerProximity = dialog.findViewById<MaterialSwitch>(R.id.switchTriggerProximity)
+        val layoutProximitySensitivity = dialog.findViewById<LinearLayout>(R.id.layoutProximitySensitivity)
+        val rgProximitySensitivity = dialog.findViewById<RadioGroup>(R.id.rgProximitySensitivity)
+        val rbProxSensLow = dialog.findViewById<RadioButton>(R.id.rbProxSensLow)
+        val rbProxSensMed = dialog.findViewById<RadioButton>(R.id.rbProxSensMed)
+        val rbProxSensHigh = dialog.findViewById<RadioButton>(R.id.rbProxSensHigh)
+        val tvProxSensDescription = dialog.findViewById<TextView>(R.id.tvProxSensDescription)
         val switchTriggerHaptic = dialog.findViewById<MaterialSwitch>(R.id.switchTriggerHaptic)
         val btnFireTriggerTest = dialog.findViewById<Button>(R.id.btnFireTriggerTest)
         val btnClearTriggerQueue = dialog.findViewById<Button>(R.id.btnClearTriggerQueue)
@@ -373,7 +379,22 @@ class MainActivity : AppCompatActivity() {
             switchRequireTrigger.isChecked = requireTrig
             layoutTriggerDetails.visibility = if (requireTrig) View.VISIBLE else View.GONE
             switchTriggerVolume.isChecked = TriggerManager.isVolumeTriggerEnabled(this)
-            switchTriggerProximity.isChecked = TriggerManager.isProximityTriggerEnabled(this)
+            val proxEnabled = TriggerManager.isProximityTriggerEnabled(this)
+            switchTriggerProximity.isChecked = proxEnabled
+            layoutProximitySensitivity.visibility = if (proxEnabled) View.VISIBLE else View.GONE
+
+            val currentSens = TriggerManager.getProximitySensitivity(this)
+            when (currentSens) {
+                TriggerManager.SENSITIVITY_LOW -> rbProxSensLow.isChecked = true
+                TriggerManager.SENSITIVITY_HIGH -> rbProxSensHigh.isChecked = true
+                else -> rbProxSensMed.isChecked = true
+            }
+            tvProxSensDescription.text = when (currentSens) {
+                TriggerManager.SENSITIVITY_LOW -> "Low: Deliberate close cover required (~1.5cm). 1.5s cooldown prevents accidental triggers."
+                TriggerManager.SENSITIVITY_HIGH -> "High: Quick responsive wave (~5cm). Fast 0.65s cooldown."
+                else -> "Medium: Standard wave gesture (~3cm) with 1.0s cooldown to prevent double firing."
+            }
+
             switchTriggerHaptic.isChecked = TriggerManager.isHapticTriggerEnabled(this)
             tvTriggerPendingStatus.text = "Pending Queue: ${TriggerManager.getPendingSummary()}"
 
@@ -813,10 +834,25 @@ class MainActivity : AppCompatActivity() {
 
         switchTriggerProximity.setOnCheckedChangeListener { _, isChecked ->
             TriggerManager.setProximityTriggerEnabled(this, isChecked)
+            layoutProximitySensitivity.visibility = if (isChecked) View.VISIBLE else View.GONE
             if (isChecked) {
                 tvTriggerProximityStatus.text = "Proximity Sensor: Monitoring Active"
             } else {
                 tvTriggerProximityStatus.text = "Proximity Sensor: Disabled"
+            }
+        }
+
+        rgProximitySensitivity.setOnCheckedChangeListener { _, checkedId ->
+            val level = when (checkedId) {
+                R.id.rbProxSensLow -> TriggerManager.SENSITIVITY_LOW
+                R.id.rbProxSensHigh -> TriggerManager.SENSITIVITY_HIGH
+                else -> TriggerManager.SENSITIVITY_MEDIUM
+            }
+            TriggerManager.setProximitySensitivity(this, level)
+            tvProxSensDescription.text = when (level) {
+                TriggerManager.SENSITIVITY_LOW -> "Low: Deliberate close cover required (~1.5cm). 1.5s cooldown prevents accidental triggers."
+                TriggerManager.SENSITIVITY_HIGH -> "High: Quick responsive wave (~5cm). Fast 0.65s cooldown."
+                else -> "Medium: Standard wave gesture (~3cm) with 1.0s cooldown to prevent double firing."
             }
         }
 

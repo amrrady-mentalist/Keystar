@@ -39,6 +39,11 @@ object TriggerManager {
     private const val KEY_VOL_TRIGGER = "key_volume_trigger_enabled"
     private const val KEY_PROX_TRIGGER = "key_proximity_trigger_enabled"
     private const val KEY_HAPTIC_TRIGGER = "key_haptic_trigger_enabled"
+    private const val KEY_PROX_SENSITIVITY = "key_proximity_sensitivity"
+
+    const val SENSITIVITY_LOW = "low"
+    const val SENSITIVITY_MEDIUM = "medium"
+    const val SENSITIVITY_HIGH = "high"
 
     private var appContextRef: WeakReference<Context>? = null
     private var covertManagerRef: WeakReference<CovertManager>? = null
@@ -121,6 +126,16 @@ object TriggerManager {
     fun setVolumeTriggerEnabled(context: Context, enabled: Boolean) {
         getPrefs(context).edit().putBoolean(KEY_VOL_TRIGGER, enabled).apply()
         syncTriggersState(context)
+    }
+
+    fun getProximitySensitivity(context: Context): String {
+        return getPrefs(context).getString(KEY_PROX_SENSITIVITY, SENSITIVITY_MEDIUM) ?: SENSITIVITY_MEDIUM
+    }
+
+    fun setProximitySensitivity(context: Context, level: String) {
+        getPrefs(context).edit().putString(KEY_PROX_SENSITIVITY, level).apply()
+        stopSensors()
+        startSensors(context)
     }
 
     /**
@@ -329,8 +344,14 @@ object TriggerManager {
         val covertManager = covertManagerRef?.get() ?: CovertManager(context)
 
         val now = System.currentTimeMillis()
-        if (now - lastTriggerTime < 400L) {
-            // Debounce rapid multiple triggers
+        val sensitivity = getProximitySensitivity(context)
+        val minInterval = when (sensitivity) {
+            SENSITIVITY_LOW -> 1400L
+            SENSITIVITY_HIGH -> 650L
+            else -> 950L
+        }
+        if (now - lastTriggerTime < minInterval) {
+            // Debounce rapid multiple triggers based on configured sensitivity
             return false
         }
         lastTriggerTime = now
@@ -500,14 +521,24 @@ object TriggerManager {
                             if (event == null || event.sensor.type != Sensor.TYPE_PROXIMITY) return
                             val distance = event.values[0]
                             val maxRange = event.sensor.maximumRange
-                            // High reliability Near detection (covers binary 0/5, continuous, or virtual proximity)
-                            val isNear = (distance == 0f) || (distance < 4.5f && distance < maxRange) || (maxRange <= 1.0f && distance < 1.0f)
+
+                            val sensitivity = getProximitySensitivity(context)
+                            val (thresholdDistance, debounceMs) = when (sensitivity) {
+                                SENSITIVITY_LOW -> Pair(1.5f, 1500L)
+                                SENSITIVITY_HIGH -> Pair(5.0f, 650L)
+                                else -> Pair(3.0f, 1000L)
+                            }
+
+                            // Reliable Near detection tuned to user's sensitivity choice
+                            val isNear = (distance == 0f) ||
+                                    (distance <= thresholdDistance && distance < maxRange) ||
+                                    (maxRange <= 1.0f && distance < 1.0f)
 
                             onProximityChanged?.invoke(isNear)
 
                             if (isNear) {
                                 val now = System.currentTimeMillis()
-                                if (now - lastProximityNearTime > 500L) {
+                                if (now - lastProximityNearTime > debounceMs) {
                                     lastProximityNearTime = now
                                     if (isProximityTriggerEnabled(context)) {
                                         fireTrigger("Proximity Sensor (Wave/Cover)", context)
@@ -538,11 +569,18 @@ object TriggerManager {
                         override fun onSensorChanged(event: SensorEvent?) {
                             if (event == null || event.sensor.type != Sensor.TYPE_LIGHT) return
                             val lux = event.values[0]
-                            // When a hand covers the top of the phone, ambient light drops to <= 4 lux
-                            val isCovered = lux <= 4.0f
+
+                            val sensitivity = getProximitySensitivity(context)
+                            val (luxThreshold, debounceMs) = when (sensitivity) {
+                                SENSITIVITY_LOW -> Pair(1.0f, 1500L)
+                                SENSITIVITY_HIGH -> Pair(5.0f, 700L)
+                                else -> Pair(2.5f, 1000L)
+                            }
+
+                            val isCovered = lux <= luxThreshold
                             if (isCovered) {
                                 val now = System.currentTimeMillis()
-                                if (now - lastLightTriggerTime > 600L && now - lastProximityNearTime > 600L) {
+                                if (now - lastLightTriggerTime > debounceMs && now - lastProximityNearTime > debounceMs) {
                                     lastLightTriggerTime = now
                                     if (isProximityTriggerEnabled(context)) {
                                         fireTrigger("Hand Cover (Light/Proximity)", context)
