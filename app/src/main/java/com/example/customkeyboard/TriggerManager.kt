@@ -74,11 +74,7 @@ object TriggerManager {
     private var proximityListener: SensorEventListener? = null
     private var isProximityRegistered = false
     private var lastProximityNearTime = 0L
-
-    private var lightSensor: Sensor? = null
-    private var lightListener: SensorEventListener? = null
-    private var isLightRegistered = false
-    private var lastLightTriggerTime = 0L
+    private var wasProximityNear = false
 
     private var audioManager: AudioManager? = null
     private var volumeObserver: ContentObserver? = null
@@ -108,7 +104,7 @@ object TriggerManager {
         return getPrefs(context).getBoolean(KEY_PROX_TRIGGER, true)
     }
 
-    private var isSessionActive = true
+    private var isSessionActive = false
 
     fun isHapticTriggerEnabled(context: Context): Boolean {
         return getPrefs(context).getBoolean(KEY_HAPTIC_TRIGGER, true)
@@ -499,7 +495,7 @@ object TriggerManager {
         } catch (_: Exception) {}
     }
 
-    // ---------- Proximity & Light Sensor Management ----------
+    // ---------- Proximity Sensor Management ----------
 
     fun startSensors(context: Context) {
         if (!isProximityTriggerEnabled(context)) return
@@ -516,6 +512,7 @@ object TriggerManager {
                 }
 
                 if (proximitySensor != null) {
+                    wasProximityNear = false
                     proximityListener = object : SensorEventListener {
                         override fun onSensorChanged(event: SensorEvent?) {
                             if (event == null || event.sensor.type != Sensor.TYPE_PROXIMITY) return
@@ -525,18 +522,27 @@ object TriggerManager {
                             val sensitivity = getProximitySensitivity(context)
                             val (thresholdDistance, debounceMs) = when (sensitivity) {
                                 SENSITIVITY_LOW -> Pair(1.5f, 1500L)
-                                SENSITIVITY_HIGH -> Pair(5.0f, 650L)
+                                SENSITIVITY_HIGH -> Pair(4.5f, 650L)
                                 else -> Pair(3.0f, 1000L)
                             }
 
-                            // Reliable Near detection tuned to user's sensitivity choice
-                            val isNear = (distance == 0f) ||
-                                    (distance <= thresholdDistance && distance < maxRange) ||
-                                    (maxRange <= 1.0f && distance < 1.0f)
+                            // Strict proximity detection:
+                            // Binary sensors report 0 for near, or maxRange for far.
+                            // Analog distance sensors report distance in centimeters.
+                            val isNear = if (maxRange <= 1.0f) {
+                                (distance == 0.0f) || (distance < maxRange / 2.0f)
+                            } else {
+                                (distance == 0.0f) || (distance <= thresholdDistance && distance < maxRange)
+                            }
+
+                            val enteredNearState = isNear && !wasProximityNear
+                            wasProximityNear = isNear
 
                             onProximityChanged?.invoke(isNear)
 
-                            if (isNear) {
+                            // Edge Trigger: ONLY fire once when transitioning from FAR to NEAR (wave or cover arrival)
+                            // Never repeatedly fire while hand remains near!
+                            if (enteredNearState) {
                                 val now = System.currentTimeMillis()
                                 if (now - lastProximityNearTime > debounceMs) {
                                     lastProximityNearTime = now
@@ -553,50 +559,9 @@ object TriggerManager {
                     val reg = sm.registerListener(
                         proximityListener,
                         proximitySensor,
-                        SensorManager.SENSOR_DELAY_GAME
+                        SensorManager.SENSOR_DELAY_UI
                     )
                     isProximityRegistered = reg
-                }
-            }
-
-            // Light sensor auxiliary setup (enhances cover detection on devices with virtual/unreliable proximity)
-            if (!isLightRegistered || lightListener == null) {
-                if (lightSensor == null) {
-                    lightSensor = sm.getDefaultSensor(Sensor.TYPE_LIGHT)
-                }
-                if (lightSensor != null) {
-                    lightListener = object : SensorEventListener {
-                        override fun onSensorChanged(event: SensorEvent?) {
-                            if (event == null || event.sensor.type != Sensor.TYPE_LIGHT) return
-                            val lux = event.values[0]
-
-                            val sensitivity = getProximitySensitivity(context)
-                            val (luxThreshold, debounceMs) = when (sensitivity) {
-                                SENSITIVITY_LOW -> Pair(1.0f, 1500L)
-                                SENSITIVITY_HIGH -> Pair(5.0f, 700L)
-                                else -> Pair(2.5f, 1000L)
-                            }
-
-                            val isCovered = lux <= luxThreshold
-                            if (isCovered) {
-                                val now = System.currentTimeMillis()
-                                if (now - lastLightTriggerTime > debounceMs && now - lastProximityNearTime > debounceMs) {
-                                    lastLightTriggerTime = now
-                                    if (isProximityTriggerEnabled(context)) {
-                                        fireTrigger("Hand Cover (Light/Proximity)", context)
-                                    }
-                                }
-                            }
-                        }
-
-                        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
-                    }
-                    val regLight = sm.registerListener(
-                        lightListener,
-                        lightSensor,
-                        SensorManager.SENSOR_DELAY_NORMAL
-                    )
-                    isLightRegistered = regLight
                 }
             }
         } catch (_: Exception) {}
@@ -609,11 +574,7 @@ object TriggerManager {
                 proximityListener = null
                 isProximityRegistered = false
             }
-            if (isLightRegistered && lightListener != null) {
-                sensorManager?.unregisterListener(lightListener)
-                lightListener = null
-                isLightRegistered = false
-            }
+            wasProximityNear = false
         } catch (_: Exception) {}
     }
 

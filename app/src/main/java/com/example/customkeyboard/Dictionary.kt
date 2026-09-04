@@ -57,17 +57,11 @@ object Dictionary {
 
     // Common Contractions mapping (Priority 4)
     private val contractionsMap = mapOf(
-        "lets" to "let's",
+        "its" to "it's",
+        "hadnt" to "hadn't",
         "dont" to "don't",
         "cant" to "can't",
         "wont" to "won't",
-        "im" to "I'm",
-        "youre" to "you're",
-        "hes" to "he's",
-        "shes" to "she's",
-        "its" to "it's",
-        "theyre" to "they're",
-        "were" to "we're",
         "didnt" to "didn't",
         "isnt" to "isn't",
         "arent" to "aren't",
@@ -75,11 +69,22 @@ object Dictionary {
         "werent" to "weren't",
         "hasnt" to "hasn't",
         "havent" to "haven't",
-        "hadnt" to "hadn't",
         "doesnt" to "doesn't",
         "wouldnt" to "wouldn't",
         "shouldnt" to "shouldn't",
         "couldnt" to "couldn't",
+        "mustnt" to "mustn't",
+        "neednt" to "needn't",
+        "darent" to "daren't",
+        "shant" to "shan't",
+        "mightnt" to "mightn't",
+        "oughtnt" to "oughtn't",
+        "im" to "I'm",
+        "youre" to "you're",
+        "hes" to "he's",
+        "shes" to "she's",
+        "theyre" to "they're",
+        "were" to "we're",
         "ive" to "I've",
         "youve" to "you've",
         "weve" to "we've",
@@ -89,21 +94,64 @@ object Dictionary {
         "hell" to "he'll",
         "shell" to "she'll",
         "theyll" to "they'll",
+        "well" to "we'll",
         "id" to "I'd",
         "youd" to "you'd",
         "hed" to "he'd",
         "shed" to "she'd",
         "theyd" to "they'd",
+        "wed" to "we'd",
+        "thats" to "that's",
         "whats" to "what's",
         "whos" to "who's",
         "wheres" to "where's",
         "whens" to "when's",
         "whys" to "why's",
         "hows" to "how's",
-        "thats" to "that's",
         "theres" to "there's",
-        "heres" to "here's"
+        "heres" to "here's",
+        "lets" to "let's",
+        "whove" to "who've",
+        "whatll" to "what'll",
+        "whatve" to "what've",
+        "thereve" to "there've",
+        "therell" to "there'll",
+        "couldve" to "could've",
+        "shouldve" to "should've",
+        "wouldve" to "would've",
+        "mightve" to "might've",
+        "mustve" to "must've",
+        "itll" to "it'll",
+        "thatll" to "that'll",
+        "howd" to "how'd",
+        "howll" to "how'll",
+        "whered" to "where'd",
+        "whod" to "who'd",
+        "wholl" to "who'll",
+        "whyd" to "why'd",
+        "cmon" to "c'mon",
+        "maam" to "ma'am",
+        "oclock" to "o'clock",
+        "yall" to "y'all",
+        "aint" to "ain't",
+        "gonna" to "going to",
+        "wanna" to "want to",
+        "gotta" to "got to",
+        "kinda" to "kind of",
+        "sorta" to "sort of",
+        "dunno" to "don't know",
+        "lemme" to "let me",
+        "gimme" to "give me"
     )
+
+    fun matchCasing(source: String, target: String): String {
+        if (source.isEmpty() || target.isEmpty()) return target
+        if (source.all { it.isUpperCase() }) return target.uppercase()
+        if (source[0].isUpperCase()) {
+            return target.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+        }
+        return target
+    }
 
     // Common typos / misspelled word overrides (Priority 3)
     private val commonTypoOverrides = mapOf(
@@ -804,12 +852,12 @@ object Dictionary {
 
         // 1. Check direct override table
         val override = commonTypoOverrides[query]
-        if (override != null) return override.take(limit)
+        if (override != null) return override.take(limit).map { matchCasing(word, it) }
 
-        // 2. Check contractions (e.g., "lets" -> "let's")
+        // 2. Check contractions (e.g., "lets" -> "let's", "hadnt" -> "hadn't", "its" -> "it's")
         val contraction = contractionsMap[query]
         if (contraction != null) {
-            return listOf(contraction)
+            return listOf(matchCasing(word, contraction))
         }
 
         if (!isLoaded) return emptyList()
@@ -943,16 +991,22 @@ object Dictionary {
             val wordCompletions = mutableListOf<SuggestionItem>()
             val emojiCompletions = mutableListOf<String>()
 
-            // --- PRIORITY 4: Check Contractions ("lets" -> "let's", "dont" -> "don't", "im" -> "I'm") ---
+            // --- PRIORITY 4: Check Contractions ("lets" -> "let's", "hadnt" -> "hadn't", "its" -> "it's", "dont" -> "don't", "im" -> "I'm") ---
             val contractionMatch = contractionsMap[query]
-            if (contractionMatch != null && seenWords.add(contractionMatch.lowercase())) {
-                wordCompletions.add(SuggestionItem(text = contractionMatch, isEmoji = false, isPrimary = true, isCorrection = true))
+            if (contractionMatch != null) {
+                val casedContraction = matchCasing(prefix, contractionMatch)
+                if (seenWords.add(casedContraction.lowercase())) {
+                    wordCompletions.add(SuggestionItem(text = casedContraction, isEmoji = false, isPrimary = true, isCorrection = true))
+                }
             }
 
             // Check explicit direct typo override (e.g. "teh" -> "the", "recieve" -> "receive")
             val explicitTypo = commonTypoOverrides[query]?.firstOrNull()
-            if (explicitTypo != null && seenWords.add(explicitTypo.lowercase())) {
-                wordCompletions.add(SuggestionItem(text = explicitTypo, isEmoji = false, isPrimary = true, isCorrection = true))
+            if (explicitTypo != null) {
+                val casedTypo = matchCasing(prefix, explicitTypo)
+                if (seenWords.add(casedTypo.lowercase())) {
+                    wordCompletions.add(SuggestionItem(text = casedTypo, isEmoji = false, isPrimary = true, isCorrection = true))
+                }
             }
 
             // --- PRIORITY 1: Word Completions starting with prefix ("foo" -> "food", "football"; "edi" -> "edit", "editing") ---
@@ -988,7 +1042,8 @@ object Dictionary {
                 for (cand in candidates) {
                     if (seenWords.add(cand.key)) {
                         val isFirstMatch = wordCompletions.isEmpty()
-                        wordCompletions.add(SuggestionItem(text = cand.word, isEmoji = false, isPrimary = isFirstMatch))
+                        val casedWord = if (!isArabic) matchCasing(prefix, cand.word) else cand.word
+                        wordCompletions.add(SuggestionItem(text = casedWord, isEmoji = false, isPrimary = isFirstMatch))
                     }
                 }
             }
@@ -999,7 +1054,8 @@ object Dictionary {
                 val normW = if (isArabic) normalizeArabic(w) else w.lowercase()
                 if (normW.startsWith(query) && seenWords.add(normW)) {
                     val isFirstMatch = wordCompletions.isEmpty()
-                    wordCompletions.add(SuggestionItem(text = w, isEmoji = false, isPrimary = isFirstMatch))
+                    val casedWord = if (!isArabic) matchCasing(prefix, w) else w
+                    wordCompletions.add(SuggestionItem(text = casedWord, isEmoji = false, isPrimary = isFirstMatch))
                 }
             }
 

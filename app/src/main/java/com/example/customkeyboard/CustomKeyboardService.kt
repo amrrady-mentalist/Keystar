@@ -201,6 +201,7 @@ class CustomKeyboardService : InputMethodService() {
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
+        lastReplacedValue = ""
         TriggerManager.startActiveSession(this)
         if (covertManager.isTextReplaceEnabled) {
             covertManager.fetchLatestApiValue()
