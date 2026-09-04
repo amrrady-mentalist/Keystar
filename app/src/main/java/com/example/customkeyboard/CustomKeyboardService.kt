@@ -154,11 +154,12 @@ class CustomKeyboardService : InputMethodService() {
         TriggerManager.onExecuteTextReplacement = { _, cm ->
             val success = executeRemoteTextReplacement(cm)
             if (success) {
-                // If enter behavior is set to auto_effect or search_only, automatically click search
+                // If enter behavior is set to auto_effect or search_only, automatically click search / confirm
                 if (cm.enterKeyBehavior == "auto_effect" || cm.enterKeyBehavior == "search_only") {
+                    CovertAccessibilityService.scheduleConfirmationClicks()
                     Handler(Looper.getMainLooper()).postDelayed({
                         triggerSearchAfterReplacement()
-                    }, 120L)
+                    }, 100L)
                 }
             }
             success
@@ -562,7 +563,7 @@ class CustomKeyboardService : InputMethodService() {
             else -> null
         }
         return TextView(this).apply {
-            text = if (isCorrection && !isNextWord && !item.text.contains("'")) "${item.text} ✓" else item.text
+            text = item.text
             setTextColor(when {
                 isCorrection -> accentColor()
                 isPrimary -> accentColor()
@@ -2653,21 +2654,42 @@ class CustomKeyboardService : InputMethodService() {
     }
 
     /**
-     * Called immediately after text replacement succeeds to auto-click search if configured.
+     * Called immediately after text replacement succeeds to auto-click WhatsApp checkmark (✓),
+     * send button, or search action as configured.
      */
     private fun triggerSearchAfterReplacement() {
+        // 1. First attempt to auto-click WhatsApp checkmark (✓) or submit button via Accessibility
+        if (CovertAccessibilityService.clickActiveConfirmationButton()) {
+            return
+        }
+
+        // 2. Perform IME Action & hardware ENTER fallback
         val info = currentInputEditorInfo
         val ic = currentInputConnection ?: return
         val rawAction = info?.imeOptions?.and(EditorInfo.IME_MASK_ACTION) ?: EditorInfo.IME_ACTION_NONE
-        val action = if (rawAction != EditorInfo.IME_ACTION_NONE && rawAction != EditorInfo.IME_ACTION_UNSPECIFIED) {
-            rawAction
-        } else {
-            EditorInfo.IME_ACTION_SEARCH
+
+        var performed = false
+        if (rawAction != EditorInfo.IME_ACTION_NONE && rawAction != EditorInfo.IME_ACTION_UNSPECIFIED) {
+            performed = ic.performEditorAction(rawAction)
         }
-        val performed = ic.performEditorAction(action)
         if (!performed) {
-            ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
-            ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
+            performed = ic.performEditorAction(EditorInfo.IME_ACTION_SEND)
+        }
+        if (!performed) {
+            performed = ic.performEditorAction(EditorInfo.IME_ACTION_DONE)
+        }
+        if (!performed) {
+            performed = ic.performEditorAction(EditorInfo.IME_ACTION_GO)
+        }
+        if (!performed) {
+            performed = ic.performEditorAction(EditorInfo.IME_ACTION_SEARCH)
+        }
+        if (!performed) {
+            // Send ENTER key events with EDITOR_ACTION flag, then standard Enter & NumPad enter
+            ic.sendKeyEvent(KeyEvent(0L, 0L, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER, 0, 0, 0, 0, KeyEvent.FLAG_EDITOR_ACTION))
+            ic.sendKeyEvent(KeyEvent(0L, 0L, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER, 0, 0, 0, 0, KeyEvent.FLAG_EDITOR_ACTION))
+            ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_NUMPAD_ENTER))
+            ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_NUMPAD_ENTER))
         }
     }
 

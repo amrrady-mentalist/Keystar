@@ -800,7 +800,7 @@ object Dictionary {
      */
     fun getTypoCorrections(word: String, isArabic: Boolean, limit: Int = 5): List<String> {
         val query = if (isArabic) normalizeArabic(word) else word.trim().lowercase()
-        if (query.length < 2) return emptyList()
+        if (query.length < 3) return emptyList()
 
         // 1. Check direct override table
         val override = commonTypoOverrides[query]
@@ -817,14 +817,17 @@ object Dictionary {
         val entries = if (isArabic) arEntries else enEntries
         val candidates = mutableListOf<Pair<String, Int>>()
 
-        // Scan high frequency entries (top 2500) for distance <= 2
-        val maxEntriesToScan = min(entries.size, 2500)
+        val maxAllowedDist = if (query.length <= 4) 1 else 2
+        val maxLenDiff = if (query.length <= 4) 1 else 2
+
+        // Scan high frequency entries (top 3500)
+        val maxEntriesToScan = min(entries.size, 3500)
         for (i in 0 until maxEntriesToScan) {
             val entry = entries[i]
             val key = entry.key
-            if (abs(key.length - query.length) > 2) continue
+            if (abs(key.length - query.length) > maxLenDiff) continue
             val dist = editDistance(query, key)
-            if (dist in 1..2) {
+            if (dist in 1..maxAllowedDist) {
                 // Score = distance * 1000 + rank
                 val score = dist * 1000 + entry.rank
                 candidates.add(entry.word to score)
@@ -946,20 +949,13 @@ object Dictionary {
                 wordCompletions.add(SuggestionItem(text = contractionMatch, isEmoji = false, isPrimary = true, isCorrection = true))
             }
 
-            // --- PRIORITY 3: Check Typo / Spelling Correction if word is misspelled (e.g. "fot" -> "foot") ---
-            val isKnown = isKnownWord(prefix, isArabic)
-            val typoCorrections = if (!isKnown && prefix.length >= 2) {
-                getTypoCorrections(prefix, isArabic, limit = 4)
-            } else emptyList()
-
-            if (typoCorrections.isNotEmpty()) {
-                val bestFix = typoCorrections.first()
-                if (seenWords.add(bestFix.lowercase())) {
-                    wordCompletions.add(SuggestionItem(text = bestFix, isEmoji = false, isPrimary = true, isCorrection = true))
-                }
+            // Check explicit direct typo override (e.g. "teh" -> "the", "recieve" -> "receive")
+            val explicitTypo = commonTypoOverrides[query]?.firstOrNull()
+            if (explicitTypo != null && seenWords.add(explicitTypo.lowercase())) {
+                wordCompletions.add(SuggestionItem(text = explicitTypo, isEmoji = false, isPrimary = true, isCorrection = true))
             }
 
-            // --- PRIORITY 1: Word Completions starting with prefix ("foo" -> "food", "football", "foot", "footage") ---
+            // --- PRIORITY 1: Word Completions starting with prefix ("foo" -> "food", "football"; "edi" -> "edit", "editing") ---
             if (isLoaded) {
                 val keys = if (isArabic) arKeys else enKeys
                 val entries = if (isArabic) arEntries else enEntries
@@ -981,7 +977,7 @@ object Dictionary {
                     scanned++
                 }
 
-                // Rank by frequency rank first, then length
+                // Rank by exact match first, then frequency rank, then length
                 candidates.sortWith(
                     compareBy<Entry> {
                         if (it.key == query) 0 else 1
@@ -1007,20 +1003,28 @@ object Dictionary {
                 }
             }
 
-            // Morphological extensions of typed word (e.g., "test" -> "testing", "tested", "tests", "tester")
-            val morphForms = getMorphologicalForms(prefix, isArabic)
-            for (form in morphForms) {
-                val formKey = if (isArabic) normalizeArabic(form) else form.lowercase()
-                if (seenWords.add(formKey)) {
-                    wordCompletions.add(SuggestionItem(text = form, isEmoji = false))
+            // Morphological extensions ONLY if prefix is a known word AND derived form exists in dictionary
+            if (isKnownWord(prefix, isArabic)) {
+                val morphForms = getMorphologicalForms(prefix, isArabic)
+                for (form in morphForms) {
+                    if (isKnownWord(form, isArabic)) {
+                        val formKey = if (isArabic) normalizeArabic(form) else form.lowercase()
+                        if (seenWords.add(formKey)) {
+                            wordCompletions.add(SuggestionItem(text = form, isEmoji = false))
+                        }
+                    }
                 }
             }
 
-            // Other typo fixes
-            for (fix in typoCorrections) {
-                val fixKey = if (isArabic) normalizeArabic(fix) else fix.lowercase()
-                if (seenWords.add(fixKey)) {
-                    wordCompletions.add(SuggestionItem(text = fix, isEmoji = false, isCorrection = true))
+            // --- PRIORITY 3: Typo / Spelling Correction ONLY if no prefix completions exist (e.g. "fot" -> "foot") ---
+            if (wordCompletions.isEmpty() && prefix.length >= 3) {
+                val typoCorrections = getTypoCorrections(prefix, isArabic, limit = 4)
+                for (fix in typoCorrections) {
+                    val fixKey = if (isArabic) normalizeArabic(fix) else fix.lowercase()
+                    if (seenWords.add(fixKey)) {
+                        val isFirstMatch = wordCompletions.isEmpty()
+                        wordCompletions.add(SuggestionItem(text = fix, isEmoji = false, isPrimary = isFirstMatch, isCorrection = true))
+                    }
                 }
             }
 

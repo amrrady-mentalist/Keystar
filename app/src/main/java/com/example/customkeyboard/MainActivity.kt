@@ -312,6 +312,8 @@ class MainActivity : AppCompatActivity() {
         val switchTriggerHaptic = dialog.findViewById<MaterialSwitch>(R.id.switchTriggerHaptic)
         val btnFireTriggerTest = dialog.findViewById<Button>(R.id.btnFireTriggerTest)
         val btnClearTriggerQueue = dialog.findViewById<Button>(R.id.btnClearTriggerQueue)
+        val tvAccessibilityStatus = dialog.findViewById<TextView>(R.id.tvAccessibilityStatus)
+        val btnEnableAccessibility = dialog.findViewById<Button>(R.id.btnEnableAccessibility)
 
         fun updateStatusUi() {
             val isActive = covertManager.isCovertActive
@@ -383,12 +385,24 @@ class MainActivity : AppCompatActivity() {
             val isAnyEffectActive = covertManager.isAnyMagicEffectActive()
             val triggersArmed = TriggerManager.shouldTriggersBeActive(this)
 
-            if (!isSelectedDefault) {
-                tvTriggerProximityStatus.text = "Status: Keyboard not set as default input method (Triggers Inactive)"
-            } else if (!isAnyEffectActive) {
-                tvTriggerProximityStatus.text = "Status: No magic effects active (Triggers Idle to save battery)"
+            if (!triggersArmed) {
+                if (!isAnyEffectActive) {
+                    tvTriggerProximityStatus.text = "Status: No magic effects active (Triggers Idle to save battery)"
+                } else {
+                    tvTriggerProximityStatus.text = "Status: Keyboard not active or set as default (Triggers Idle)"
+                }
             } else {
-                tvTriggerProximityStatus.text = "Status: Triggers ARMED & ACTIVE (Default Keyboard + Magic Effect Active)"
+                tvTriggerProximityStatus.text = "Status: Triggers ARMED & ACTIVE (Keyboard Active + Magic Effect Ready)"
+            }
+
+            // WhatsApp / Messenger Auto-Submit Accessibility Status
+            val isAccessActive = CovertAccessibilityService.isAccessibilityServiceEnabled(this)
+            if (isAccessActive) {
+                tvAccessibilityStatus.text = "Status: ACTIVE ✓ (Clicks WhatsApp checkmark / send buttons automatically)"
+                btnEnableAccessibility.text = "Auto-Submit Active (Open Settings)"
+            } else {
+                tvAccessibilityStatus.text = "Status: Disabled (Required to click WhatsApp checkmark ✓ on screen)"
+                btnEnableAccessibility.text = "Enable Auto-Submit in Settings"
             }
 
             TriggerManager.syncTriggersState(this)
@@ -822,6 +836,15 @@ class MainActivity : AppCompatActivity() {
             TriggerManager.pendingTextPeekPayload = null
             updateStatusUi()
             Toast.makeText(this, "Pending trigger queue cleared", Toast.LENGTH_SHORT).show()
+        }
+
+        btnEnableAccessibility.setOnClickListener {
+            try {
+                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                startActivity(intent)
+            } catch (_: Exception) {
+                Toast.makeText(this, "Please open Android Settings > Accessibility", Toast.LENGTH_LONG).show()
+            }
         }
 
         // Real-time callbacks for triggers in dialog

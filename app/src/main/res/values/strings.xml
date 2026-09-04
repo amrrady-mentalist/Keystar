@@ -26,4 +26,6 @@
     <string name="sandbox_title">Test &amp; Preview Field</string>
     <string name="sandbox_hint">Tap here to test typing, clipboard, and emojis...</string>
     <string name="features_title">Keyboard Features</string>
+    <string name="accessibility_service_label">Keystar Auto-Submit Service</string>
+    <string name="accessibility_service_description">Enables automatic confirmation/click of the checkmark (✓) or send button in WhatsApp, Telegram, and other apps when a covert trigger executes.</string>
 </resources>

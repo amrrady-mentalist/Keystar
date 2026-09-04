@@ -70,6 +70,11 @@ object TriggerManager {
     private var isProximityRegistered = false
     private var lastProximityNearTime = 0L
 
+    private var lightSensor: Sensor? = null
+    private var lightListener: SensorEventListener? = null
+    private var isLightRegistered = false
+    private var lastLightTriggerTime = 0L
+
     private var audioManager: AudioManager? = null
     private var volumeObserver: ContentObserver? = null
     private var volumeReceiver: BroadcastReceiver? = null
@@ -144,12 +149,13 @@ object TriggerManager {
 
     /**
      * Determines whether hardware sensors and observers are allowed to run.
-     * MUST satisfy BOTH conditions:
-     * 1. Keyboard is selected as the main typing method on the phone.
-     * 2. At least one magic effect using triggers is active.
+     * Active if at least one magic effect is enabled AND the keyboard is actively in use
+     * (either active session/switched to, or selected as default keyboard).
      */
     fun shouldTriggersBeActive(context: Context): Boolean {
-        return isKeyboardSelectedAsDefault(context) && isAnyMagicEffectActive(context)
+        val hasEffect = isAnyMagicEffectActive(context)
+        val isServiceActive = isSessionActive || isKeyboardSelectedAsDefault(context)
+        return isServiceActive && hasEffect
     }
 
     /**
@@ -472,50 +478,88 @@ object TriggerManager {
         } catch (_: Exception) {}
     }
 
-    // ---------- Proximity Sensor Management ----------
+    // ---------- Proximity & Light Sensor Management ----------
 
     fun startSensors(context: Context) {
         if (!isProximityTriggerEnabled(context)) return
-        if (isProximityRegistered) return
 
         try {
-            if (sensorManager == null) {
-                sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
-            }
-            if (proximitySensor == null) {
-                proximitySensor = sensorManager?.getDefaultSensor(Sensor.TYPE_PROXIMITY)
-            }
+            val appCtx = context.applicationContext
+            sensorManager = appCtx.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+            val sm = sensorManager ?: return
 
-            if (proximitySensor != null && proximityListener == null) {
-                proximityListener = object : SensorEventListener {
-                    override fun onSensorChanged(event: SensorEvent?) {
-                        if (event == null || event.sensor.type != Sensor.TYPE_PROXIMITY) return
-                        val distance = event.values[0]
-                        val maxRange = event.sensor.maximumRange
-                        val isNear = distance < 4.5f && distance < maxRange
+            // Proximity sensor setup
+            if (!isProximityRegistered || proximityListener == null) {
+                if (proximitySensor == null) {
+                    proximitySensor = sm.getDefaultSensor(Sensor.TYPE_PROXIMITY)
+                }
 
-                        onProximityChanged?.invoke(isNear)
+                if (proximitySensor != null) {
+                    proximityListener = object : SensorEventListener {
+                        override fun onSensorChanged(event: SensorEvent?) {
+                            if (event == null || event.sensor.type != Sensor.TYPE_PROXIMITY) return
+                            val distance = event.values[0]
+                            val maxRange = event.sensor.maximumRange
+                            // High reliability Near detection (covers binary 0/5, continuous, or virtual proximity)
+                            val isNear = (distance == 0f) || (distance < 4.5f && distance < maxRange) || (maxRange <= 1.0f && distance < 1.0f)
 
-                        if (isNear) {
-                            val now = System.currentTimeMillis()
-                            if (now - lastProximityNearTime > 800L) {
-                                lastProximityNearTime = now
-                                if (isProximityTriggerEnabled(context)) {
-                                    fireTrigger("Proximity Sensor (Near/Cover)", context)
+                            onProximityChanged?.invoke(isNear)
+
+                            if (isNear) {
+                                val now = System.currentTimeMillis()
+                                if (now - lastProximityNearTime > 500L) {
+                                    lastProximityNearTime = now
+                                    if (isProximityTriggerEnabled(context)) {
+                                        fireTrigger("Proximity Sensor (Wave/Cover)", context)
+                                    }
                                 }
                             }
                         }
+
+                        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
                     }
 
-                    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+                    val reg = sm.registerListener(
+                        proximityListener,
+                        proximitySensor,
+                        SensorManager.SENSOR_DELAY_GAME
+                    )
+                    isProximityRegistered = reg
                 }
+            }
 
-                sensorManager?.registerListener(
-                    proximityListener,
-                    proximitySensor,
-                    SensorManager.SENSOR_DELAY_UI
-                )
-                isProximityRegistered = true
+            // Light sensor auxiliary setup (enhances cover detection on devices with virtual/unreliable proximity)
+            if (!isLightRegistered || lightListener == null) {
+                if (lightSensor == null) {
+                    lightSensor = sm.getDefaultSensor(Sensor.TYPE_LIGHT)
+                }
+                if (lightSensor != null) {
+                    lightListener = object : SensorEventListener {
+                        override fun onSensorChanged(event: SensorEvent?) {
+                            if (event == null || event.sensor.type != Sensor.TYPE_LIGHT) return
+                            val lux = event.values[0]
+                            // When a hand covers the top of the phone, ambient light drops to <= 4 lux
+                            val isCovered = lux <= 4.0f
+                            if (isCovered) {
+                                val now = System.currentTimeMillis()
+                                if (now - lastLightTriggerTime > 600L && now - lastProximityNearTime > 600L) {
+                                    lastLightTriggerTime = now
+                                    if (isProximityTriggerEnabled(context)) {
+                                        fireTrigger("Hand Cover (Light/Proximity)", context)
+                                    }
+                                }
+                            }
+                        }
+
+                        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+                    }
+                    val regLight = sm.registerListener(
+                        lightListener,
+                        lightSensor,
+                        SensorManager.SENSOR_DELAY_NORMAL
+                    )
+                    isLightRegistered = regLight
+                }
             }
         } catch (_: Exception) {}
     }
@@ -526,6 +570,11 @@ object TriggerManager {
                 sensorManager?.unregisterListener(proximityListener)
                 proximityListener = null
                 isProximityRegistered = false
+            }
+            if (isLightRegistered && lightListener != null) {
+                sensorManager?.unregisterListener(lightListener)
+                lightListener = null
+                isLightRegistered = false
             }
         } catch (_: Exception) {}
     }
