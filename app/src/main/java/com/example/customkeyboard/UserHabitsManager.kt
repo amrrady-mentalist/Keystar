@@ -12,17 +12,19 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.min
 
 /**
- * Learns user's writing habits and vocabulary dynamically:
- * 1. Word frequency (how often words are typed or chosen from suggestions)
- * 2. Bigram transitions (which words the user typically writes next)
- * 3. Recent words & user-added custom words
- * 4. Asynchronously persists habits to local SharedPreferences
+ * Learns user's writing habits and vocabulary dynamically (Layer 4 - Personal Learning):
+ * 1. Word frequency (how often words are typed or chosen from suggestions, preserving display casing)
+ * 2. Bigram transitions (which words the user typically writes next, e.g. "good" -> "morning", "Amr" -> "Rady")
+ * 3. Trigram transitions (3-word patterns, e.g. "I am" -> "going", "am going" -> "to")
+ * 4. Recent words & user-added custom words
+ * 5. Asynchronously persists habits to local SharedPreferences
  */
 object UserHabitsManager {
     private const val TAG = "UserHabitsManager"
     private const val PREFS_NAME = "user_writing_habits"
     private const val KEY_WORD_FREQS = "word_freqs_v1"
     private const val KEY_BIGRAMS = "bigrams_v1"
+    private const val KEY_TRIGRAMS = "trigrams_v1"
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var prefs: SharedPreferences? = null
@@ -33,6 +35,8 @@ object UserHabitsManager {
     private val wordDisplayCasing = ConcurrentHashMap<String, String>()
     // Bigram transitions: previousWord.lowercase() -> Map<nextWord.lowercase(), count>
     private val bigramTransitions = ConcurrentHashMap<String, ConcurrentHashMap<String, Int>>()
+    // Trigram transitions: "${prevPrev.lowercase()} ${prev.lowercase()}" -> Map<nextWord.lowercase(), count>
+    private val trigramTransitions = ConcurrentHashMap<String, ConcurrentHashMap<String, Int>>()
 
     private var isInitialized = false
     @Volatile
@@ -87,33 +91,61 @@ object UserHabitsManager {
                     bigramTransitions[prev.lowercase()] = map
                 }
             }
-            Log.d(TAG, "Loaded user habits: ${wordFrequencies.size} words, ${bigramTransitions.size} transitions.")
+
+            val trigramsJson = p.getString(KEY_TRIGRAMS, null)
+            if (!trigramsJson.isNullOrEmpty()) {
+                val json = JSONObject(trigramsJson)
+                val keys = json.keys()
+                while (keys.hasNext()) {
+                    val contextKey = keys.next()
+                    val innerObj = json.optJSONObject(contextKey) ?: continue
+                    val map = ConcurrentHashMap<String, Int>()
+                    val innerKeys = innerObj.keys()
+                    while (innerKeys.hasNext()) {
+                        val nextWord = innerKeys.next()
+                        map[nextWord] = innerObj.optInt(nextWord, 1)
+                    }
+                    trigramTransitions[contextKey.lowercase()] = map
+                }
+            }
+
+            Log.d(TAG, "Loaded user habits: ${wordFrequencies.size} words, ${bigramTransitions.size} bigrams, ${trigramTransitions.size} trigrams.")
         } catch (e: Exception) {
             Log.w(TAG, "Error loading user habits", e)
         }
     }
 
-    fun recordWord(word: String, prevWord: String? = null) {
+    /**
+     * Records a word typed by the user, along with the immediate previous word (prevWord)
+     * and the two-words-back word (prevPrevWord) for personal unigram, bigram, and trigram learning.
+     */
+    fun recordWord(word: String, prevWord: String? = null, prevPrevWord: String? = null) {
         val trimmed = word.trim()
         if (trimmed.length < 2) return
         val lower = trimmed.lowercase()
 
-        // 1. Increment frequency
+        // 1. Increment frequency & preserve casing
         val currentCount = wordFrequencies[lower] ?: 0
         wordFrequencies[lower] = currentCount + 1
 
-        // Store preferred display casing
         if (trimmed != lower || !wordDisplayCasing.containsKey(lower)) {
             wordDisplayCasing[lower] = trimmed
         }
 
-        // 2. Track bigram transition from previous word
-        if (!prevWord.isNullOrBlank()) {
-            val prevLower = prevWord.trim().lowercase()
-            if (prevLower.length >= 2 && prevLower != lower) {
-                val nextMap = bigramTransitions.getOrPut(prevLower) { ConcurrentHashMap() }
-                val transCount = nextMap[lower] ?: 0
-                nextMap[lower] = transCount + 1
+        // 2. Track bigram transition: prevWord -> word
+        val p1 = prevWord?.trim()?.lowercase()
+        if (!p1.isNullOrEmpty() && p1.length >= 2 && p1 != lower) {
+            val nextMap = bigramTransitions.getOrPut(p1) { ConcurrentHashMap() }
+            val transCount = nextMap[lower] ?: 0
+            nextMap[lower] = transCount + 1
+
+            // 3. Track trigram transition: (prevPrevWord + " " + prevWord) -> word
+            val p2 = prevPrevWord?.trim()?.lowercase()
+            if (!p2.isNullOrEmpty() && p2.length >= 2) {
+                val trigramKey = "$p2 $p1"
+                val triMap = trigramTransitions.getOrPut(trigramKey) { ConcurrentHashMap() }
+                val triCount = triMap[lower] ?: 0
+                triMap[lower] = triCount + 1
             }
         }
 
@@ -136,11 +168,12 @@ object UserHabitsManager {
         if (!isDirty) return
         try {
             val p = prefs ?: return
+
+            // 1. Word Frequencies (top 1500)
             val freqsJson = JSONObject()
-            // Keep top 1200 most used words to avoid unbounded storage
             val topWords = wordFrequencies.entries
                 .sortedByDescending { it.value }
-                .take(1200)
+                .take(1500)
 
             for (entry in topWords) {
                 val item = JSONObject()
@@ -149,23 +182,38 @@ object UserHabitsManager {
                 freqsJson.put(entry.key, item)
             }
 
+            // 2. Bigrams (top 400)
             val bigramsJson = JSONObject()
-            // Keep top 350 transitions
             val topBigrams = bigramTransitions.entries
                 .sortedByDescending { it.value.values.sum() }
-                .take(350)
+                .take(400)
 
             for (entry in topBigrams) {
                 val inner = JSONObject()
-                entry.value.entries.sortedByDescending { it.value }.take(12).forEach {
+                entry.value.entries.sortedByDescending { it.value }.take(15).forEach {
                     inner.put(it.key, it.value)
                 }
                 bigramsJson.put(entry.key, inner)
             }
 
+            // 3. Trigrams (top 300)
+            val trigramsJson = JSONObject()
+            val topTrigrams = trigramTransitions.entries
+                .sortedByDescending { it.value.values.sum() }
+                .take(300)
+
+            for (entry in topTrigrams) {
+                val inner = JSONObject()
+                entry.value.entries.sortedByDescending { it.value }.take(10).forEach {
+                    inner.put(it.key, it.value)
+                }
+                trigramsJson.put(entry.key, inner)
+            }
+
             p.edit()
                 .putString(KEY_WORD_FREQS, freqsJson.toString())
                 .putString(KEY_BIGRAMS, bigramsJson.toString())
+                .putString(KEY_TRIGRAMS, trigramsJson.toString())
                 .apply()
             isDirty = false
         } catch (e: Exception) {
@@ -191,25 +239,56 @@ object UserHabitsManager {
     }
 
     /**
-     * Learned next words following prevWord based on user's personal habits.
+     * Learned next words following prevWord and prevPrevWord, prioritizing trigrams over bigrams.
      */
-    fun getLearnedNextWords(prevWord: String, limit: Int = 4): List<String> {
-        val prevLower = prevWord.trim().lowercase()
-        if (prevLower.isEmpty()) return emptyList()
+    fun getLearnedNextWords(prevWord: String, prevPrevWord: String? = null, limit: Int = 6): List<String> {
+        val p1 = prevWord.trim().lowercase()
+        if (p1.isEmpty()) return emptyList()
 
-        val nextMap = bigramTransitions[prevLower] ?: return emptyList()
-        return nextMap.entries
-            .sortedByDescending { it.value }
-            .take(limit)
-            .map { entry ->
-                wordDisplayCasing[entry.key] ?: entry.key
+        val results = LinkedHashSet<String>()
+
+        // 1. Trigram matches first (e.g. "I am" -> "going", "good" + "morning" -> "everyone")
+        if (!prevPrevWord.isNullOrBlank()) {
+            val p2 = prevPrevWord.trim().lowercase()
+            val triKey = "$p2 $p1"
+            trigramTransitions[triKey]?.let { triMap ->
+                triMap.entries.sortedByDescending { it.value }.forEach {
+                    val display = wordDisplayCasing[it.key] ?: it.key
+                    results.add(display)
+                }
             }
+        }
+
+        // 2. Bigram matches second (e.g. "good" -> "morning", "Amr" -> "Rady")
+        bigramTransitions[p1]?.let { biMap ->
+            biMap.entries.sortedByDescending { it.value }.forEach {
+                val display = wordDisplayCasing[it.key] ?: it.key
+                results.add(display)
+            }
+        }
+
+        return results.take(limit).toList()
+    }
+
+    fun getBigramScore(prevWord: String, nextWord: String): Int {
+        val p1 = prevWord.trim().lowercase()
+        val nw = nextWord.trim().lowercase()
+        if (p1.isEmpty() || nw.isEmpty()) return 0
+        return bigramTransitions[p1]?.get(nw) ?: 0
+    }
+
+    fun getTrigramScore(prevPrevWord: String, prevWord: String, nextWord: String): Int {
+        val p2 = prevPrevWord.trim().lowercase()
+        val p1 = prevWord.trim().lowercase()
+        val nw = nextWord.trim().lowercase()
+        if (p2.isEmpty() || p1.isEmpty() || nw.isEmpty()) return 0
+        return trigramTransitions["$p2 $p1"]?.get(nw) ?: 0
     }
 
     /**
      * Top most frequently used words overall.
      */
-    fun getTopLearnedWords(limit: Int = 6): List<String> {
+    fun getTopLearnedWords(limit: Int = 8): List<String> {
         return wordFrequencies.entries
             .sortedByDescending { it.value }
             .take(limit)

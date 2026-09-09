@@ -375,19 +375,34 @@ class CustomKeyboardService : InputMethodService() {
         return c.isLetterOrDigit() || c == '\'' || c == '’' || c == '-' || (c in '\u0600'..'\u06FF')
     }
 
-    private fun getActiveTypingContext(): Pair<String, String> {
-        val textBefore = currentInputConnection?.getTextBeforeCursor(80, 0)?.toString() ?: ""
+    class TypingContext(
+        val currentWord: String,
+        val previousWords: List<String>
+    ) {
+        operator fun component1(): String = currentWord
+        operator fun component2(): String = previousWords.firstOrNull() ?: ""
+        val prev1: String get() = previousWords.getOrNull(0) ?: ""
+        val prev2: String get() = previousWords.getOrNull(1) ?: ""
+        val prev3: String get() = previousWords.getOrNull(2) ?: ""
+    }
+
+    private fun getActiveTypingContext(): TypingContext {
+        val textBefore = currentInputConnection?.getTextBeforeCursor(120, 0)?.toString() ?: ""
         if (textBefore.isEmpty()) {
-            return Pair(wordBuffer.toString(), lastCommittedWord)
+            val prevs = if (lastCommittedWord.isNotEmpty()) listOf(lastCommittedWord) else emptyList()
+            return TypingContext(wordBuffer.toString(), prevs)
         }
         val lastChar = textBefore.last()
         if (lastChar.isWhitespace() || !isWordCharacter(lastChar)) {
-            // Space or punctuation -> current word is empty, extract previous word
+            // Space or punctuation -> current word is empty, extract previous 2-3 words
             val words = textBefore.trim().split(Regex("[\\s\\p{Punct}]+")).filter { it.isNotEmpty() }
-            val prev = words.lastOrNull() ?: lastCommittedWord
-            return Pair("", prev)
+            val prevs = words.takeLast(3).reversed().toMutableList()
+            if (prevs.isEmpty() && lastCommittedWord.isNotEmpty()) {
+                prevs.add(lastCommittedWord)
+            }
+            return TypingContext("", prevs)
         } else {
-            // Typing in-progress word -> extract active word prefix and preceding word
+            // Typing in-progress word -> extract active word prefix and preceding 2-3 words
             var i = textBefore.length - 1
             while (i >= 0 && isWordCharacter(textBefore[i])) {
                 i--
@@ -395,8 +410,11 @@ class CustomKeyboardService : InputMethodService() {
             val activeWord = textBefore.substring(i + 1)
             val beforeActive = textBefore.substring(0, i + 1).trim()
             val words = beforeActive.split(Regex("[\\s\\p{Punct}]+")).filter { it.isNotEmpty() }
-            val prev = words.lastOrNull() ?: lastCommittedWord
-            return Pair(activeWord, prev)
+            val prevs = words.takeLast(3).reversed().toMutableList()
+            if (prevs.isEmpty() && lastCommittedWord.isNotEmpty()) {
+                prevs.add(lastCommittedWord)
+            }
+            return TypingContext(activeWord, prevs)
         }
     }
 
@@ -411,9 +429,9 @@ class CustomKeyboardService : InputMethodService() {
         }
 
         val isArabic = currentLang == Lang.AR
-        val (currentWord, prevWord) = getActiveTypingContext()
+        val typingContext = getActiveTypingContext()
         val contextualSuggestions = if (currentMode == Mode.LETTERS) {
-            Dictionary.getContextualSuggestions(currentWord, prevWord, isArabic, limit = 16)
+            Dictionary.getContextualSuggestions(typingContext.currentWord, typingContext.previousWords, isArabic, limit = 16)
         } else emptyList()
 
         when {
@@ -649,10 +667,10 @@ class CustomKeyboardService : InputMethodService() {
             }
             if (resting != null) background = resting
             applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP) {
-                val (activeWord, prev) = getActiveTypingContext()
-                Dictionary.recordUsedWord(item.text, prev)
+                val ctx = getActiveTypingContext()
+                Dictionary.recordUsedWord(item.text, ctx.prev1, ctx.prev2)
                 lastCommittedWord = item.text
-                val lengthToDelete = if (activeWord.isNotEmpty()) activeWord.length else wordBuffer.length
+                val lengthToDelete = if (ctx.currentWord.isNotEmpty()) ctx.currentWord.length else wordBuffer.length
                 if (lengthToDelete > 0) {
                     currentInputConnection?.deleteSurroundingText(lengthToDelete, 0)
                 }
@@ -2696,13 +2714,13 @@ class CustomKeyboardService : InputMethodService() {
     // Word boundaries no longer silently rewrite what was typed - suggestions are only ever
     // applied when the user explicitly taps a suggestion chip in the top bar.
     private fun commitPunctuationOrSpace(boundary: String) {
-        val (activeWord, prev) = getActiveTypingContext()
-        if (activeWord.isNotEmpty()) {
-            Dictionary.recordUsedWord(activeWord, prev)
-            lastCommittedWord = activeWord
+        val ctx = getActiveTypingContext()
+        if (ctx.currentWord.isNotEmpty()) {
+            Dictionary.recordUsedWord(ctx.currentWord, ctx.prev1, ctx.prev2)
+            lastCommittedWord = ctx.currentWord
         } else if (wordBuffer.isNotEmpty()) {
             val typed = wordBuffer.toString().trim()
-            Dictionary.recordUsedWord(typed, lastCommittedWord)
+            Dictionary.recordUsedWord(typed, ctx.prev1, ctx.prev2)
             lastCommittedWord = typed
         } else {
             val textBefore = currentInputConnection?.getTextBeforeCursor(40, 0)?.toString()?.trim() ?: ""

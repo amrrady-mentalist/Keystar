@@ -830,13 +830,72 @@ object Dictionary {
         return false
     }
 
-    // Built-in next-word predictions (Bigrams)
+    // Built-in next-word predictions (Bigrams and Multi-Word Trigrams / Phrases)
     private val builtInNextWords = mapOf(
+        // Multi-word trigram / 4-gram heads
+        "i am going" to listOf("to", "home", "there", "out", "back"),
+        "am going" to listOf("to", "home", "there", "out", "back", "in"),
+        "can you please" to listOf("help", "send", "check", "call", "let", "give"),
+        "you please" to listOf("help", "send", "check", "call", "let", "give"),
+        "how are you" to listOf("doing", "today", "feeling"),
+        "are you" to listOf("ready", "sure", "okay", "going", "there", "doing", "free"),
+        "good morning" to listOf("everyone", "to", "all", "how", "have"),
+        "good night" to listOf("and", "sleep", "sweet", "everyone"),
+        "thank you for" to listOf("the", "your", "everything", "all", "being"),
+        "thank you so" to listOf("much"),
+        "thank you" to listOf("so", "very", "for", "all"),
+        "let me know" to listOf("if", "when", "what", "how"),
+        "me know" to listOf("if", "when", "what", "how"),
+        "i want to" to listOf("know", "see", "go", "be", "do", "get", "thank", "tell"),
+        "want to" to listOf("know", "see", "go", "be", "do", "get", "thank"),
+        "looking forward to" to listOf("seeing", "hearing", "meeting", "working"),
+        "forward to" to listOf("seeing", "hearing", "meeting", "working"),
+        "one of the" to listOf("best", "most", "biggest", "first", "main"),
+        "of the" to listOf("best", "most", "day", "world", "year", "time"),
+        "as soon as" to listOf("possible", "you", "we", "I"),
+        "have a good" to listOf("day", "time", "night", "weekend", "one"),
+        "a good" to listOf("day", "time", "idea", "friend", "job", "one"),
+        "nice to meet" to listOf("you"),
+        "to meet" to listOf("you"),
+        "what do you" to listOf("think", "mean", "want", "do", "say"),
+        "do you think" to listOf("that", "it", "so", "we", "you"),
+        "do you" to listOf("know", "want", "have", "think", "need", "like", "see"),
+        "i will be" to listOf("there", "back", "happy", "able"),
+        "will be" to listOf("there", "back", "happy", "able", "great"),
+        "it is a" to listOf("good", "great", "very", "nice", "pleasure"),
+        "is a" to listOf("good", "great", "very", "little", "big", "new"),
+        "would like to" to listOf("thank", "know", "see", "say", "invite"),
+        "i would like" to listOf("to", "a"),
+        "give me a" to listOf("call", "minute", "hand", "chance", "break"),
+
+        // Arabic multi-word trigrams
+        "السلام عليكم" to listOf("ورحمة", "ورحمة الله", "يا"),
+        "ورحمة الله" to listOf("وبركاته"),
+        "إن شاء الله" to listOf("خير", "تمام", "تكون", "أشوفك", "قريبا"),
+        "ان شاء الله" to listOf("خير", "تمام", "تكون", "أشوفك", "قريبا"),
+        "شاء الله" to listOf("خير", "تمام", "تكون", "أشوفك"),
+        "الحمد لله" to listOf("على", "دائما", "كثيرا", "رب", "تمام"),
+        "صباح الخير" to listOf("يا", "عليك", "حبيبي", "يا غالي"),
+        "مساء الخير" to listOf("يا", "عليك", "حبيبي"),
+        "كل سنة وانت" to listOf("طيب", "بخير", "سالم"),
+        "سنة وانت" to listOf("طيب", "بخير"),
+        "كل عام وانتم" to listOf("بخير", "بصحة"),
+        "عام وانتم" to listOf("بخير"),
+        "جزاك الله" to listOf("خيرا", "كل", "ألف"),
+        "شكرا جزيلا" to listOf("لك", "يا", "على", "أخي"),
+        "من فضلك" to listOf("ممكن", "عايز", "لو", "أحتاج"),
+        "عامل ايه" to listOf("يا", "النهاردة", "في", "أخبارك"),
+        "ألف مبروك" to listOf("يا", "حبيبي", "عليك"),
+        "وحشتني جدا" to listOf("يا", "والله"),
+        "بحبك جدا" to listOf("يا", "وربنا"),
+
+        // Standard Bigrams
         "foot" to listOf("ball", "prints", "step", "wear", "and", "it", "traffic", "note"),
-        "feet" to listOf("and", "on", "off", "high", "deep", "tall"),
+        "feet" to listOf("tall", "away", "above", "below", "long", "wide", "and", "off", "high"),
         "food" to listOf("and", "is", "delivery", "store", "court", "truck", "safety"),
         "football" to listOf("game", "match", "player", "club", "team", "season"),
         "test" to listOf("results", "flight", "case", "drive", "tube", "run", "it", "out"),
+        "testing" to listOf("and", "the", "is", "phase", "process", "framework", "new", "methods"),
         "let" to listOf("us", "me", "go", "it", "know", "them", "him", "her"),
         "let's" to listOf("go", "do", "see", "meet", "talk", "start", "get", "try", "make"),
         "sad" to listOf("to", "that", "and", "about", "day", "news", "story"),
@@ -866,12 +925,16 @@ object Dictionary {
         "my" to listOf("friend", "love", "phone", "car", "name", "life", "dear"),
         "your" to listOf("name", "phone", "time", "help", "order", "place"),
         "fire" to listOf("alarm", "department", "truck", "station", "hazard"),
+        "please" to listOf("help", "send", "check", "call", "let", "give", "tell"),
+
         // Arabic Bigrams
+        "السلام" to listOf("عليكم", "ورحمة", "والأمان"),
         "صباح" to listOf("الخير", "الورد", "النور", "الفل", "الجمال"),
         "مساء" to listOf("الخير", "النور", "الورد", "الفل", "الجمال"),
         "شكرا" to listOf("جزيلا", "لك", "يا", "جدا", "كتير", "حبيبي"),
         "الحمد" to listOf("لله", "والشكر لله"),
         "ان" to listOf("شاء الله", "كنت", "لم", "كان"),
+        "إن" to listOf("شاء الله", "كنت", "لم", "كان"),
         "عامل" to listOf("ايه", "اي", "تمام", "شغل"),
         "ازيك" to listOf("يا", "عامل ايه", "اخبارك"),
         "تمام" to listOf("جدا", "الحمد لله", "يا باشا", "كده"),
@@ -879,57 +942,187 @@ object Dictionary {
         "انت" to listOf("فين", "عامل ايه", "وحشني", "صح", "جميل"),
         "هو" to listOf("فين", "كان", "قال", "رايح"),
         "هي" to listOf("فين", "كانت", "قالت", "رايحة"),
-        "كل" to listOf("سنة وانت طيب", "يوم", "حاجة", "مرة", "واحد"),
+        "كل" to listOf("سنة", "عام", "يوم", "حاجة", "مرة", "واحد"),
         "في" to listOf("البيت", "الشغل", "الطريق", "مصر", "كل مكان"),
         "مع" to listOf("السلامة", "ألف سلامة", "بعض", "حبيبي")
     )
 
     /**
-     * Next-word prediction (Bigrams) for the given preceding word (Priority 2).
+     * Keyboard-aware distance & proximity evaluator (Layer 2 - Real Spelling Correction).
+     * Calculates Euclidean distance on physical keyboard layouts so fat-fingered neighbors
+     * (e.g., 'i' and 'o' in "giod" -> "good") score drastically higher than unrelated letters.
      */
-    fun getNextWords(previousWord: String, isArabic: Boolean, limit: Int = 8): List<String> {
-        val clean = previousWord.trim().lowercase()
-        if (clean.isEmpty()) return emptyList()
-        val norm = if (isArabic) normalizeArabic(clean) else clean
+    object KeyboardDistance {
+        private val qwertyCoords = mapOf(
+            'q' to Pair(0f, 0f), 'w' to Pair(1f, 0f), 'e' to Pair(2f, 0f), 'r' to Pair(3f, 0f), 't' to Pair(4f, 0f),
+            'y' to Pair(5f, 0f), 'u' to Pair(6f, 0f), 'i' to Pair(7f, 0f), 'o' to Pair(8f, 0f), 'p' to Pair(9f, 0f),
+            'a' to Pair(0.5f, 1f), 's' to Pair(1.5f, 1f), 'd' to Pair(2.5f, 1f), 'f' to Pair(3.5f, 1f), 'g' to Pair(4.5f, 1f),
+            'h' to Pair(5.5f, 1f), 'j' to Pair(6.5f, 1f), 'k' to Pair(7.5f, 1f), 'l' to Pair(8.5f, 1f),
+            'z' to Pair(1f, 2f), 'x' to Pair(2f, 2f), 'c' to Pair(3f, 2f), 'v' to Pair(4f, 2f), 'b' to Pair(5f, 2f),
+            'n' to Pair(6f, 2f), 'm' to Pair(7f, 2f)
+        )
+
+        private val arabicCoords = mapOf(
+            'ض' to Pair(0f, 0f), 'ص' to Pair(1f, 0f), 'ث' to Pair(2f, 0f), 'ق' to Pair(3f, 0f), 'ف' to Pair(4f, 0f),
+            'غ' to Pair(5f, 0f), 'ع' to Pair(6f, 0f), 'ه' to Pair(7f, 0f), 'خ' to Pair(8f, 0f), 'ح' to Pair(9f, 0f), 'ج' to Pair(10f, 0f), 'د' to Pair(11f, 0f),
+            'ش' to Pair(0.5f, 1f), 'س' to Pair(1.5f, 1f), 'ي' to Pair(2.5f, 1f), 'ب' to Pair(3.5f, 1f), 'ل' to Pair(4.5f, 1f),
+            'ا' to Pair(5.5f, 1f), 'ت' to Pair(6.5f, 1f), 'ن' to Pair(7.5f, 1f), 'م' to Pair(8.5f, 1f), 'ك' to Pair(9.5f, 1f), 'ط' to Pair(10.5f, 1f),
+            'ئ' to Pair(1f, 2f), 'ء' to Pair(2f, 2f), 'ؤ' to Pair(3f, 2f), 'ر' to Pair(4f, 2f),
+            'ى' to Pair(5.5f, 2f), 'ة' to Pair(6.5f, 2f), 'و' to Pair(7.5f, 2f), 'ز' to Pair(8.5f, 2f), 'ظ' to Pair(9.5f, 2f)
+        )
+
+        private val vowels = setOf('a', 'e', 'i', 'o', 'u')
+
+        fun substitutionCost(c1: Char, c2: Char, isArabic: Boolean): Float {
+            if (c1 == c2) return 0.0f
+
+            if (isArabic) {
+                if ((c1 in "أإآا" && c2 in "أإآا") || (c1 in "يى" && c2 in "يى") || (c1 in "ةه" && c2 in "ةه")) {
+                    return 0.15f
+                }
+                val p1 = arabicCoords[c1]
+                val p2 = arabicCoords[c2]
+                if (p1 != null && p2 != null) {
+                    val dx = p1.first - p2.first
+                    val dy = p1.second - p2.second
+                    val dist = kotlin.math.sqrt(dx * dx + dy * dy)
+                    if (dist <= 1.25f) return 0.5f
+                    if (dist <= 2.2f) return 0.85f
+                }
+                return 1.35f
+            }
+
+            // English QWERTY
+            val p1 = qwertyCoords[c1]
+            val p2 = qwertyCoords[c2]
+            if (p1 != null && p2 != null) {
+                val dx = p1.first - p2.first
+                val dy = p1.second - p2.second
+                val dist = kotlin.math.sqrt(dx * dx + dy * dy)
+                if (dist <= 1.25f) return 0.45f // Direct adjacent neighbor key (e.g. i and o in giod -> good)
+                if (dist <= 2.2f) return 0.85f // Near neighbor key
+            }
+
+            // Vowel swap bonus (e.g. definately <-> definitely)
+            if (c1 in vowels && c2 in vowels) return 0.60f
+
+            return 1.35f
+        }
+
+        /**
+         * Damerau-Levenshtein distance with keyboard proximity weights and adjacent character transposition.
+         */
+        fun distance(s1: String, s2: String, isArabic: Boolean): Float {
+            val l1 = s1.length
+            val l2 = s2.length
+            if (l1 == 0) return l2 * 0.85f
+            if (l2 == 0) return l1 * 0.85f
+
+            val dp = Array(l1 + 1) { FloatArray(l2 + 1) }
+            for (i in 0..l1) dp[i][0] = i * 0.85f
+            for (j in 0..l2) dp[0][j] = j * 0.85f
+
+            for (i in 1..l1) {
+                val c1 = s1[i - 1]
+                for (j in 1..l2) {
+                    val c2 = s2[j - 1]
+                    val subCost = substitutionCost(c1, c2, isArabic)
+                    var minCost = minOf(
+                        dp[i - 1][j] + 0.85f, // deletion
+                        dp[i][j - 1] + 0.85f, // insertion
+                        dp[i - 1][j - 1] + subCost // match or substitution
+                    )
+
+                    // Transposition (e.g. becuase -> because, recieve -> receive, teh -> the)
+                    if (i > 1 && j > 1 && s1[i - 1] == s2[j - 2] && s1[i - 2] == s2[j - 1]) {
+                        minCost = minOf(minCost, dp[i - 2][j - 2] + 0.65f)
+                    }
+
+                    dp[i][j] = minCost
+                }
+            }
+            return dp[l1][l2]
+        }
+    }
+
+    /**
+     * Next-word prediction utilizing the last 2-3 words (Layer 3 - Much Smarter Next-Word Prediction).
+     */
+    fun getNextWords(previousWords: List<String>, isArabic: Boolean, limit: Int = 8): List<String> {
+        val words = previousWords.map { it.trim() }.filter { it.isNotEmpty() }
+        if (words.isEmpty()) return emptyList()
 
         val results = LinkedHashSet<String>()
 
-        // 0. User's personal learned next words
-        val userLearned = UserHabitsManager.getLearnedNextWords(clean, limit = 4)
+        val p1 = words.getOrNull(0)?.lowercase() ?: ""
+        val p2 = words.getOrNull(1)?.lowercase() ?: ""
+        val p3 = words.getOrNull(2)?.lowercase() ?: ""
+
+        // 1. Check User Habits learned trigrams and bigrams first (Layer 4)
+        val userLearned = UserHabitsManager.getLearnedNextWords(p1, p2, limit = 6)
         results.addAll(userLearned)
 
-        // 1. High-precision contextual bigrams
-        builtInNextWords[clean]?.let { results.addAll(it) }
-        builtInNextWords[norm]?.let { results.addAll(it) }
+        // 2. Check 3-word phrase context (e.g. "i am going" -> "to", "home", "there")
+        if (p3.isNotEmpty() && p2.isNotEmpty() && p1.isNotEmpty()) {
+            val phrase3 = "$p3 $p2 $p1"
+            val norm3 = if (isArabic) normalizeArabic(phrase3) else phrase3
+            builtInNextWords[phrase3]?.let { results.addAll(it) }
+            builtInNextWords[norm3]?.let { results.addAll(it) }
+            nextWordsMap[phrase3]?.let { results.addAll(it) }
+            nextWordsMap[norm3]?.let { results.addAll(it) }
+        }
 
-        // 2. Ingested bigram map from assets
-        nextWordsMap[clean]?.let { results.addAll(it) }
-        nextWordsMap[norm]?.let { results.addAll(it) }
+        // 3. Check 2-word phrase context (e.g. "am going" -> "to", "good morning" -> "everyone")
+        if (p2.isNotEmpty() && p1.isNotEmpty()) {
+            val phrase2 = "$p2 $p1"
+            val norm2 = if (isArabic) normalizeArabic(phrase2) else phrase2
+            builtInNextWords[phrase2]?.let { results.addAll(it) }
+            builtInNextWords[norm2]?.let { results.addAll(it) }
+            nextWordsMap[phrase2]?.let { results.addAll(it) }
+            nextWordsMap[norm2]?.let { results.addAll(it) }
+        }
 
-        // 3. Defaults
+        // 4. Single preceding word bigrams
+        if (p1.isNotEmpty()) {
+            val norm1 = if (isArabic) normalizeArabic(p1) else p1
+            builtInNextWords[p1]?.let { results.addAll(it) }
+            builtInNextWords[norm1]?.let { results.addAll(it) }
+            nextWordsMap[p1]?.let { results.addAll(it) }
+            nextWordsMap[norm1]?.let { results.addAll(it) }
+        }
+
+        // Fallback defaults
         if (results.isEmpty()) {
             if (isArabic) {
                 results.addAll(listOf("في", "من", "على", "يا", "تمام", "جدا", "كتير", "معاك", "إن شاء الله", "الحمد لله"))
             } else {
-                results.addAll(listOf("and", "it", "the", "to", "is", "for", "you", "in", "with", "that"))
+                results.addAll(listOf("to", "the", "and", "it", "is", "for", "you", "in", "with", "that"))
             }
         }
 
         return results.take(limit).toList()
     }
 
+    fun getNextWords(previousWord: String, isArabic: Boolean, limit: Int = 8): List<String> {
+        val list = if (previousWord.isNotBlank()) listOf(previousWord.trim()) else emptyList()
+        return getNextWords(list, isArabic, limit)
+    }
+
     /**
-     * Computes typo spell corrections using Damerau-Levenshtein distance, phonetic & vowel heuristics (Priority 3).
+     * Real spelling correction with keyboard-aware distance (Layer 2 - Real Spelling Correction).
+     * Evaluates candidates using KeyboardDistance so fat-finger substitutions (e.g. "giod" -> "good"),
+     * transpositions ("becuase" -> "because", "recieve" -> "receive", "teh" -> "the"),
+     * vowel swaps ("definately" -> "definitely"), and missing characters ("goverment" -> "government")
+     * are accurately corrected even when not explicitly listed in overrides.
      */
     fun getTypoCorrections(word: String, isArabic: Boolean, limit: Int = 5): List<String> {
         val query = if (isArabic) normalizeArabic(word) else word.trim().lowercase()
         if (query.length < 2) return emptyList()
 
-        // 1. Check direct override table (instant 0ms resolution)
+        // 1. Instant check for common manual overrides / contractions
         val override = commonTypoOverrides[query]
         if (override != null) return override.take(limit).map { matchCasing(word, it) }
 
-        // 2. Check contractions (e.g., "lets" -> "let's", "hadnt" -> "hadn't", "its" -> "it's")
         val contraction = contractionsMap[query]
         if (contraction != null) {
             return listOf(matchCasing(word, contraction))
@@ -937,126 +1130,111 @@ object Dictionary {
 
         if (!isLoaded) return emptyList()
 
-        val results = mutableListOf<String>()
-        val seenKeys = HashSet<String>()
+        val candidateEntries = mutableListOf<Entry>()
+        val seenCandidateKeys = HashSet<String>()
 
-        // 3. Check learned user habits for words close to this query
-        val topUserWords = UserHabitsManager.getTopLearnedWords(limit = 60)
+        // 2. Scan user learned words (Layer 4 - Personal Learning)
+        val topUserWords = UserHabitsManager.getTopLearnedWords(limit = 100)
         for (uWord in topUserWords) {
             val uKey = if (isArabic) normalizeArabic(uWord) else uWord.lowercase()
-            if (abs(uKey.length - query.length) <= 2) {
-                val dist = editDistance(query, uKey)
-                if (dist in 1..2) {
-                    if (seenKeys.add(uKey)) {
-                        results.add(matchCasing(word, uWord))
-                        if (results.size >= limit) return results
-                    }
-                }
+            if (seenCandidateKeys.add(uKey)) {
+                candidateEntries.add(Entry(uKey, uWord, rank = 100))
             }
         }
 
         val letterMap = if (isArabic) arLetterMap else enLetterMap
         val frequentEntries = if (isArabic) arFrequentEntries else enFrequentEntries
-        val maxAllowedDist = if (query.length <= 4) 1 else 2
-        val maxLenDiff = if (query.length <= 4) 1 else 2
-
-        val candidates = mutableListOf<Pair<String, Int>>()
-        val candidateEntries = mutableListOf<Entry>()
-
-        // A. Scan words starting with same initial character (most common typo preserve first char)
         val firstChar = query.firstOrNull() ?: ' '
+
+        // A. Candidates starting with same initial char
         letterMap[firstChar]?.let { sameLetterList ->
             val count = min(sameLetterList.size, 1500)
             for (i in 0 until count) {
-                candidateEntries.add(sameLetterList[i])
+                val entry = sameLetterList[i]
+                if (seenCandidateKeys.add(entry.key)) {
+                    candidateEntries.add(entry)
+                }
             }
         }
 
-        // B. Scan words starting with QWERTY neighbor keys (in case the very first key was fat-fingered)
+        // B. Candidates starting with adjacent keyboard neighbor keys (in case 1st char was fat-fingered)
         if (!isArabic) {
             qwertyNeighbors[firstChar]?.forEach { neighborChar ->
                 letterMap[neighborChar]?.let { neighborList ->
-                    val count = min(neighborList.size, 150)
+                    val count = min(neighborList.size, 200)
                     for (i in 0 until count) {
-                        candidateEntries.add(neighborList[i])
+                        val entry = neighborList[i]
+                        if (seenCandidateKeys.add(entry.key)) {
+                            candidateEntries.add(entry)
+                        }
+                    }
+                }
+            }
+
+            // Also check transposition of first two characters (e.g. "teh" -> "the", "wodr" -> "word")
+            if (query.length >= 2) {
+                val secondChar = query[1]
+                letterMap[secondChar]?.let { secondList ->
+                    val count = min(secondList.size, 200)
+                    for (i in 0 until count) {
+                        val entry = secondList[i]
+                        if (seenCandidateKeys.add(entry.key)) {
+                            candidateEntries.add(entry)
+                        }
                     }
                 }
             }
         }
 
-        // C. Scan top frequent words in the language
+        // C. Candidates from top high-frequency dictionary words
         val freqScanCount = min(frequentEntries.size, 2500)
         for (i in 0 until freqScanCount) {
-            candidateEntries.add(frequentEntries[i])
-        }
-
-        val scannedInPass = HashSet<String>()
-        for (entry in candidateEntries) {
-            val key = entry.key
-            if (!scannedInPass.add(key)) continue
-            if (abs(key.length - query.length) > maxLenDiff) continue
-
-            val dist = editDistance(query, key)
-            if (dist in 1..maxAllowedDist) {
-                var score = dist * 1000 + entry.rank
-                // Bonus for matching starting letter
-                if (key.isNotEmpty() && key[0] == firstChar) {
-                    score -= 350
-                }
-                // Bonus if user frequently types this word
-                val userFreq = UserHabitsManager.getWordFrequency(entry.word)
-                if (userFreq > 0) {
-                    score -= min(1500, userFreq * 350)
-                }
-                // Bonus for vowel swaps (e.g. habet <-> habit)
-                if (isVowelSwap(query, key)) {
-                    score -= 300
-                }
-                candidates.add(entry.word to score)
+            val entry = frequentEntries[i]
+            if (seenCandidateKeys.add(entry.key)) {
+                candidateEntries.add(entry)
             }
         }
 
-        candidates.sortBy { it.second }
-        for (cand in candidates) {
+        val maxAllowedDist = if (query.length <= 4) 1.55f else 2.25f
+        val maxLenDiff = if (query.length <= 4) 1 else 2
+
+        val scoredCandidates = mutableListOf<Pair<String, Float>>()
+
+        for (entry in candidateEntries) {
+            val key = entry.key
+            if (abs(key.length - query.length) > maxLenDiff) continue
+
+            val dist = KeyboardDistance.distance(query, key, isArabic)
+            if (dist <= maxAllowedDist) {
+                // Scoring formula: distance penalty + dictionary frequency + user habit bonus + start letter bonus
+                var score = - (dist * 2200f) + maxOf(0f, (7000f - entry.rank) * 1.4f)
+
+                if (key.isNotEmpty() && key[0] == firstChar) {
+                    score += 400f
+                }
+
+                val userFreq = UserHabitsManager.getWordFrequency(entry.word)
+                if (userFreq > 0) {
+                    score += (userFreq * 900f + 500f)
+                }
+
+                scoredCandidates.add(entry.word to score)
+            }
+        }
+
+        scoredCandidates.sortByDescending { it.second }
+
+        val results = mutableListOf<String>()
+        val seenResultKeys = HashSet<String>()
+        for (cand in scoredCandidates) {
             val cKey = if (isArabic) normalizeArabic(cand.first) else cand.first.lowercase()
-            if (seenKeys.add(cKey)) {
+            if (seenResultKeys.add(cKey)) {
                 results.add(matchCasing(word, cand.first))
                 if (results.size >= limit) break
             }
         }
 
         return results
-    }
-
-    private fun isVowelSwap(s1: String, s2: String): Boolean {
-        if (s1.length != s2.length) return false
-        val vowels = setOf('a', 'e', 'i', 'o', 'u')
-        var diffCount = 0
-        for (i in s1.indices) {
-            if (s1[i] != s2[i]) {
-                diffCount++
-                if (diffCount > 1 || s1[i] !in vowels || s2[i] !in vowels) return false
-            }
-        }
-        return diffCount == 1
-    }
-
-    private fun editDistance(s1: String, s2: String): Int {
-        val dp = Array(s1.length + 1) { IntArray(s2.length + 1) }
-        for (i in 0..s1.length) dp[i][0] = i
-        for (j in 0..s2.length) dp[0][j] = j
-
-        for (i in 1..s1.length) {
-            for (j in 1..s2.length) {
-                val cost = if (s1[i - 1] == s2[j - 1]) 0 else 1
-                dp[i][j] = min(min(dp[i - 1][j] + 1, dp[i][j - 1] + 1), dp[i - 1][j - 1] + cost)
-                // Transposition
-                if (i > 1 && j > 1 && s1[i - 1] == s2[j - 2] && s1[i - 2] == s2[j - 1]) {
-                    dp[i][j] = min(dp[i][j], dp[i - 2][j - 2] + 1)
-                }
-            }
-        }
-        return dp[s1.length][s2.length]
     }
 
     private fun binarySearchStart(keys: Array<String>, prefix: String): Int {
@@ -1079,6 +1257,7 @@ object Dictionary {
      * Built-in fallback word completions for essential terms so suggestions work instantaneously.
      */
     private val builtInEnglishWords = listOf(
+        "government", "govern", "governing", "governor", "because", "receive", "receiving", "received", "definitely",
         "food", "football", "foot", "footage", "footprint", "footwear", "fool", "foolish",
         "help", "helpful", "helping", "helped", "hello", "helicopter", "helmet",
         "happy", "happiness", "happily", "happened", "happening",
@@ -1112,25 +1291,25 @@ object Dictionary {
     )
 
     /**
-     * Primary Suggestion Pipeline implementing the 4 prioritized requirements:
+     * Primary Suggestion Pipeline implementing the 4 layers:
      *
-     * 1. Priority 1 (While typing word):
-     *    - Word completions starting with typed prefix (e.g. "foo" -> "food", "football", "foot", "footage")
-     *    - Direct contraction replacement (e.g. "lets" -> "let's", "dont" -> "don't")
-     *    - Morphological extensions (e.g. "test" -> "testing", "tested", "tests")
-     *    - Contextual emoji chips interleaved prominently (e.g. "foo" -> 🍕, 🦶; "sad" -> 😢, 😭)
+     * Layer 1: Much better word suggestions
+     *   Candidates scored with: frequency + prefix match + user history + keyboard proximity + edit distance
+     *   Typing "gover" prioritizes: "government", "govern", "governing"
      *
-     * 2. Priority 2 (After space):
-     *    - Next-word predictions for previous word (e.g. "foot " -> "ball", "prints", "step", "wear")
-     *    - Contextual emojis for previous word (e.g. "foot " -> 🦶, 👣, 👟)
+     * Layer 2: Real spelling correction
+     *   Keyboard-aware distance fuzzy search: "giod" -> "good", "becuase" -> "because",
+     *   "recieve" -> "receive", "goverment" -> "government", "definately" -> "definitely", "teh" -> "the"
      *
-     * 3. Priority 3 (Typo & Misspelling correction):
-     *    - If typed word is not in dictionary (e.g. "fot"), highlight top correction "foot"
-     *    - Tapping replaces word automatically.
+     * Layer 3: Much smarter next-word prediction
+     *   Uses last 2-3 words when available (e.g. "I am going" -> "to", "home", "there")
+     *
+     * Layer 4: Personal learning
+     *   UserHabitsManager dynamic learning of unigrams, bigrams, and trigrams.
      */
     fun getContextualSuggestions(
         currentWord: String,
-        previousWord: String,
+        previousWords: List<String>,
         isArabic: Boolean,
         limit: Int = 16
     ): List<SuggestionItem> {
@@ -1146,55 +1325,56 @@ object Dictionary {
             val wordCompletions = mutableListOf<SuggestionItem>()
             val emojiCompletions = mutableListOf<String>()
 
-            // 1. Check Contractions ("lets" -> "let's", "hadnt" -> "hadn't", "its" -> "it's", "dont" -> "don't", "im" -> "I'm")
+            // 1. Contractions check (e.g. "lets" -> "let's", "dont" -> "don't", "im" -> "I'm")
             val contractionMatch = contractionsMap[query]
             if (contractionMatch != null) {
-                val casedContraction = matchCasing(prefix, contractionMatch)
-                if (seenWords.add(casedContraction.lowercase())) {
-                    wordCompletions.add(SuggestionItem(text = casedContraction, isEmoji = false, isPrimary = true, isCorrection = true))
+                val cased = matchCasing(prefix, contractionMatch)
+                if (seenWords.add(cased.lowercase())) {
+                    wordCompletions.add(SuggestionItem(text = cased, isEmoji = false, isPrimary = true, isCorrection = true))
                 }
             }
 
-            // 2. Explicit direct typo override (e.g. "habet" -> "habit", "teh" -> "the", "recieve" -> "receive")
+            // 2. Explicit direct typo override
             val explicitTypo = commonTypoOverrides[query]?.firstOrNull()
             if (explicitTypo != null) {
-                val casedTypo = matchCasing(prefix, explicitTypo)
-                if (seenWords.add(casedTypo.lowercase())) {
-                    wordCompletions.add(SuggestionItem(text = casedTypo, isEmoji = false, isPrimary = true, isCorrection = true))
+                val cased = matchCasing(prefix, explicitTypo)
+                if (seenWords.add(cased.lowercase())) {
+                    wordCompletions.add(SuggestionItem(text = cased, isEmoji = false, isPrimary = true, isCorrection = true))
                 }
             }
 
-            // 3. User's learned writing habits matching prefix (highest priority personalized suggestions)
-            val learnedCompletions = UserHabitsManager.getLearnedCompletions(prefix, limit = 4)
-            for (lw in learnedCompletions) {
-                val lwKey = if (isArabic) normalizeArabic(lw) else lw.lowercase()
-                if (seenWords.add(lwKey)) {
-                    val isFirst = wordCompletions.isEmpty()
-                    wordCompletions.add(SuggestionItem(text = lw, isEmoji = false, isPrimary = isFirst))
-                }
-            }
-
-            // 4. Spelling correction if word is NOT known in dictionary or user habits
+            // 3. Layer 2: Spelling correction if word is NOT known in dictionary or user habits
             val isKnown = isKnownWord(prefix, isArabic)
             if (!isKnown && prefix.length >= 2) {
                 val typoCorrections = getTypoCorrections(prefix, isArabic, limit = 3)
                 for (fix in typoCorrections) {
                     val fixKey = if (isArabic) normalizeArabic(fix) else fix.lowercase()
                     if (seenWords.add(fixKey)) {
-                        // Place primary correction right at front
-                        wordCompletions.add(0, SuggestionItem(text = fix, isEmoji = false, isPrimary = true, isCorrection = true))
+                        wordCompletions.add(SuggestionItem(text = fix, isEmoji = false, isPrimary = true, isCorrection = true))
                     }
                 }
             }
 
-            // 5. Dictionary prefix completions ("foo" -> "food", "football"; "edi" -> "edit", "editing")
+            // 4. Candidate gathering for completions
+            class Candidate(val word: String, val key: String, val rank: Int)
+            val candidatePool = mutableListOf<Candidate>()
+            val poolKeys = HashSet<String>()
+
+            // A. User habits matching prefix (Layer 4 - Personal Learning)
+            val learnedWords = UserHabitsManager.getLearnedCompletions(prefix, limit = 6)
+            for (lw in learnedWords) {
+                val lKey = if (isArabic) normalizeArabic(lw) else lw.lowercase()
+                if (poolKeys.add(lKey)) {
+                    candidatePool.add(Candidate(lw, lKey, rank = 10))
+                }
+            }
+
+            // B. Dictionary prefix search (binary search start)
             if (isLoaded) {
                 val keys = if (isArabic) arKeys else enKeys
                 val entries = if (isArabic) arEntries else enEntries
-
                 val startIdx = binarySearchStart(keys, query)
-                val candidates = mutableListOf<Entry>()
-                val maxScan = 3000
+                val maxScan = 3500
                 var scanned = 0
                 var idx = startIdx
 
@@ -1202,47 +1382,81 @@ object Dictionary {
                     val k = keys[idx]
                     if (!k.startsWith(query)) break
                     val entry = entries[idx]
-                    if (!seenWords.contains(entry.key)) {
-                        candidates.add(entry)
+                    if (poolKeys.add(entry.key)) {
+                        candidatePool.add(Candidate(entry.word, entry.key, entry.rank))
                     }
                     idx++
                     scanned++
                 }
-
-                // Rank by exact match first, then user habits frequency, then dictionary rank, then length
-                candidates.sortWith(
-                    compareBy<Entry> {
-                        if (it.key == query) 0 else 1
-                    }.thenByDescending {
-                        UserHabitsManager.getWordFrequency(it.word)
-                    }.thenBy {
-                        it.rank
-                    }.thenBy {
-                        it.word.length
-                    }
-                )
-
-                for (cand in candidates) {
-                    if (seenWords.add(cand.key)) {
-                        val isFirstMatch = wordCompletions.isEmpty()
-                        val casedWord = if (!isArabic) matchCasing(prefix, cand.word) else cand.word
-                        wordCompletions.add(SuggestionItem(text = casedWord, isEmoji = false, isPrimary = isFirstMatch))
-                    }
-                }
             }
 
-            // 6. Built-in core terms completion
+            // C. Built-in core words
             val builtInList = if (isArabic) builtInArabicWords else builtInEnglishWords
-            for (w in builtInList) {
-                val normW = if (isArabic) normalizeArabic(w) else w.lowercase()
-                if (normW.startsWith(query) && seenWords.add(normW)) {
-                    val isFirstMatch = wordCompletions.isEmpty()
-                    val casedWord = if (!isArabic) matchCasing(prefix, w) else w
-                    wordCompletions.add(SuggestionItem(text = casedWord, isEmoji = false, isPrimary = isFirstMatch))
+            for (bw in builtInList) {
+                val bKey = if (isArabic) normalizeArabic(bw) else bw.lowercase()
+                if (bKey.startsWith(query) && poolKeys.add(bKey)) {
+                    candidatePool.add(Candidate(bw, bKey, rank = 150))
                 }
             }
 
-            // 7. Morphological extensions ONLY if prefix is a known word AND derived form exists in dictionary
+            // 5. Layer 1: Unified scoring formula:
+            // score = frequency + prefix match + user history + context (bigram / trigram) - length penalty
+            val scoredList = mutableListOf<Pair<Candidate, Float>>()
+            val p1 = previousWords.getOrNull(0)?.trim()?.lowercase() ?: ""
+            val p2 = previousWords.getOrNull(1)?.trim()?.lowercase() ?: ""
+
+            for (cand in candidatePool) {
+                val candKey = cand.key
+                val candWord = cand.word
+                val rank = cand.rank
+
+                // Frequency score (0 to ~10500)
+                val freqScore = maxOf(0f, (7000f - rank) * 1.5f)
+
+                // Prefix match score
+                var prefixScore = 3000f
+                if (candKey == query) {
+                    prefixScore += 5000f // Exact match gets huge boost
+                } else {
+                    val lenDiff = candKey.length - query.length
+                    prefixScore -= (lenDiff * 32f) // Mild penalty for longer extensions
+                }
+
+                // User habits score (Layer 4)
+                val userFreq = UserHabitsManager.getWordFrequency(candWord)
+                val userScore = userFreq * 850f
+
+                // Context score (Layer 3 - Bigram & Trigram transitions)
+                var contextScore = 0f
+                if (p1.isNotEmpty()) {
+                    val biCount = UserHabitsManager.getBigramScore(p1, candWord)
+                    if (biCount > 0) contextScore += (biCount * 900f + 1500f)
+
+                    if (p2.isNotEmpty()) {
+                        val triCount = UserHabitsManager.getTrigramScore(p2, p1, candWord)
+                        if (triCount > 0) contextScore += (triCount * 1400f + 3000f)
+                    }
+
+                    if (nextWordsMap[p1]?.contains(candKey) == true || builtInNextWords[p1]?.contains(candKey) == true) {
+                        contextScore += 900f
+                    }
+                }
+
+                val totalScore = prefixScore + freqScore + userScore + contextScore
+                scoredList.add(cand to totalScore)
+            }
+
+            scoredList.sortByDescending { it.second }
+
+            for ((cand, _) in scoredList) {
+                if (seenWords.add(cand.key)) {
+                    val isFirstMatch = wordCompletions.isEmpty()
+                    val cased = if (!isArabic) matchCasing(prefix, cand.word) else cand.word
+                    wordCompletions.add(SuggestionItem(text = cased, isEmoji = false, isPrimary = isFirstMatch))
+                }
+            }
+
+            // 6. Morphological extensions if prefix is a known word
             if (isKnown) {
                 val morphForms = getMorphologicalForms(prefix, isArabic)
                 for (form in morphForms) {
@@ -1255,7 +1469,7 @@ object Dictionary {
                 }
             }
 
-            // 8. Contextual Emojis for prefix AND top completion candidate
+            // 7. Contextual Emojis for prefix and top candidates
             val prefixEmojis = getEmojisForWord(prefix, limit = 2)
             emojiCompletions.addAll(prefixEmojis)
             if (wordCompletions.isNotEmpty() && emojiCompletions.size < 2) {
@@ -1280,26 +1494,14 @@ object Dictionary {
                 }
             }
 
-            // Allow preserving exactly typed raw token
+            // Preserve typed raw token
             if (result.none { it.text.equals(prefix, ignoreCase = true) }) {
                 result.add(SuggestionItem(text = prefix, isEmoji = false))
             }
 
-        } else if (previousWord.isNotBlank()) {
-            // Next-Word Predictions & Emojis after space (incorporating user's habits!)
-            val prevClean = previousWord.trim()
-
-            // 1. Learned personal next words
-            val userNext = UserHabitsManager.getLearnedNextWords(prevClean, limit = 4)
-            for (unw in userNext) {
-                val unwKey = if (isArabic) normalizeArabic(unw) else unw.lowercase()
-                if (seenWords.add(unwKey)) {
-                    result.add(SuggestionItem(text = unw, isEmoji = false, isNextWord = true, isPrimary = result.isEmpty()))
-                }
-            }
-
-            // 2. Generic bigrams from assets and dictionary
-            val nextWords = getNextWords(prevClean, isArabic, limit = 8)
+        } else if (previousWords.isNotEmpty()) {
+            // Layer 3: Much smarter next-word prediction using 2-3 previous words
+            val nextWords = getNextWords(previousWords, isArabic, limit = 10)
             for (nw in nextWords) {
                 val nwKey = if (isArabic) normalizeArabic(nw) else nw.lowercase()
                 if (seenWords.add(nwKey)) {
@@ -1307,8 +1509,16 @@ object Dictionary {
                 }
             }
 
-            // 3. Emojis for previous word
-            val emojis = getEmojisForWord(prevClean, limit = 2)
+            // Emojis for immediate preceding phrase or word
+            val p1 = previousWords.getOrNull(0) ?: ""
+            val p2 = previousWords.getOrNull(1) ?: ""
+            val phrase2 = if (p2.isNotEmpty()) "$p2 $p1" else ""
+            val emojis = if (phrase2.isNotEmpty()) {
+                val pEmojis = getEmojisForWord(phrase2, limit = 2)
+                if (pEmojis.isNotEmpty()) pEmojis else getEmojisForWord(p1, limit = 2)
+            } else {
+                getEmojisForWord(p1, limit = 2)
+            }
             for (em in emojis) {
                 if (seenEmojis.add(em)) {
                     result.add(SuggestionItem(text = em, isEmoji = true))
@@ -1316,7 +1526,7 @@ object Dictionary {
             }
 
         } else {
-            // Default top words when input is empty: user's top words first!
+            // Default top words when input is completely empty: user's top words first
             val userTop = UserHabitsManager.getTopLearnedWords(limit = 4)
             for (ut in userTop) {
                 val utKey = if (isArabic) normalizeArabic(ut) else ut.lowercase()
@@ -1337,21 +1547,31 @@ object Dictionary {
         return result.take(limit)
     }
 
+    fun getContextualSuggestions(
+        currentWord: String,
+        previousWord: String,
+        isArabic: Boolean,
+        limit: Int = 16
+    ): List<SuggestionItem> {
+        val list = if (previousWord.isNotBlank()) listOf(previousWord.trim()) else emptyList()
+        return getContextualSuggestions(currentWord, list, isArabic, limit)
+    }
+
     /**
      * Classic suggestions helper.
      */
     fun suggestions(prefix: String, isArabic: Boolean, limit: Int = 10): List<String> {
-        val list = getContextualSuggestions(prefix, "", isArabic, limit)
+        val list = getContextualSuggestions(prefix, emptyList(), isArabic, limit)
         return list.filter { !it.isEmoji }.map { it.text }
     }
 
     /**
-     * Records a word typed or tapped by the user for personalized ranking and habit learning.
+     * Records a word typed or chosen by the user for personalized learning (Layer 4).
      */
-    fun recordUsedWord(word: String, prevWord: String? = null) {
+    fun recordUsedWord(word: String, prevWord: String? = null, prevPrevWord: String? = null) {
         val trimmed = word.trim()
         if (trimmed.length >= 2) {
-            UserHabitsManager.recordWord(trimmed, prevWord)
+            UserHabitsManager.recordWord(trimmed, prevWord, prevPrevWord)
             synchronized(recentUserWords) {
                 recentUserWords.remove(trimmed)
                 recentUserWords.add(trimmed)
