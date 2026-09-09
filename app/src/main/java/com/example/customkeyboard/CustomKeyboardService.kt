@@ -40,6 +40,7 @@ class CustomKeyboardService : InputMethodService() {
 
     private var currentLang = Lang.EN
     private var currentMode = Mode.LETTERS
+    private var lastAltMode = Mode.NUMBERS
     private var shiftOn = false
     private var capsLock = false
     private var lastShiftTapTime = 0L
@@ -141,6 +142,13 @@ class CustomKeyboardService : InputMethodService() {
     override fun onCreate() {
         super.onCreate()
         prefs = getSharedPreferences("keyboard_prefs", Context.MODE_PRIVATE)
+        val savedAltMode = prefs.getString("last_alt_mode", Mode.NUMBERS.name)
+        lastAltMode = try {
+            val m = Mode.valueOf(savedAltMode ?: Mode.NUMBERS.name)
+            if (m == Mode.NUMBERS || m == Mode.SYMBOLS) m else Mode.NUMBERS
+        } catch (e: Exception) {
+            Mode.NUMBERS
+        }
         clipboardManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipHistory = ClipboardHistory(this)
         clipboardManager.addPrimaryClipChangedListener(systemClipListener)
@@ -358,6 +366,14 @@ class CustomKeyboardService : InputMethodService() {
     }
 
     private fun switchMode(mode: Mode) {
+        if (mode == Mode.NUMBERS || mode == Mode.SYMBOLS) {
+            lastAltMode = mode
+            try {
+                prefs.edit().putString("last_alt_mode", mode.name).apply()
+            } catch (e: Exception) {
+                // Ignore
+            }
+        }
         currentMode = mode
         if (mode != Mode.LETTERS) wordBuffer.clear()
         if (mode == Mode.SYMBOLS) symbolsPage = 1
@@ -372,7 +388,8 @@ class CustomKeyboardService : InputMethodService() {
     private fun dp(v: Int) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v.toFloat(), resources.displayMetrics).toInt()
 
     private fun isWordCharacter(c: Char): Boolean {
-        return c.isLetterOrDigit() || c == '\'' || c == '’' || c == '-' || (c in '\u0600'..'\u06FF')
+        if (c == '؟' || c == '،' || c == '؛') return false
+        return c.isLetterOrDigit() || c == '\'' || c == '’' || c == '-' || (c in '\u0600'..'\u06FF' && Character.isLetter(c))
     }
 
     class TypingContext(
@@ -1716,7 +1733,10 @@ class CustomKeyboardService : InputMethodService() {
             val label = if (symbolsPage == 1) "1/2" else "2/2"
             row.addView(makeSpecialKey(label, weight = 1.3f) { toggleSymbolsPage() })
         }
-        keys.forEach { k -> row.addView(makeKey(k, weight = 1f, fontSize = getSymbolFontSize()) { commitSymbol(k) }) }
+        keys.forEach { rawKey ->
+            val k = if (rawKey == "?" && currentLang == Lang.AR) "؟" else rawKey
+            row.addView(makeKey(k, weight = 1f, fontSize = getSymbolFontSize()) { commitSymbol(k) })
+        }
         return row
     }
 
@@ -1725,7 +1745,10 @@ class CustomKeyboardService : InputMethodService() {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
         }
-        keys.forEach { k -> row.addView(makeKey(k, weight = 1f, fontSize = getSymbolFontSize()) { commitSymbol(k) }) }
+        keys.forEach { rawKey ->
+            val k = if (rawKey == "?" && currentLang == Lang.AR) "؟" else rawKey
+            row.addView(makeKey(k, weight = 1f, fontSize = getSymbolFontSize()) { commitSymbol(k) })
+        }
         row.addView(makeBackspaceKey(weight = 1.5f))
         return row
     }
@@ -1847,7 +1870,8 @@ class CustomKeyboardService : InputMethodService() {
                 row.addView(make123Key("ABC", weight = 1.5f) { switchMode(Mode.LETTERS) })
             }
             else -> {
-                row.addView(make123Key("?123", weight = 1.5f) { switchMode(Mode.NUMBERS) })
+                val altLabel = if (currentLang == Lang.AR) "؟123" else "?123"
+                row.addView(make123Key(altLabel, weight = 1.5f) { switchMode(lastAltMode) })
                 row.addView(makeCommaEmojiKey(weight = 1f))
             }
         }
@@ -1923,17 +1947,18 @@ class CustomKeyboardService : InputMethodService() {
         upperBlock.addView(rightLayout)
         container.addView(upperBlock)
 
-        // 2. Row 4: ABC , !?# 0 = . ↵
+        // 2. Row 4: ABC !?# 0 , . = ↵
         val r4 = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
         }
         r4.addView(makeSpecialKey("ABC", weight = 1.25f) { switchMode(Mode.LETTERS) })
-        r4.addView(makeSpecialKey(",", weight = 0.85f) { commitPunctuationOrSpace(",") })
-        r4.addView(makeSpecialKey("!?#", weight = 1.15f) { switchMode(Mode.SYMBOLS) })
+        val symbolToggleLabel = if (currentLang == Lang.AR) "!؟#" else "!?#"
+        r4.addView(makeSpecialKey(symbolToggleLabel, weight = 1.25f) { switchMode(Mode.SYMBOLS) })
         r4.addView(makeNumberKey("0", weight = 1.8f) { commitLetter("0") })
-        r4.addView(makeSpecialKey("=", weight = 0.95f) { commitSymbol("=") })
+        r4.addView(makeSpecialKey(",", weight = 0.85f) { commitPunctuationOrSpace(",") })
         r4.addView(makeSpecialKey(".", weight = 0.85f) { commitPunctuationOrSpace(".") })
+        r4.addView(makeSpecialKey("=", weight = 0.85f) { commitSymbol("=") })
         r4.addView(makeEnterKey(weight = 1.35f))
 
         container.addView(r4)
@@ -2706,6 +2731,19 @@ class CustomKeyboardService : InputMethodService() {
     }
 
     private fun commitSymbol(text: String) {
+        if (text == "?" || text == "؟" || text == "!" || text == "." || text == ",") {
+            commitPunctuationOrSpace(text)
+            return
+        }
+        val ctx = getActiveTypingContext()
+        if (ctx.currentWord.isNotEmpty()) {
+            Dictionary.recordUsedWord(ctx.currentWord, ctx.prev1, ctx.prev2)
+            lastCommittedWord = ctx.currentWord
+        } else if (wordBuffer.isNotEmpty()) {
+            val typed = wordBuffer.toString().trim()
+            Dictionary.recordUsedWord(typed, ctx.prev1, ctx.prev2)
+            lastCommittedWord = typed
+        }
         handleKeyCommit(text, isLetter = false)
         if (wordBuffer.isNotEmpty()) wordBuffer.clear()
         refreshTopBar()
@@ -2799,7 +2837,9 @@ class CustomKeyboardService : InputMethodService() {
 
     private fun switchLanguage() {
         currentLang = if (currentLang == Lang.EN) Lang.AR else Lang.EN
-        currentMode = Mode.LETTERS
+        if (currentMode != Mode.SYMBOLS && currentMode != Mode.NUMBERS) {
+            currentMode = Mode.LETTERS
+        }
         shiftOn = false
         capsLock = false
         wordBuffer.clear()
