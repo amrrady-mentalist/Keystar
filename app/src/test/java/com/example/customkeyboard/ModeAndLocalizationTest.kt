@@ -101,4 +101,45 @@ class ModeAndLocalizationTest {
         onAltKeyClick()
         assertEquals(TestMode.NUMBERS, currentMode)
     }
+
+    @Test
+    fun testArabicAlphabetLayoutExactMatch() {
+        // Number row: 10 Arabic-Indic digits
+        assertEquals(
+            listOf("١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩", "٠"),
+            KeyboardLayoutData.arabicNumberRow
+        )
+
+        // Row 1: 11 letters
+        assertEquals(
+            listOf("ض", "ص", "ث", "ق", "ف", "غ", "ع", "ه", "خ", "ح", "ج"),
+            KeyboardLayoutData.arabicRows[0]
+        )
+
+        // Row 2: 11 letters
+        assertEquals(
+            listOf("ش", "س", "ي", "ب", "ل", "ا", "ت", "ن", "م", "ك", "ط"),
+            KeyboardLayoutData.arabicRows[1]
+        )
+
+        // Row 3: 10 letters (completed to 11 with backspace)
+        assertEquals(
+            listOf("ذ", "ء", "ؤ", "ر", "ى", "ة", "و", "ز", "ظ", "د"),
+            KeyboardLayoutData.arabicRows[2]
+        )
+
+        // Hint symbols exact match
+        assertEquals(
+            listOf("%", "\\", "|", "=", "]", "[", ">", "<", "}", "{", "°"),
+            KeyboardLayoutData.arabicHints[0]
+        )
+        assertEquals(
+            listOf("@", "#", "$", "_", "&", "-", "+", ")", "(", "/", "~"),
+            KeyboardLayoutData.arabicHints[1]
+        )
+        assertEquals(
+            listOf("`", "*", "\"", "'", ":", "؛", "!", "؟", "\\", "%"),
+            KeyboardLayoutData.arabicHints[2]
+        )
+    }
 }

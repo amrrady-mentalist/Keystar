@@ -3,6 +3,7 @@ package com.example.customkeyboard
 object KeyboardLayoutData {
 
     val numberRow = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0")
+    val arabicNumberRow = listOf("١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩", "٠")
 
     val englishRows = listOf(
         listOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "p"),
@@ -10,11 +11,18 @@ object KeyboardLayoutData {
         listOf("z", "x", "c", "v", "b", "n", "m")
     )
 
-    // Standard Arabic phone keyboard layout (mapped to Latin QWERTY key positions)
+    // Standard Arabic phone keyboard layout (11-key grid matching Google Gboard)
     val arabicRows = listOf(
         listOf("ض", "ص", "ث", "ق", "ف", "غ", "ع", "ه", "خ", "ح", "ج"),
         listOf("ش", "س", "ي", "ب", "ل", "ا", "ت", "ن", "م", "ك", "ط"),
-        listOf("ذ", "ء", "ؤ", "ر", "لا", "ى", "ة", "و", "ز", "ظ", "د")
+        listOf("ذ", "ء", "ؤ", "ر", "ى", "ة", "و", "ز", "ظ", "د")
+    )
+
+    // Secondary hint symbols matching Gboard layout exactly
+    val arabicHints = listOf(
+        listOf("%", "\\", "|", "=", "]", "[", ">", "<", "}", "{", "°"),
+        listOf("@", "#", "$", "_", "&", "-", "+", ")", "(", "/", "~"),
+        listOf("`", "*", "\"", "'", ":", "؛", "!", "؟", "\\", "%")
     )
 
     // Page 1 of punctuation/symbols (the default "?123" screen).

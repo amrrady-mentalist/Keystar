@@ -28,6 +28,7 @@ import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.PopupWindow
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -342,11 +343,18 @@ class CustomKeyboardService : InputMethodService() {
                 rootContainer.addView(buildSymbolsBottomRow(KeyboardLayoutData.symbolsSharedRow))
             }
             Mode.LETTERS -> {
-                val rows = if (currentLang == Lang.EN) KeyboardLayoutData.englishRows else KeyboardLayoutData.arabicRows
-                rootContainer.addView(buildRow(KeyboardLayoutData.numberRow))
-                rootContainer.addView(buildRow(rows[0], applyShift = currentLang == Lang.EN, isLetterRow = true))
-                rootContainer.addView(buildLetterRowWithShift(rows[1]))
-                rootContainer.addView(buildLetterRowWithShiftAndBackspace(rows[2]))
+                if (currentLang == Lang.AR) {
+                    rootContainer.addView(buildArabicNumberRow())
+                    rootContainer.addView(buildArabicLetterRow(0))
+                    rootContainer.addView(buildArabicLetterRow(1))
+                    rootContainer.addView(buildArabicLetterRow2WithBackspace())
+                } else {
+                    val rows = KeyboardLayoutData.englishRows
+                    rootContainer.addView(buildRow(KeyboardLayoutData.numberRow))
+                    rootContainer.addView(buildRow(rows[0], applyShift = true, isLetterRow = true))
+                    rootContainer.addView(buildLetterRowWithShift(rows[1]))
+                    rootContainer.addView(buildLetterRowWithShiftAndBackspace(rows[2]))
+                }
             }
         }
 
@@ -487,14 +495,11 @@ class CustomKeyboardService : InputMethodService() {
             gravity = Gravity.CENTER_VERTICAL
         }
 
-        bar.addView(toolbarIconButton(R.drawable.ic_grid, "Menu") {
-            Toast.makeText(this, "Quick Tools", Toast.LENGTH_SHORT).show()
+        bar.addView(toolbarIconButton(R.drawable.ic_mic, "Voice") {
+            triggerVoiceInput()
         })
-        bar.addView(toolbarIconButton(R.drawable.ic_clipboard, "Clipboard") {
-            switchMode(Mode.CLIPBOARD)
-        })
-        bar.addView(toolbarIconButton(R.drawable.ic_emoji_toolbar, "Emojis") {
-            switchMode(if (currentMode == Mode.EMOJI) Mode.LETTERS else Mode.EMOJI)
+        bar.addView(toolbarIconButton(R.drawable.ic_translate, "Language") {
+            switchLanguage()
         })
         bar.addView(toolbarIconButton(R.drawable.ic_settings, "Settings") {
             val intent = android.content.Intent(this, MainActivity::class.java).apply {
@@ -502,11 +507,14 @@ class CustomKeyboardService : InputMethodService() {
             }
             startActivity(intent)
         })
-        bar.addView(toolbarIconButton(R.drawable.ic_translate, "Language") {
-            switchLanguage()
+        bar.addView(toolbarIconButton(R.drawable.ic_emoji_toolbar, "Emojis") {
+            switchMode(if (currentMode == Mode.EMOJI) Mode.LETTERS else Mode.EMOJI)
         })
-        bar.addView(toolbarIconButton(R.drawable.ic_mic, "Voice") {
-            triggerVoiceInput()
+        bar.addView(toolbarIconButton(R.drawable.ic_clipboard, "Clipboard") {
+            switchMode(Mode.CLIPBOARD)
+        })
+        bar.addView(toolbarIconButton(R.drawable.ic_grid, "Menu") {
+            Toast.makeText(this, "Quick Tools", Toast.LENGTH_SHORT).show()
         })
 
         return bar
@@ -1724,6 +1732,69 @@ class CustomKeyboardService : InputMethodService() {
         return row
     }
 
+    private fun buildArabicNumberRow(): LinearLayout {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
+        }
+        KeyboardLayoutData.arabicNumberRow.forEach { num ->
+            row.addView(makeKey(num, weight = 1f, fontSize = getLetterFontSize()) {
+                commitSymbol(num)
+            })
+        }
+        return row
+    }
+
+    private fun buildArabicLetterRow(rowIndex: Int): LinearLayout {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
+        }
+        val keys = KeyboardLayoutData.arabicRows[rowIndex]
+        val hints = KeyboardLayoutData.arabicHints[rowIndex]
+        keys.forEachIndexed { index, letter ->
+            val hint = hints.getOrNull(index)
+            row.addView(
+                makeKey(
+                    label = letter,
+                    weight = 1f,
+                    fontSize = getLetterFontSize(),
+                    hint = hint,
+                    onLongClick = hint?.let { h -> { commitSymbol(h) } }
+                ) {
+                    commitLetter(letter)
+                }
+            )
+        }
+        return row
+    }
+
+    private fun buildArabicLetterRow2WithBackspace(): LinearLayout {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
+        }
+        val keys = KeyboardLayoutData.arabicRows[2]
+        val hints = KeyboardLayoutData.arabicHints[2]
+        keys.forEachIndexed { index, letter ->
+            val hint = hints.getOrNull(index)
+            row.addView(
+                makeKey(
+                    label = letter,
+                    weight = 1f,
+                    fontSize = getLetterFontSize(),
+                    hint = hint,
+                    onLongClick = hint?.let { h -> { commitSymbol(h) } }
+                ) {
+                    commitLetter(letter)
+                }
+            )
+        }
+        // 11th key in row 3 is Backspace with weight 1f to complete the 11-column grid
+        row.addView(makeBackspaceKey(weight = 1f))
+        return row
+    }
+
     private fun buildSymbolsRow(keys: List<String>, prependToggle: Boolean = false): LinearLayout {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -1861,10 +1932,21 @@ class CustomKeyboardService : InputMethodService() {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
         }
 
+        if (currentLang == Lang.AR && currentMode == Mode.LETTERS) {
+            row.addView(make123Key("؟٣٢١", weight = 1.5f) { switchMode(lastAltMode) })
+            row.addView(makeArabicCommaEmojiKey(weight = 1f))
+            row.addView(makeGlobeKey(weight = 1f) { switchLanguage() })
+            row.addView(makeSpaceKey("العربية", weight = 5f))
+            row.addView(makeArabicPeriodTashkeelKey(weight = 1f))
+            row.addView(makeEnterKey(weight = 1.5f))
+            return row
+        }
+
         when (currentMode) {
             Mode.SYMBOLS -> {
                 row.addView(make123Key("ABC", weight = 1.4f) { switchMode(Mode.LETTERS) })
-                row.addView(makeSpecialKey("123", weight = 1.1f) { switchMode(Mode.NUMBERS) })
+                val numLabel = if (currentLang == Lang.AR) "١٢٣" else "123"
+                row.addView(makeSpecialKey(numLabel, weight = 1.1f) { switchMode(Mode.NUMBERS) })
             }
             Mode.EMOJI -> {
                 row.addView(make123Key("ABC", weight = 1.5f) { switchMode(Mode.LETTERS) })
@@ -1876,9 +1958,9 @@ class CustomKeyboardService : InputMethodService() {
             }
         }
 
-        row.addView(makeSpecialKey("🌐", weight = 1f) { switchLanguage() })
+        row.addView(makeGlobeKey(weight = 1f) { switchLanguage() })
 
-        val spaceLabel = if (currentLang == Lang.EN) "English" else "العربية مصر"
+        val spaceLabel = if (currentLang == Lang.EN) "English" else "العربية"
         // Swipe left/right on the space bar to move the cursor through existing text.
         row.addView(makeSpaceKey(spaceLabel, weight = 4f))
 
@@ -2105,6 +2187,7 @@ class CustomKeyboardService : InputMethodService() {
 
         val tv = TextView(this).apply {
             text = label
+            textDirection = View.TEXT_DIRECTION_LTR
             gravity = Gravity.CENTER
             setTextColor(textCl)
             setTypeface(Typeface.DEFAULT_BOLD)
@@ -2155,21 +2238,76 @@ class CustomKeyboardService : InputMethodService() {
         return tv
     }
 
-    private fun makeKey(label: String, weight: Float, fontSize: Float = 20f, onClick: () -> Unit): TextView {
+    private fun makeKey(
+        label: String,
+        weight: Float,
+        fontSize: Float = 20f,
+        hint: String? = null,
+        onLongClick: (() -> Unit)? = null,
+        onClick: () -> Unit
+    ): View {
         val resting = keyBackground(keyColor(), KEY_RADIUS_DP)
-        return TextView(this).apply {
+        if (hint == null) {
+            return TextView(this).apply {
+                text = label
+                gravity = Gravity.CENTER
+                setTextColor(textColor())
+                setTypeface(Typeface.DEFAULT_BOLD)
+                textSize = fontSize
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
+                background = resting
+                applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP, onLongClick) { onClick() }
+            }
+        }
+
+        val container = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
+            background = resting
+        }
+
+        val tvMain = TextView(this).apply {
             text = label
             gravity = Gravity.CENTER
             setTextColor(textColor())
             setTypeface(Typeface.DEFAULT_BOLD)
             textSize = fontSize
-            // No margins here on purpose - the touch target stays the full cell (edge-to-edge
-            // with neighboring keys) even though the painted box looks smaller, so a light or
-            // fast tap near a key's edge still registers instead of landing in a dead zone.
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
-            background = resting
-            applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP) { onClick() }
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
         }
+        container.addView(tvMain)
+
+        val tvHint = TextView(this).apply {
+            text = hint
+            setTextColor(textColor())
+            alpha = 0.60f
+            textSize = 10f
+            setTypeface(Typeface.DEFAULT_BOLD)
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP or Gravity.END
+            ).apply {
+                topMargin = dp(3)
+                marginEnd = dp(4)
+            }
+        }
+        container.addView(tvHint)
+
+        val effectiveLongClick = onLongClick ?: {
+            commitSymbol(hint)
+        }
+
+        applyKeyTouchBehavior(
+            container,
+            pressHighlightColor(),
+            resting,
+            KEY_RADIUS_DP,
+            onLongClick = effectiveLongClick
+        ) { onClick() }
+
+        return container
     }
 
     private fun makeSpecialKey(
@@ -2241,6 +2379,163 @@ class CustomKeyboardService : InputMethodService() {
         }
 
         return container
+    }
+
+    private fun makeGlobeKey(weight: Float, onClick: () -> Unit): View {
+        val resting = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
+        val container = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
+            background = resting
+        }
+        val iv = ImageView(this).apply {
+            setImageResource(R.drawable.ic_globe)
+            setColorFilter(textColor())
+            layoutParams = FrameLayout.LayoutParams(dp(20), dp(20), Gravity.CENTER)
+        }
+        container.addView(iv)
+        applyKeyTouchBehavior(container, pressHighlightColor(), resting, KEY_RADIUS_DP) { onClick() }
+        return container
+    }
+
+    private fun makeArabicCommaEmojiKey(weight: Float): View {
+        val resting = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
+        val container = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
+            background = resting
+        }
+        val tvComma = TextView(this).apply {
+            text = "،"
+            gravity = Gravity.CENTER
+            setTextColor(textColor())
+            setTypeface(Typeface.DEFAULT_BOLD)
+            textSize = 21f
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            ).apply {
+                topMargin = dp(2)
+            }
+        }
+        container.addView(tvComma)
+
+        val ivEmoji = ImageView(this).apply {
+            setImageResource(R.drawable.ic_emoji_toolbar)
+            setColorFilter(textColor())
+            alpha = 0.65f
+            layoutParams = FrameLayout.LayoutParams(dp(13), dp(13), Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply {
+                topMargin = dp(4)
+            }
+        }
+        container.addView(ivEmoji)
+
+        applyKeyTouchBehavior(
+            container,
+            pressHighlightColor(),
+            resting,
+            KEY_RADIUS_DP,
+            onLongClick = {
+                switchMode(Mode.EMOJI)
+            }
+        ) {
+            commitPunctuationOrSpace("،")
+        }
+        return container
+    }
+
+    private fun makeArabicPeriodTashkeelKey(weight: Float): View {
+        val resting = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
+        val container = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
+            background = resting
+        }
+        val tvPeriod = TextView(this).apply {
+            text = "."
+            gravity = Gravity.CENTER
+            setTextColor(textColor())
+            setTypeface(Typeface.DEFAULT_BOLD)
+            textSize = 21f
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            ).apply {
+                topMargin = dp(2)
+            }
+        }
+        container.addView(tvPeriod)
+
+        val tvTashkeel = TextView(this).apply {
+            text = "◌ً"
+            gravity = Gravity.CENTER_HORIZONTAL
+            setTextColor(textColor())
+            alpha = 0.65f
+            textSize = 10f
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            ).apply {
+                topMargin = dp(3)
+            }
+        }
+        container.addView(tvTashkeel)
+
+        applyKeyTouchBehavior(
+            container,
+            pressHighlightColor(),
+            resting,
+            KEY_RADIUS_DP,
+            onLongClick = {
+                showTashkeelPopup(container)
+            }
+        ) {
+            commitPunctuationOrSpace(".")
+        }
+        return container
+    }
+
+    private fun showTashkeelPopup(anchorView: View) {
+        if (anchorView.windowToken == null) return
+        val marks = listOf(
+            "َ", "ُ", "ِ", "ً", "ٌ", "ٍ", "ّ", "ْ", "ـ"
+        )
+        val popupLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            background = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+            elevation = dp(8).toFloat()
+        }
+        var popupWindow: PopupWindow? = null
+        marks.forEach { mark ->
+            val markBtn = TextView(this).apply {
+                text = "ـ$mark"
+                textSize = 20f
+                setTextColor(textColor())
+                gravity = Gravity.CENTER
+                val size = dp(36)
+                layoutParams = LinearLayout.LayoutParams(size, size).apply {
+                    setMargins(dp(2), dp(2), dp(2), dp(2))
+                }
+                background = keyBackground(keyColor(), KEY_RADIUS_DP)
+                isClickable = true
+                setOnClickListener {
+                    currentInputConnection?.commitText(mark, 1)
+                    popupWindow?.dismiss()
+                }
+            }
+            popupLayout.addView(markBtn)
+        }
+        try {
+            popupWindow = PopupWindow(
+                popupLayout,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                true
+            ).apply {
+                isOutsideTouchable = true
+                showAsDropDown(anchorView, -dp(140), -dp(70) - anchorView.height)
+            }
+        } catch (_: Exception) {
+        }
     }
 
     private enum class EnterActionType {
@@ -2395,6 +2690,7 @@ class CustomKeyboardService : InputMethodService() {
         }
         val icon = GlyphIconView(this, glyph).apply {
             iconColor = enterIconColor()
+            isRtl = currentLang == Lang.AR
             layoutParams = FrameLayout.LayoutParams(dp(ICON_GLYPH_DP), dp(ICON_GLYPH_DP), Gravity.CENTER)
         }
         container.addView(icon)
@@ -3174,6 +3470,7 @@ private class GlyphIconView(context: Context, var glyph: Glyph) : View(context) 
     var iconColor: Int = Color.BLACK
     /** Only used by Glyph.SHIFT - draws an underline bar beneath the arrow to indicate caps lock. */
     var locked: Boolean = false
+    var isRtl: Boolean = false
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -3192,15 +3489,24 @@ private class GlyphIconView(context: Context, var glyph: Glyph) : View(context) 
         when (glyph) {
             Glyph.RETURN -> {
                 paint.style = Paint.Style.STROKE
-                val left = w * 0.24f
-                val right = w * 0.74f
                 val top = h * 0.30f
                 val bottom = h * 0.65f
-                canvas.drawLine(right, top, right, bottom, paint)
-                canvas.drawLine(right, bottom, left, bottom, paint)
                 val headSize = w * 0.16f
-                canvas.drawLine(left, bottom, left + headSize, bottom - headSize, paint)
-                canvas.drawLine(left, bottom, left + headSize, bottom + headSize, paint)
+                if (isRtl) {
+                    val left = w * 0.26f
+                    val right = w * 0.76f
+                    canvas.drawLine(left, top, left, bottom, paint)
+                    canvas.drawLine(left, bottom, right, bottom, paint)
+                    canvas.drawLine(right, bottom, right - headSize, bottom - headSize, paint)
+                    canvas.drawLine(right, bottom, right - headSize, bottom + headSize, paint)
+                } else {
+                    val left = w * 0.24f
+                    val right = w * 0.74f
+                    canvas.drawLine(right, top, right, bottom, paint)
+                    canvas.drawLine(right, bottom, left, bottom, paint)
+                    canvas.drawLine(left, bottom, left + headSize, bottom - headSize, paint)
+                    canvas.drawLine(left, bottom, left + headSize, bottom + headSize, paint)
+                }
             }
             Glyph.SEARCH -> {
                 // Flat magnifying glass search icon
