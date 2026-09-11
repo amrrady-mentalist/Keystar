@@ -297,9 +297,9 @@ class CustomKeyboardService : InputMethodService() {
 
     private fun isDarkMode(): Boolean {
         return when (getThemeMode()) {
-            "pitch_black", "dark" -> true
+            "pitch_black", "dark", "liquid_glass" -> true
             "light" -> false
-            "material_you", "liquid_glass", "system" -> {
+            "material_you", "system" -> {
                 (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                     Configuration.UI_MODE_NIGHT_YES
             }
@@ -314,10 +314,7 @@ class CustomKeyboardService : InputMethodService() {
                 if (isDarkMode()) Color.parseColor("#1B1B1F") // Material You Dark Greyish
                 else Color.parseColor("#EDEBF0") // Material You Light Greyish
             }
-            "liquid_glass" -> {
-                if (isDarkMode()) Color.parseColor("#18191E") // Apple Liquid Glass Dark
-                else Color.parseColor("#CFD3D9") // Apple Liquid Glass Light
-            }
+            "liquid_glass" -> Color.parseColor("#1E1F22") // Dark Charcoal Slate Canvas (Screenshot matching)
             "dark" -> Color.parseColor("#131314")
             "light" -> Color.parseColor("#E9EAED")
             else -> if (isDarkMode()) Color.parseColor("#131314") else Color.parseColor("#E9EAED")
@@ -330,9 +327,7 @@ class CustomKeyboardService : InputMethodService() {
             "material_you" -> {
                 if (isDarkMode()) Color.parseColor("#E5E1E6") else Color.parseColor("#1B1B1F")
             }
-            "liquid_glass" -> {
-                if (isDarkMode()) Color.parseColor("#FFFFFF") else Color.parseColor("#000000")
-            }
+            "liquid_glass" -> Color.parseColor("#FFFFFF") // Crisp White (Screenshot matching)
             else -> if (isDarkMode()) Color.parseColor("#E3E3E3") else Color.parseColor("#1F1F1F")
         }
     }
@@ -346,10 +341,7 @@ class CustomKeyboardService : InputMethodService() {
                 if (isDarkMode()) Color.parseColor("#2B2A2F") // Elevated Greyish Tile
                 else Color.parseColor("#FEF7FF") // M3 Elevated Surface
             }
-            "liquid_glass" -> {
-                if (isDarkMode()) Color.parseColor("#44464D") // Frosted Glass Tile
-                else Color.parseColor("#FFFFFF") // Crisp White iOS Glass Tile
-            }
+            "liquid_glass" -> Color.parseColor("#35373C") // Slate-Gray Letter Tile (Screenshot matching)
             else -> if (isDarkMode()) Color.parseColor("#2D2E30") else Color.parseColor("#FFFFFF")
         }
     }
@@ -360,9 +352,7 @@ class CustomKeyboardService : InputMethodService() {
             "material_you" -> {
                 if (isDarkMode()) Color.parseColor("#38363C") else Color.parseColor("#DFE0E6")
             }
-            "liquid_glass" -> {
-                if (isDarkMode()) Color.parseColor("#2F3138") else Color.parseColor("#B4B8BF")
-            }
+            "liquid_glass" -> Color.parseColor("#28292E") // Darker Slate Special Keys (Screenshot matching)
             else -> if (isDarkMode()) Color.parseColor("#3C3F41") else Color.parseColor("#F1F3F4")
         }
     }
@@ -373,9 +363,7 @@ class CustomKeyboardService : InputMethodService() {
             "material_you" -> {
                 if (isDarkMode()) Color.parseColor("#4E4B52") else Color.parseColor("#CACBD2")
             }
-            "liquid_glass" -> {
-                if (isDarkMode()) Color.parseColor("#63656E") else Color.parseColor("#E3E5E9")
-            }
+            "liquid_glass" -> Color.parseColor("#4A4C54") // Pressed Slate Highlight (Screenshot matching)
             else -> if (isDarkMode()) Color.parseColor("#4C4F52") else Color.parseColor("#DADCE0")
         }
     }
@@ -3113,10 +3101,6 @@ class CustomKeyboardService : InputMethodService() {
         return GradientDrawable().apply {
             setColor(color)
             cornerRadius = dp(radiusDp).toFloat()
-            if (getThemeMode() == "liquid_glass") {
-                val strokeColor = if (isDarkMode()) Color.argb(46, 255, 255, 255) else Color.argb(28, 0, 0, 0)
-                setStroke(dp(1), strokeColor)
-            }
         }
     }
 

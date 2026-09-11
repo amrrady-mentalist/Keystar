@@ -46,7 +46,7 @@ class MainActivity : AppCompatActivity() {
         val savedTheme = prefs.getString("theme_override", "system")
         when (savedTheme) {
             "light" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
-            "dark", "pitch_black" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+            "dark", "pitch_black", "liquid_glass" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
             else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
         }
 
@@ -97,7 +97,7 @@ class MainActivity : AppCompatActivity() {
                 R.id.radioThemeDark -> "dark" to AppCompatDelegate.MODE_NIGHT_YES
                 R.id.radioThemeMaterialYou -> "material_you" to AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
                 R.id.radioThemePitchBlack -> "pitch_black" to AppCompatDelegate.MODE_NIGHT_YES
-                R.id.radioThemeLiquidGlass -> "liquid_glass" to AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+                R.id.radioThemeLiquidGlass -> "liquid_glass" to AppCompatDelegate.MODE_NIGHT_YES
                 else -> "system" to AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
             }
             prefs.edit().putString("theme_override", value).apply()
