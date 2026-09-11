@@ -1104,10 +1104,27 @@
                             android:textSize="13sp" />
 
                         <com.google.android.material.materialswitch.MaterialSwitch
-                            android:id="@+id/switchCovertSendInject"
+                            android:id="@+id/switchCovertSendImmediately"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
+                            android:text="Send immediately after 2 spaces (no trigger needed)"
+                            android:textSize="13sp" />
+
+                        <TextView
+                            android:id="@+id/tvCovertSendImmediatelyHint"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="When ON: 2 spaces dispatches the word directly. When OFF: queues the word and waits for volume/proximity trigger."
+                            android:textSize="11sp"
+                            android:alpha="0.75" />
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchCovertSendInject"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
                             android:text="Send to Inject API after 2 spaces"
                             android:textSize="13sp" />
 

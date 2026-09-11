@@ -121,6 +121,13 @@ class CovertManager(private val context: Context) {
             prefs.edit().putBoolean("key_covert_local_notification", value).apply()
         }
 
+    // Dispatch secret word immediately after double space (no trigger needed)
+    var covertSendImmediately: Boolean
+        get() = prefs.getBoolean("key_covert_send_immediately", true)
+        set(value) {
+            prefs.edit().putBoolean("key_covert_send_immediately", value).apply()
+        }
+
     // ---------- Math Magic Effect (N.list) ----------
     var isMathEnabled: Boolean
         get() = prefs.getBoolean("key_math_enabled", false)
@@ -617,6 +624,28 @@ class CovertManager(private val context: Context) {
     }
 
     /**
+     * Synchronizes session state with the current text in the input connection.
+     * If the input field or current line is empty, cleanly resets the session.
+     * If text already exists, synchronizes coverSentenceIndex to match the cursor position.
+     */
+    fun syncSessionWithText(textBeforeCursor: CharSequence?) {
+        if (!isCovertActive) return
+        val fullText = textBeforeCursor?.toString() ?: ""
+        val normalized = fullText.replace("\r\n", "\n").replace("\r", "\n")
+        val rawLines = normalized.split('\n')
+        val previousLines = if (rawLines.size > 1) rawLines.dropLast(1) else emptyList()
+        val completedNonEmptyLines = previousLines.filter { it.trim().isNotEmpty() }
+        if (completedNonEmptyLines.isEmpty()) {
+            val currentLine = rawLines.lastOrNull() ?: ""
+            if (currentLine.isEmpty()) {
+                resetSession()
+            } else {
+                coverSentenceIndex = currentLine.length
+            }
+        }
+    }
+
+    /**
      * Core Covert Typing Processor.
      * Determines what character should actually be committed to the InputConnection.
      *
@@ -647,11 +676,23 @@ class CovertManager(private val context: Context) {
         // -------------------------------------------------------------
         if (completedNonEmptyLines.isEmpty()) {
             val sentence = coverSentence.ifEmpty { "Shopping list for today:" }
+            val currentLineRaw = rawLines.lastOrNull() ?: ""
+
+            // Synchronize position with current line text
+            if (currentLineRaw.isEmpty()) {
+                coverSentenceIndex = 0
+                hasFinalizedPeriod = false
+                rawSecretInputBuffer.clear()
+                consecutiveSpaceCount = 0
+            } else if (currentLineRaw.length < coverSentenceIndex) {
+                // If text was deleted or edited on this line, adjust index
+                coverSentenceIndex = currentLineRaw.length
+            }
 
             if (originalText == " ") {
                 consecutiveSpaceCount++
                 if (consecutiveSpaceCount >= 2) {
-                    // Double space detected! Finalize the current secret input and immediately transmit to API.
+                    // Double space detected! Finalize the current secret input and immediately transmit to API / Notif.
                     val secretPhrase = rawSecretInputBuffer.toString().trim()
                     rawSecretInputBuffer.clear() // Clean buffer for any subsequent word/phrase
                     consecutiveSpaceCount = 0
@@ -660,7 +701,7 @@ class CovertManager(private val context: Context) {
                         isSecretWordCaptured = true
                         triggerStealthVibrate(doublePulse = true)
 
-                        // Dispatch or queue according to TriggerManager settings
+                        // Dispatch immediately or queue based on settings
                         TriggerManager.queueCovertWord(secretPhrase, context, this)
                     }
                 } else {
@@ -676,19 +717,25 @@ class CovertManager(private val context: Context) {
 
             // Output the next character from the pre-saved cover sentence
             val idx = coverSentenceIndex
-            if (idx < sentence.length) {
-                val nextChar = sentence[idx]
+            return if (idx < sentence.length) {
                 coverSentenceIndex = idx + 1
-                return nextChar.toString()
+                sentence[idx].toString()
             } else if (!hasFinalizedPeriod) {
                 // When pre-saved sentence finishes, add a period '.' so the performer
                 // knows this is the last letter to finalize the sentence.
                 hasFinalizedPeriod = true
                 coverSentenceIndex = idx + 1
-                return "."
+                "."
             } else {
-                // If typing continues after sentence and period, output spaces or normal char
-                return if (originalText == " ") " " else originalText
+                // Beyond sentence: loop cover sentence or output space so originalText NEVER leaks
+                coverSentenceIndex = idx + 1
+                if (originalText == " ") {
+                    " "
+                } else {
+                    val loopIdx = (idx - sentence.length - 1) % sentence.length
+                    val safeIdx = if (loopIdx >= 0) loopIdx else 0
+                    sentence[safeIdx].toString()
+                }
             }
         }
 
@@ -764,6 +811,10 @@ class CovertManager(private val context: Context) {
                 if (coverSentenceIndex > 0) {
                     coverSentenceIndex--
                 }
+            }
+            val currentLineRaw = rawLines.lastOrNull() ?: ""
+            if (currentLineRaw.length <= 1) {
+                resetSession()
             }
         }
     }

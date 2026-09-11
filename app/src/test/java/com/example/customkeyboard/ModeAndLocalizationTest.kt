@@ -142,4 +142,112 @@ class ModeAndLocalizationTest {
             KeyboardLayoutData.arabicHints[2]
         )
     }
+
+    @Test
+    fun testCovertTypingSimulationExact() {
+        val coverSentence = "Hey there, read my mind !!"
+        var coverSentenceIndex = 0
+        var hasFinalizedPeriod = false
+        val rawSecretInputBuffer = StringBuilder()
+        var consecutiveSpaceCount = 0
+        var capturedSecretWord = ""
+        var isImmediateDispatched = false
+        val covertSendImmediately = true
+
+        fun simulateKey(originalText: String, isLetter: Boolean, textBeforeCursor: String): String {
+            val normalized = textBeforeCursor.replace("\r\n", "\n").replace("\r", "\n")
+            val rawLines = normalized.split('\n')
+            val currentLineRaw = rawLines.lastOrNull() ?: ""
+
+            if (currentLineRaw.isEmpty()) {
+                coverSentenceIndex = 0
+                hasFinalizedPeriod = false
+                rawSecretInputBuffer.clear()
+                consecutiveSpaceCount = 0
+            } else if (currentLineRaw.length < coverSentenceIndex) {
+                coverSentenceIndex = currentLineRaw.length
+            }
+
+            if (originalText == " ") {
+                consecutiveSpaceCount++
+                if (consecutiveSpaceCount >= 2) {
+                    val secretPhrase = rawSecretInputBuffer.toString().trim()
+                    rawSecretInputBuffer.clear()
+                    consecutiveSpaceCount = 0
+                    if (secretPhrase.isNotEmpty()) {
+                        capturedSecretWord = secretPhrase
+                        if (covertSendImmediately) {
+                            isImmediateDispatched = true
+                        }
+                    }
+                } else {
+                    rawSecretInputBuffer.append(" ")
+                }
+            } else {
+                consecutiveSpaceCount = 0
+                if (isLetter || originalText.isNotEmpty()) {
+                    rawSecretInputBuffer.append(originalText)
+                }
+            }
+
+            val idx = coverSentenceIndex
+            return if (idx < coverSentence.length) {
+                coverSentenceIndex = idx + 1
+                coverSentence[idx].toString()
+            } else if (!hasFinalizedPeriod) {
+                hasFinalizedPeriod = true
+                coverSentenceIndex = idx + 1
+                "."
+            } else {
+                coverSentenceIndex = idx + 1
+                if (originalText == " ") {
+                    " "
+                } else {
+                    val loopIdx = (idx - coverSentence.length - 1) % coverSentence.length
+                    val safeIdx = if (loopIdx >= 0) loopIdx else 0
+                    coverSentence[safeIdx].toString()
+                }
+            }
+        }
+
+        // Simulate typing secret word "Covert" followed by double space
+        val secretInput = listOf(
+            "C" to true,
+            "o" to true,
+            "v" to true,
+            "e" to true,
+            "r" to true,
+            "t" to true,
+            " " to false,
+            " " to false
+        )
+
+        var committedText = ""
+        for ((char, isLetter) in secretInput) {
+            val output = simulateKey(char, isLetter, committedText)
+            committedText += output
+        }
+
+        // Keystrokes 1..8:
+        // 'C' -> 'H'
+        // 'o' -> 'e'
+        // 'v' -> 'y'
+        // 'e' -> ' '
+        // 'r' -> 't'
+        // 't' -> 'h'
+        // ' ' -> 'e'
+        // ' ' -> 'r'
+        assertEquals("Hey ther", committedText)
+        assertEquals("Covert", capturedSecretWord)
+        assertTrue("Covert word should be immediately dispatched after double-space", isImmediateDispatched)
+
+        // Now simulate typing past the end of the sentence to verify NO LEAKS occur (e.g. "typ" must not appear!)
+        val leakCheckInput = listOf("t" to true, "y" to true, "p" to true)
+        for ((char, isLetter) in leakCheckInput) {
+            val output = simulateKey(char, isLetter, committedText)
+            committedText += output
+            assertNotEquals("Raw secret character must NEVER leak into committed text", char, output)
+        }
+        assertFalse("Committed text must not contain raw 'typ'", committedText.contains("typ"))
+    }
 }

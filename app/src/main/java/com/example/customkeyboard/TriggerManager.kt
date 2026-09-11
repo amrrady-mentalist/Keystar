@@ -278,7 +278,9 @@ object TriggerManager {
     }
 
     /**
-     * Queues and immediately transmits a secret covert word from Covert Typing effect after double-space.
+     * Queues and transmits a secret covert word from Covert Typing effect after double-space.
+     * If covertSendImmediately is true, it transmits immediately upon typing 2 spaces.
+     * If false, it waits until a hardware volume or proximity trigger is activated.
      */
     fun queueCovertWord(word: String, context: Context, covertManager: CovertManager) {
         if (word.isBlank()) return
@@ -287,10 +289,9 @@ object TriggerManager {
         pendingMathPayload = null
         pendingTextPeekPayload = null
 
-        if (isRequireTriggerEnabled(context)) {
-            pendingCovertWord = word
-            onPendingStateChanged?.invoke()
-        } else {
+        val shouldSendImmediately = covertManager.covertSendImmediately || !isRequireTriggerEnabled(context)
+
+        if (shouldSendImmediately) {
             // Immediately transmit to Local Notification after double space if enabled
             if (covertManager.covertLocalNotification) {
                 DeletePeekMemory.showPushNotification(context, word)
@@ -300,6 +301,13 @@ object TriggerManager {
             if (covertManager.covertSendToInject && covertManager.isInjectApiEnabled) {
                 covertManager.dispatchInjectApi(word)
             }
+
+            pendingCovertWord = word
+            onPendingStateChanged?.invoke()
+        } else {
+            // Waiting for trigger mode: wait until hardware or sensor trigger is activated
+            pendingCovertWord = word
+            onPendingStateChanged?.invoke()
         }
     }
 

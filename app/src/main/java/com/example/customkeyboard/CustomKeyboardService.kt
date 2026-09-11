@@ -228,7 +228,13 @@ class CustomKeyboardService : InputMethodService() {
         capsLock = false
         symbolsPage = 1
         wordBuffer.clear()
-        val textBefore = currentInputConnection?.getTextBeforeCursor(40, 0)?.toString()?.trim() ?: ""
+        val textBeforeRaw = currentInputConnection?.getTextBeforeCursor(4000, 0)?.toString() ?: ""
+        if (textBeforeRaw.isEmpty()) {
+            covertManager.resetSession()
+        } else if (covertManager.isCovertActive) {
+            covertManager.syncSessionWithText(textBeforeRaw)
+        }
+        val textBefore = textBeforeRaw.trim()
         lastCommittedWord = textBefore.split(Regex("\\s+")).lastOrNull { it.isNotEmpty() } ?: ""
         render()
     }

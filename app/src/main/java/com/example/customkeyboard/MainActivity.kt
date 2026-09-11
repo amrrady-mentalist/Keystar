@@ -213,6 +213,7 @@ class MainActivity : AppCompatActivity() {
         val layoutInjectSettings = dialog.findViewById<LinearLayout>(R.id.layoutInjectSettings)
         val editInjectUrl = dialog.findViewById<EditText>(R.id.editInjectUrl)
         val editInjectKey = dialog.findViewById<EditText>(R.id.editInjectKey)
+        val switchCovertSendImmediately = dialog.findViewById<MaterialSwitch>(R.id.switchCovertSendImmediately)
         val switchCovertSendInject = dialog.findViewById<MaterialSwitch>(R.id.switchCovertSendInject)
         val switchCovertSendNotif = dialog.findViewById<MaterialSwitch>(R.id.switchCovertSendNotif)
         val btnTestInjectApi = dialog.findViewById<Button>(R.id.btnTestInjectApi)
@@ -339,6 +340,10 @@ class MainActivity : AppCompatActivity() {
             } else {
                 "Captured Secret Word: (None yet - type word + double space)"
             }
+
+            switchCovertSendImmediately.isChecked = covertManager.covertSendImmediately
+            switchCovertSendInject.isChecked = covertManager.covertSendToInject
+            switchCovertSendNotif.isChecked = covertManager.covertLocalNotification
 
             // Math Status
             switchMathMaster.isChecked = covertManager.isMathEnabled
@@ -567,6 +572,10 @@ class MainActivity : AppCompatActivity() {
         switchInjectApi.setOnCheckedChangeListener { _, isChecked ->
             covertManager.isInjectApiEnabled = isChecked
             layoutInjectSettings.visibility = if (isChecked) View.VISIBLE else View.GONE
+        }
+
+        switchCovertSendImmediately.setOnCheckedChangeListener { _, isChecked ->
+            covertManager.covertSendImmediately = isChecked
         }
 
         switchCovertSendInject.setOnCheckedChangeListener { _, isChecked ->
@@ -936,6 +945,9 @@ class MainActivity : AppCompatActivity() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 val txt = s?.toString() ?: ""
+                if (txt.isEmpty()) {
+                    covertManager.resetSession()
+                }
                 val lines = txt.split('\n').filter { it.trim().isNotEmpty() }
                 val secret = covertManager.capturedSecretWord
                 tvSandboxStatus.text = when {
