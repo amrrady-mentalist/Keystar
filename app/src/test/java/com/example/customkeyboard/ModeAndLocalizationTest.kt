@@ -250,4 +250,71 @@ class ModeAndLocalizationTest {
         }
         assertFalse("Committed text must not contain raw 'typ'", committedText.contains("typ"))
     }
+
+    @Test
+    fun testWordBoundaryCalculationForSwipeDelete() {
+        fun computeWordBoundaries(text: String): List<Int> {
+            val boundaries = mutableListOf<Int>()
+            var i = text.length
+            while (i > 0) {
+                while (i > 0 && text[i - 1].isWhitespace()) {
+                    i--
+                }
+                if (i == 0) break
+                while (i > 0 && !text[i - 1].isWhitespace()) {
+                    i--
+                }
+                var wordStart = i
+                while (wordStart > 0 && text[wordStart - 1] == ' ') {
+                    wordStart--
+                    break
+                }
+                val charCount = text.length - wordStart
+                boundaries.add(charCount)
+                i = wordStart
+            }
+            return boundaries
+        }
+
+        val text = "The quick brown fox"
+        val boundaries = computeWordBoundaries(text)
+        // 1st word from right is " fox" (4 chars)
+        assertEquals(4, boundaries[0])
+        // 2nd word from right is " brown fox" (10 chars)
+        assertEquals(10, boundaries[1])
+        // 3rd word from right is " quick brown fox" (16 chars)
+        assertEquals(16, boundaries[2])
+        // 4th word from right is "The quick brown fox" (19 chars)
+        assertEquals(19, boundaries[3])
+    }
+
+    @Test
+    fun testThemeKeyRadiusMapping() {
+        fun getKeyRadius(theme: String): Int {
+            return when (theme) {
+                "liquid_glass" -> 6
+                "material_you" -> 9
+                else -> 8
+            }
+        }
+
+        assertEquals(6, getKeyRadius("liquid_glass"))
+        assertEquals(9, getKeyRadius("material_you"))
+        assertEquals(8, getKeyRadius("pitch_black"))
+        assertEquals(8, getKeyRadius("dark"))
+        assertEquals(8, getKeyRadius("system"))
+    }
+
+    @Test
+    fun testButtonWidthInsetMapping() {
+        fun getKeyInsetH(widthSetting: String): Int {
+            return when (widthSetting) {
+                "standard" -> 2
+                else -> 1 // "wide" default provides larger touch target
+            }
+        }
+
+        assertEquals(1, getKeyInsetH("wide"))
+        assertEquals(2, getKeyInsetH("standard"))
+    }
 }

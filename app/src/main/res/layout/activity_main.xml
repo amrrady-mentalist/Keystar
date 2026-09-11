@@ -160,6 +160,27 @@
                         android:layout_height="wrap_content"
                         android:text="@string/theme_dark"
                         android:textSize="14sp" />
+
+                    <RadioButton
+                        android:id="@+id/radioThemeMaterialYou"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/theme_material_you"
+                        android:textSize="14sp" />
+
+                    <RadioButton
+                        android:id="@+id/radioThemePitchBlack"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/theme_pitch_black"
+                        android:textSize="14sp" />
+
+                    <RadioButton
+                        android:id="@+id/radioThemeLiquidGlass"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/theme_liquid_glass"
+                        android:textSize="14sp" />
                 </RadioGroup>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
@@ -188,10 +209,48 @@
                     android:textSize="16sp"
                     android:textColor="?android:attr/textColorPrimary" />
 
+                <!-- Button Width & Spacing -->
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
+                    android:text="@string/button_width_label"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="?android:attr/textColorSecondary" />
+
+                <RadioGroup
+                    android:id="@+id/widthRadioGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp">
+
+                    <RadioButton
+                        android:id="@+id/radioWidthWide"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/width_wide"
+                        android:textSize="14sp" />
+
+                    <RadioButton
+                        android:id="@+id/radioWidthStandard"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/width_standard"
+                        android:textSize="14sp" />
+                </RadioGroup>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginBottom="10dp"
+                    android:background="?attr/colorOutlineVariant" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
                     android:text="@string/keyboard_height_label"
                     android:textSize="14sp"
                     android:textStyle="bold"

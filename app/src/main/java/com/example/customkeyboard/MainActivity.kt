@@ -46,7 +46,7 @@ class MainActivity : AppCompatActivity() {
         val savedTheme = prefs.getString("theme_override", "system")
         when (savedTheme) {
             "light" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
-            "dark" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+            "dark", "pitch_black" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
             else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
         }
 
@@ -85,6 +85,9 @@ class MainActivity : AppCompatActivity() {
         when (prefs.getString("theme_override", "system")) {
             "light" -> findViewById<RadioButton>(R.id.radioThemeLight).isChecked = true
             "dark" -> findViewById<RadioButton>(R.id.radioThemeDark).isChecked = true
+            "material_you" -> findViewById<RadioButton>(R.id.radioThemeMaterialYou).isChecked = true
+            "pitch_black" -> findViewById<RadioButton>(R.id.radioThemePitchBlack).isChecked = true
+            "liquid_glass" -> findViewById<RadioButton>(R.id.radioThemeLiquidGlass).isChecked = true
             else -> findViewById<RadioButton>(R.id.radioThemeSystem).isChecked = true
         }
 
@@ -92,11 +95,28 @@ class MainActivity : AppCompatActivity() {
             val (value, mode) = when (checkedId) {
                 R.id.radioThemeLight -> "light" to AppCompatDelegate.MODE_NIGHT_NO
                 R.id.radioThemeDark -> "dark" to AppCompatDelegate.MODE_NIGHT_YES
+                R.id.radioThemeMaterialYou -> "material_you" to AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+                R.id.radioThemePitchBlack -> "pitch_black" to AppCompatDelegate.MODE_NIGHT_YES
+                R.id.radioThemeLiquidGlass -> "liquid_glass" to AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
                 else -> "system" to AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
             }
             prefs.edit().putString("theme_override", value).apply()
             AppCompatDelegate.setDefaultNightMode(mode)
             Toast.makeText(this, "Appearance updated", Toast.LENGTH_SHORT).show()
+        }
+
+        val widthGroup = findViewById<RadioGroup>(R.id.widthRadioGroup)
+        when (prefs.getString("button_width", "wide")) {
+            "standard" -> findViewById<RadioButton>(R.id.radioWidthStandard).isChecked = true
+            else -> findViewById<RadioButton>(R.id.radioWidthWide).isChecked = true
+        }
+        widthGroup.setOnCheckedChangeListener { _, checkedId ->
+            val value = when (checkedId) {
+                R.id.radioWidthStandard -> "standard"
+                else -> "wide"
+            }
+            prefs.edit().putString("button_width", value).apply()
+            Toast.makeText(this, "Button width updated", Toast.LENGTH_SHORT).show()
         }
 
         val heightGroup = findViewById<RadioGroup>(R.id.heightRadioGroup)

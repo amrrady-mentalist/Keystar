@@ -24,6 +24,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.ExtractedTextRequest
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
@@ -57,12 +58,32 @@ class CustomKeyboardService : InputMethodService() {
     private lateinit var clipHistory: ClipboardHistory
     private lateinit var covertManager: CovertManager
 
+    // Track active selection bounds
+    private var currentSelStart = 0
+    private var currentSelEnd = 0
+
     // ---------- sizing helpers (customizable via Settings preferences) ----------
-    private val KEY_RADIUS_DP = 8
+    private fun getKeyRadiusDp(): Int {
+        return when (getThemeMode()) {
+            "liquid_glass" -> 6 // Apple iOS rounded key radius
+            "material_you" -> 9 // Material 3 squircle key radius
+            else -> 8
+        }
+    }
+
+    private val KEY_RADIUS_DP: Int
+        get() = getKeyRadiusDp()
+
     private val PILL_RADIUS_DP = 24
     private val ICON_GLYPH_DP = 26
-    private val KEY_INSET_H_DP = 2
     private val KEY_INSET_V_DP = 4
+
+    private fun getKeyInsetHDp(): Int {
+        return when (prefs.getString("button_width", "wide")) {
+            "standard" -> 2
+            else -> 1 // "wide" default: wider buttons, reduced gap for fewer miss-types
+        }
+    }
 
     private fun getRowHeightDp(): Int {
         return when (prefs.getString("keyboard_height", "normal")) {
@@ -236,6 +257,11 @@ class CustomKeyboardService : InputMethodService() {
         }
         val textBefore = textBeforeRaw.trim()
         lastCommittedWord = textBefore.split(Regex("\\s+")).lastOrNull { it.isNotEmpty() } ?: ""
+        val et = currentInputConnection?.getExtractedText(ExtractedTextRequest(), 0)
+        if (et != null) {
+            currentSelStart = et.selectionStart
+            currentSelEnd = et.selectionEnd
+        }
         render()
     }
 
@@ -248,6 +274,8 @@ class CustomKeyboardService : InputMethodService() {
         candidatesEnd: Int
     ) {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
+        currentSelStart = newSelStart
+        currentSelEnd = newSelEnd
         if (oldSelStart != newSelStart || oldSelEnd != newSelEnd) {
             val (currentWord, prevWord) = getActiveTypingContext()
             wordBuffer.clear()
@@ -263,26 +291,104 @@ class CustomKeyboardService : InputMethodService() {
 
     // ---------- theming ----------
 
+    private fun getThemeMode(): String {
+        return prefs.getString("theme_override", "system") ?: "system"
+    }
+
     private fun isDarkMode(): Boolean {
-        return when (prefs.getString("theme_override", "system")) {
-            "dark" -> true
+        return when (getThemeMode()) {
+            "pitch_black", "dark" -> true
             "light" -> false
-            else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
-                Configuration.UI_MODE_NIGHT_YES
+            "material_you", "liquid_glass", "system" -> {
+                (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+                    Configuration.UI_MODE_NIGHT_YES
+            }
+            else -> false
         }
     }
 
-    private fun bgColor() = if (isDarkMode()) Color.parseColor("#131314") else Color.parseColor("#E9EAED")
-    private fun textColor() = if (isDarkMode()) Color.parseColor("#E3E3E3") else Color.parseColor("#1F1F1F")
+    private fun bgColor(): Int {
+        return when (getThemeMode()) {
+            "pitch_black" -> Color.parseColor("#000000") // Pure AMOLED Pitch Black
+            "material_you" -> {
+                if (isDarkMode()) Color.parseColor("#1B1B1F") // Material You Dark Greyish
+                else Color.parseColor("#EDEBF0") // Material You Light Greyish
+            }
+            "liquid_glass" -> {
+                if (isDarkMode()) Color.parseColor("#18191E") // Apple Liquid Glass Dark
+                else Color.parseColor("#CFD3D9") // Apple Liquid Glass Light
+            }
+            "dark" -> Color.parseColor("#131314")
+            "light" -> Color.parseColor("#E9EAED")
+            else -> if (isDarkMode()) Color.parseColor("#131314") else Color.parseColor("#E9EAED")
+        }
+    }
+
+    private fun textColor(): Int {
+        return when (getThemeMode()) {
+            "pitch_black" -> Color.parseColor("#FFFFFF")
+            "material_you" -> {
+                if (isDarkMode()) Color.parseColor("#E5E1E6") else Color.parseColor("#1B1B1F")
+            }
+            "liquid_glass" -> {
+                if (isDarkMode()) Color.parseColor("#FFFFFF") else Color.parseColor("#000000")
+            }
+            else -> if (isDarkMode()) Color.parseColor("#E3E3E3") else Color.parseColor("#1F1F1F")
+        }
+    }
 
     // Individual key "box" colors - distinct from the keyboard background so every key reads
-    // as its own tile, similar to Gboard/Material You.
-    private fun keyColor() = if (isDarkMode()) Color.parseColor("#2D2E30") else Color.parseColor("#FFFFFF")
-    private fun specialKeyColor() = if (isDarkMode()) Color.parseColor("#3C3F41") else Color.parseColor("#F1F3F4")
-    private fun pressHighlightColor() = if (isDarkMode()) Color.parseColor("#4C4F52") else Color.parseColor("#DADCE0")
+    // as its own tile.
+    private fun keyColor(): Int {
+        return when (getThemeMode()) {
+            "pitch_black" -> Color.parseColor("#141414") // Pure Black AMOLED Tile
+            "material_you" -> {
+                if (isDarkMode()) Color.parseColor("#2B2A2F") // Elevated Greyish Tile
+                else Color.parseColor("#FEF7FF") // M3 Elevated Surface
+            }
+            "liquid_glass" -> {
+                if (isDarkMode()) Color.parseColor("#44464D") // Frosted Glass Tile
+                else Color.parseColor("#FFFFFF") // Crisp White iOS Glass Tile
+            }
+            else -> if (isDarkMode()) Color.parseColor("#2D2E30") else Color.parseColor("#FFFFFF")
+        }
+    }
+
+    private fun specialKeyColor(): Int {
+        return when (getThemeMode()) {
+            "pitch_black" -> Color.parseColor("#212121")
+            "material_you" -> {
+                if (isDarkMode()) Color.parseColor("#38363C") else Color.parseColor("#DFE0E6")
+            }
+            "liquid_glass" -> {
+                if (isDarkMode()) Color.parseColor("#2F3138") else Color.parseColor("#B4B8BF")
+            }
+            else -> if (isDarkMode()) Color.parseColor("#3C3F41") else Color.parseColor("#F1F3F4")
+        }
+    }
+
+    private fun pressHighlightColor(): Int {
+        return when (getThemeMode()) {
+            "pitch_black" -> Color.parseColor("#363636")
+            "material_you" -> {
+                if (isDarkMode()) Color.parseColor("#4E4B52") else Color.parseColor("#CACBD2")
+            }
+            "liquid_glass" -> {
+                if (isDarkMode()) Color.parseColor("#63656E") else Color.parseColor("#E3E5E9")
+            }
+            else -> if (isDarkMode()) Color.parseColor("#4C4F52") else Color.parseColor("#DADCE0")
+        }
+    }
 
     // Material You dynamic accent when available (Android 12+), with a sensible fallback.
     private fun accentColor(): Int {
+        val theme = getThemeMode()
+        if (theme == "liquid_glass") {
+            return Color.parseColor("#007AFF") // Apple vibrant iOS system blue
+        }
+        if (theme == "pitch_black") {
+            return Color.parseColor("#5A95FF")
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             return try {
                 val resId = if (isDarkMode()) android.R.color.system_accent1_200 else android.R.color.system_accent1_600
@@ -294,8 +400,19 @@ class CustomKeyboardService : InputMethodService() {
         return fallbackAccent()
     }
 
-    private fun fallbackAccent() = if (isDarkMode()) Color.parseColor("#A8C7FA") else Color.parseColor("#0B57D0")
-    private fun enterIconColor() = if (isDarkMode()) Color.parseColor("#062E6F") else Color.parseColor("#FFFFFF")
+    private fun fallbackAccent(): Int {
+        val theme = getThemeMode()
+        if (theme == "liquid_glass") return Color.parseColor("#007AFF")
+        if (theme == "pitch_black") return Color.parseColor("#5A95FF")
+        return if (isDarkMode()) Color.parseColor("#A8C7FA") else Color.parseColor("#0B57D0")
+    }
+
+    private fun enterIconColor(): Int {
+        if (getThemeMode() == "liquid_glass" || getThemeMode() == "pitch_black") {
+            return Color.parseColor("#FFFFFF")
+        }
+        return if (isDarkMode()) Color.parseColor("#062E6F") else Color.parseColor("#FFFFFF")
+    }
 
     /** A translucent wash of the accent color, used as the shift key's background while active. */
     private fun accentTintColor(): Int {
@@ -327,7 +444,7 @@ class CustomKeyboardService : InputMethodService() {
         applyWindowChrome()
         rootContainer.removeAllViews()
         rootContainer.setBackgroundColor(bgColor())
-        rootContainer.setPadding(dp(3), dp(4), dp(3), dp(2))
+        rootContainer.setPadding(dp(1), dp(3), dp(1), dp(2))
 
         topBarContainer = buildTopBar()
         rootContainer.addView(topBarContainer)
@@ -2725,7 +2842,7 @@ class CustomKeyboardService : InputMethodService() {
     }
 
     /** Backspace key: a normal tap deletes one character, holding continuously deletes (auto-repeat),
-     *  and dragging left performs swipe-to-delete-more. Supports deleting selected text (Select All). */
+     *  and dragging left performs swipe-to-delete with live word-by-word highlight in the text field. */
     private fun makeBackspaceKey(weight: Float): View {
         val resting = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
         val pressedBg = keyBackground(pressHighlightColor(), KEY_RADIUS_DP)
@@ -2744,10 +2861,13 @@ class CustomKeyboardService : InputMethodService() {
         val repeatHandler = Handler(Looper.getMainLooper())
         var down = false
         var startX = 0f
-        var deletedSteps = 0
-        val stepPx = dp(16)
         var isSwiping = false
         var repeatCount = 0
+        var wordsSelectedCount = 0
+        var initialCursorPos = 0
+        var initialTextBefore = ""
+        val wordOffsets = mutableListOf<Int>()
+        val stepPx = dp(24)
 
         lateinit var repeatRunnable: Runnable
         repeatRunnable = Runnable {
@@ -2769,37 +2889,85 @@ class CustomKeyboardService : InputMethodService() {
                 MotionEvent.ACTION_DOWN -> {
                     down = true
                     startX = event.rawX
-                    deletedSteps = 0
                     isSwiping = false
                     repeatCount = 0
+                    wordsSelectedCount = 0
+                    wordOffsets.clear()
+
+                    val ic = currentInputConnection
+                    val et = ic?.getExtractedText(ExtractedTextRequest(), 0)
+                    initialCursorPos = if (et != null && et.selectionEnd >= 0) {
+                        et.selectionEnd
+                    } else if (currentSelEnd > 0) {
+                        currentSelEnd
+                    } else {
+                        ic?.getTextBeforeCursor(3000, 0)?.length ?: 0
+                    }
+                    initialTextBefore = ic?.getTextBeforeCursor(3000, 0)?.toString() ?: ""
+
+                    // Precompute word boundaries backwards from end of initialTextBefore
+                    var i = initialTextBefore.length
+                    while (i > 0) {
+                        while (i > 0 && initialTextBefore[i - 1].isWhitespace()) {
+                            i--
+                        }
+                        if (i == 0) break
+                        while (i > 0 && !initialTextBefore[i - 1].isWhitespace()) {
+                            i--
+                        }
+                        var wordStart = i
+                        while (wordStart > 0 && initialTextBefore[wordStart - 1] == ' ') {
+                            wordStart--
+                            break
+                        }
+                        val charCount = initialTextBefore.length - wordStart
+                        wordOffsets.add(charCount)
+                        i = wordStart
+                    }
+
                     v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
                     v.background = pressedBg
                     v.animate().scaleX(1.12f).scaleY(1.12f).setDuration(45).start()
 
-                    deleteChar()
-                    deletedSteps = 1
-
-                    // Schedule repeat if user holds down the delete button (350ms initial delay)
+                    // Schedule repeat if user holds down the delete button (380ms initial delay)
                     repeatHandler.removeCallbacks(repeatRunnable)
-                    repeatHandler.postDelayed(repeatRunnable, 350L)
+                    repeatHandler.postDelayed(repeatRunnable, 380L)
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     if (down) {
                         val draggedLeft = startX - event.rawX
-                        // If user swipes left, cancel auto-repeat and switch to swipe-step deletion
-                        if (draggedLeft > dp(12)) {
+                        val ic = currentInputConnection
+                        // If user swipes left, cancel auto-repeat and switch to live highlight swipe-to-delete
+                        if (draggedLeft > dp(14)) {
                             if (!isSwiping) {
                                 isSwiping = true
                                 repeatHandler.removeCallbacks(repeatRunnable)
                             }
-                            val targetSteps = 1 + (draggedLeft / stepPx).toInt()
-                            if (targetSteps > deletedSteps) {
-                                repeat(targetSteps - deletedSteps) {
-                                    deleteChar()
-                                    v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
+                            val targetCount = ((draggedLeft - dp(14)) / stepPx).toInt() + 1
+                            val clamped = if (wordOffsets.isNotEmpty()) {
+                                targetCount.coerceIn(1, wordOffsets.size)
+                            } else {
+                                targetCount.coerceAtLeast(1)
+                            }
+                            if (clamped != wordsSelectedCount) {
+                                wordsSelectedCount = clamped
+                                val charsToSelect = if (wordOffsets.isNotEmpty()) {
+                                    wordOffsets[clamped - 1]
+                                } else {
+                                    clamped
                                 }
-                                deletedSteps = targetSteps
+                                val selStart = (initialCursorPos - charsToSelect).coerceAtLeast(0)
+                                val selEnd = initialCursorPos
+                                ic?.setSelection(selStart, selEnd)
+                                v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
+                            }
+                        } else if (isSwiping && draggedLeft <= dp(8)) {
+                            // User slid back to the right to cancel swipe deletion
+                            if (wordsSelectedCount > 0) {
+                                wordsSelectedCount = 0
+                                ic?.setSelection(initialCursorPos, initialCursorPos)
+                                v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
                             }
                         }
                     }
@@ -2807,10 +2975,39 @@ class CustomKeyboardService : InputMethodService() {
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     down = false
-                    isSwiping = false
                     repeatHandler.removeCallbacks(repeatRunnable)
                     v.background = resting
                     v.animate().scaleX(1f).scaleY(1f).setDuration(80).start()
+
+                    if (isSwiping) {
+                        if (wordsSelectedCount > 0) {
+                            val sel = currentInputConnection?.getSelectedText(0)
+                            if (!sel.isNullOrEmpty()) {
+                                deleteChar()
+                            } else {
+                                val charsToDelete = if (wordOffsets.isNotEmpty()) {
+                                    wordOffsets[(wordsSelectedCount - 1).coerceIn(0, wordOffsets.size - 1)]
+                                } else {
+                                    wordsSelectedCount
+                                }
+                                currentInputConnection?.deleteSurroundingText(charsToDelete, 0)
+                                wordBuffer.clear()
+                                val tb = currentInputConnection?.getTextBeforeCursor(4000, 0)
+                                covertManager.handleBackspace(tb)
+                                refreshTopBar()
+                            }
+                            v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
+                        } else {
+                            currentInputConnection?.setSelection(initialCursorPos, initialCursorPos)
+                        }
+                        isSwiping = false
+                        wordsSelectedCount = 0
+                    } else {
+                        // Normal tap: if auto-repeat hasn't fired yet, delete 1 char
+                        if (repeatCount == 0) {
+                            deleteChar()
+                        }
+                    }
                     true
                 }
                 else -> false
@@ -2916,6 +3113,10 @@ class CustomKeyboardService : InputMethodService() {
         return GradientDrawable().apply {
             setColor(color)
             cornerRadius = dp(radiusDp).toFloat()
+            if (getThemeMode() == "liquid_glass") {
+                val strokeColor = if (isDarkMode()) Color.argb(46, 255, 255, 255) else Color.argb(28, 0, 0, 0)
+                setStroke(dp(1), strokeColor)
+            }
         }
     }
 
@@ -2925,7 +3126,7 @@ class CustomKeyboardService : InputMethodService() {
     private fun keyBackground(
         color: Int,
         radiusDp: Int = KEY_RADIUS_DP,
-        insetHDp: Int = KEY_INSET_H_DP,
+        insetHDp: Int = getKeyInsetHDp(),
         insetVDp: Int = KEY_INSET_V_DP
     ): Drawable {
         return InsetDrawable(roundedDrawable(color, radiusDp), dp(insetHDp), dp(insetVDp), dp(insetHDp), dp(insetVDp))
