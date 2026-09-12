@@ -224,12 +224,12 @@ object UserHabitsManager {
     /**
      * Learned completions starting with typed prefix, ranked by user frequency.
      */
-    fun getLearnedCompletions(prefix: String, limit: Int = 4): List<String> {
+    fun getLearnedCompletions(prefix: String, isArabic: Boolean, limit: Int = 4): List<String> {
         val query = prefix.trim().lowercase()
         if (query.isEmpty()) return emptyList()
 
         return wordFrequencies.entries
-            .filter { it.key.startsWith(query) }
+            .filter { it.key.startsWith(query) && Dictionary.isMatchingLanguage(it.key, isArabic) }
             .sortedByDescending { it.value }
             .take(limit)
             .map { entry ->
@@ -238,10 +238,15 @@ object UserHabitsManager {
             }
     }
 
+    fun getLearnedCompletions(prefix: String, limit: Int = 4): List<String> {
+        val isAr = Dictionary.isMatchingLanguage(prefix, true)
+        return getLearnedCompletions(prefix, isAr, limit)
+    }
+
     /**
      * Learned next words following prevWord and prevPrevWord, prioritizing trigrams over bigrams.
      */
-    fun getLearnedNextWords(prevWord: String, prevPrevWord: String? = null, limit: Int = 6): List<String> {
+    fun getLearnedNextWords(prevWord: String, prevPrevWord: String? = null, isArabic: Boolean, limit: Int = 6): List<String> {
         val p1 = prevWord.trim().lowercase()
         if (p1.isEmpty()) return emptyList()
 
@@ -254,7 +259,9 @@ object UserHabitsManager {
             trigramTransitions[triKey]?.let { triMap ->
                 triMap.entries.sortedByDescending { it.value }.forEach {
                     val display = wordDisplayCasing[it.key] ?: it.key
-                    results.add(display)
+                    if (Dictionary.isMatchingLanguage(display, isArabic)) {
+                        results.add(display)
+                    }
                 }
             }
         }
@@ -263,11 +270,18 @@ object UserHabitsManager {
         bigramTransitions[p1]?.let { biMap ->
             biMap.entries.sortedByDescending { it.value }.forEach {
                 val display = wordDisplayCasing[it.key] ?: it.key
-                results.add(display)
+                if (Dictionary.isMatchingLanguage(display, isArabic)) {
+                    results.add(display)
+                }
             }
         }
 
         return results.take(limit).toList()
+    }
+
+    fun getLearnedNextWords(prevWord: String, prevPrevWord: String? = null, limit: Int = 6): List<String> {
+        val isAr = Dictionary.isMatchingLanguage(prevWord, true)
+        return getLearnedNextWords(prevWord, prevPrevWord, isAr, limit)
     }
 
     fun getBigramScore(prevWord: String, nextWord: String): Int {
@@ -286,13 +300,27 @@ object UserHabitsManager {
     }
 
     /**
-     * Top most frequently used words overall.
+     * Top most frequently used words overall for specified language.
      */
+    fun getTopLearnedWords(isArabic: Boolean, limit: Int = 8): List<String> {
+        return wordFrequencies.entries
+            .filter { Dictionary.isMatchingLanguage(it.key, isArabic) }
+            .sortedByDescending { it.value }
+            .take(limit)
+            .map { wordDisplayCasing[it.key] ?: it.key }
+    }
+
     fun getTopLearnedWords(limit: Int = 8): List<String> {
         return wordFrequencies.entries
             .sortedByDescending { it.value }
             .take(limit)
             .map { wordDisplayCasing[it.key] ?: it.key }
+    }
+
+    fun isLearnedWord(word: String, isArabic: Boolean): Boolean {
+        if (!Dictionary.isMatchingLanguage(word, isArabic)) return false
+        val lower = word.trim().lowercase()
+        return (wordFrequencies[lower] ?: 0) >= 1
     }
 
     fun isLearnedWord(word: String): Boolean {

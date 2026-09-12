@@ -567,7 +567,7 @@ class CustomKeyboardService : InputMethodService() {
         val isArabic = currentLang == Lang.AR
         val typingContext = getActiveTypingContext()
         val contextualSuggestions = if (currentMode == Mode.LETTERS) {
-            Dictionary.getContextualSuggestions(typingContext.currentWord, typingContext.previousWords, isArabic, limit = 16)
+            Dictionary.getContextualSuggestions(typingContext.currentWord, typingContext.previousWords, isArabic, limit = 3)
         } else emptyList()
 
         when {
@@ -672,21 +672,16 @@ class CustomKeyboardService : InputMethodService() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             layoutParams = FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
         }
-        val hasEmojis = items.any { it.isEmoji }
-        val isFewItems = items.size <= 3
-        items.forEachIndexed { index, item ->
+        val topWords = items.filter { !it.isEmoji }.take(3)
+        topWords.forEachIndexed { index, item ->
             if (index > 0) {
                 container.addView(createSuggestionDivider())
             }
-            if (item.isEmoji) {
-                container.addView(emojiChip(item.text, isFewItems))
-            } else {
-                container.addView(suggestionChip(item, hasEmojis, isFewItems))
-            }
+            container.addView(suggestionChip(item))
         }
         scroll.addView(container)
         return scroll
@@ -760,49 +755,19 @@ class CustomKeyboardService : InputMethodService() {
         }
     }
 
-    private fun suggestionChip(
-        item: Dictionary.SuggestionItem,
-        hasEmojis: Boolean = false,
-        isFewItems: Boolean = false
-    ): TextView {
-        val isPrimary = item.isPrimary
-        val isCorrection = item.isCorrection
-        val isNextWord = item.isNextWord
-        val resting = when {
-            isCorrection -> keyBackground(if (isDarkMode()) Color.parseColor("#3C4043") else Color.parseColor("#E8F0FE"), KEY_RADIUS_DP)
-            isPrimary -> keyBackground(specialKeyColor(), KEY_RADIUS_DP)
-            else -> null
-        }
+    private fun suggestionChip(item: Dictionary.SuggestionItem): TextView {
         return TextView(this).apply {
             text = item.text
-            setTextColor(when {
-                isCorrection -> accentColor()
-                isPrimary -> accentColor()
-                else -> textColor()
-            })
-            setTypeface(if (isPrimary || isCorrection) Typeface.DEFAULT_BOLD else Typeface.DEFAULT)
+            setTextColor(textColor())
+            setTypeface(Typeface.DEFAULT)
             textSize = getSuggestionFontSize()
             includeFontPadding = false
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
             gravity = Gravity.CENTER
-            setPadding(dp(12), 0, dp(12), 0)
-            layoutParams = if (isFewItems) {
-                val weight = if (hasEmojis) 1.25f else 1f
-                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight).apply {
-                    if (isPrimary || isCorrection) {
-                        setMargins(dp(2), dp(3), dp(2), dp(3))
-                    }
-                }
-            } else {
-                LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT).apply {
-                    if (isPrimary || isCorrection) {
-                        setMargins(dp(2), dp(3), dp(2), dp(3))
-                    }
-                }
-            }
-            if (resting != null) background = resting
-            applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP) {
+            setPadding(dp(10), 0, dp(10), 0)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+            applyKeyTouchBehavior(this, pressHighlightColor(), null, KEY_RADIUS_DP) {
                 val ctx = getActiveTypingContext()
                 Dictionary.recordUsedWord(item.text, ctx.prev1, ctx.prev2)
                 lastCommittedWord = item.text

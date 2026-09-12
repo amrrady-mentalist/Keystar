@@ -41,7 +41,33 @@ class PredictionEngineTest {
 
     @Test
     fun testPrefixScoring() {
-        val suggestions = Dictionary.getContextualSuggestions("gover", listOf(), isArabic = false, limit = 5).map { it.text.lowercase() }
+        val suggestions = Dictionary.getContextualSuggestions("gover", listOf(), isArabic = false, limit = 3).map { it.text.lowercase() }
         assertTrue("Suggestions for 'gover' should include 'government' or 'govern'", suggestions.any { it.startsWith("govern") })
+    }
+
+    @Test
+    fun testLanguageIsolationEnglishAndArabic() {
+        // In English keyboard mode: suggestions must be English only, never Arabic
+        val enSuggestions = Dictionary.getContextualSuggestions("", listOf(), isArabic = false, limit = 3)
+        assertEquals(3, enSuggestions.size)
+        assertTrue(enSuggestions.all { Dictionary.isMatchingLanguage(it.text, isArabic = false) })
+        assertFalse(enSuggestions.any { Dictionary.isMatchingLanguage(it.text, isArabic = true) })
+
+        // In Arabic keyboard mode: suggestions must be Arabic only, never English
+        val arSuggestions = Dictionary.getContextualSuggestions("", listOf(), isArabic = true, limit = 3)
+        assertEquals(3, arSuggestions.size)
+        assertTrue(arSuggestions.all { Dictionary.isMatchingLanguage(it.text, isArabic = true) })
+        assertFalse(arSuggestions.any { Dictionary.isMatchingLanguage(it.text, isArabic = false) })
+    }
+
+    @Test
+    fun testSuggestionLimitAndNoHighlighting() {
+        val suggestions = Dictionary.getContextualSuggestions("th", listOf(), isArabic = false, limit = 3)
+        assertTrue("Suggestions count must be at most 3", suggestions.size <= 3)
+        // No highlighting on any suggested words
+        for (item in suggestions) {
+            assertFalse("Suggested word '${item.text}' should not have isPrimary highlight", item.isPrimary)
+            assertFalse("Suggested word '${item.text}' should not have isCorrection highlight", item.isCorrection)
+        }
     }
 }
