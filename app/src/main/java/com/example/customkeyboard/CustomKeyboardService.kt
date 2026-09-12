@@ -139,6 +139,15 @@ class CustomKeyboardService : InputMethodService() {
         }
     }
 
+    private fun getHintFontSize(isArabic: Boolean = (currentLang == Lang.AR)): Float {
+        return when (prefs.getString("key_font_size", "normal")) {
+            "small" -> if (isArabic) 6.5f else 7.0f
+            "large" -> if (isArabic) 8.0f else 8.5f
+            "extra_large" -> if (isArabic) 8.5f else 9.5f
+            else -> if (isArabic) 7.5f else 8.0f
+        }
+    }
+
     private fun getEmojiFontSize(): Float {
         return when (prefs.getString("key_font_size", "normal")) {
             "small" -> 20f
@@ -460,11 +469,10 @@ class CustomKeyboardService : InputMethodService() {
                     rootContainer.addView(buildArabicLetterRow(1))
                     rootContainer.addView(buildArabicLetterRow2WithBackspace())
                 } else {
-                    val rows = KeyboardLayoutData.englishRows
                     rootContainer.addView(buildRow(KeyboardLayoutData.numberRow))
-                    rootContainer.addView(buildRow(rows[0], applyShift = true, isLetterRow = true))
-                    rootContainer.addView(buildLetterRowWithShift(rows[1]))
-                    rootContainer.addView(buildLetterRowWithShiftAndBackspace(rows[2]))
+                    rootContainer.addView(buildEnglishLetterRow0())
+                    rootContainer.addView(buildEnglishLetterRow1())
+                    rootContainer.addView(buildEnglishLetterRow2WithShiftAndBackspace())
                 }
             }
         }
@@ -1777,31 +1785,80 @@ class CustomKeyboardService : InputMethodService() {
         return row
     }
 
-    private fun buildLetterRowWithShift(keys: List<String>): LinearLayout {
+    private fun buildEnglishLetterRow0(): LinearLayout {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
+        }
+        val keys = KeyboardLayoutData.englishRows[0]
+        val hints = KeyboardLayoutData.englishHints[0]
+        keys.forEachIndexed { index, k ->
+            val display = if (shiftOn || capsLock) k.uppercase() else k
+            val hint = hints.getOrNull(index)
+            row.addView(
+                makeKey(
+                    label = display,
+                    weight = 1f,
+                    fontSize = getLetterFontSize(),
+                    hint = hint,
+                    onLongClick = hint?.let { h -> { commitSymbol(h) } }
+                ) {
+                    commitLetter(display)
+                }
+            )
+        }
+        return row
+    }
+
+    private fun buildEnglishLetterRow1(): LinearLayout {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
         }
         row.addView(spacer(0.5f))
-        keys.forEach { k ->
-            val display = if (currentLang == Lang.EN && (shiftOn || capsLock)) k.uppercase() else k
-            row.addView(makeKey(display, weight = 1f, fontSize = getLetterFontSize()) { commitLetter(display) })
+        val keys = KeyboardLayoutData.englishRows[1]
+        val hints = KeyboardLayoutData.englishHints[1]
+        keys.forEachIndexed { index, k ->
+            val display = if (shiftOn || capsLock) k.uppercase() else k
+            val hint = hints.getOrNull(index)
+            row.addView(
+                makeKey(
+                    label = display,
+                    weight = 1f,
+                    fontSize = getLetterFontSize(),
+                    hint = hint,
+                    onLongClick = hint?.let { h -> { commitSymbol(h) } }
+                ) {
+                    commitLetter(display)
+                }
+            )
         }
         row.addView(spacer(0.5f))
         return row
     }
 
-    private fun buildLetterRowWithShiftAndBackspace(keys: List<String>): LinearLayout {
+    private fun buildEnglishLetterRow2WithShiftAndBackspace(): LinearLayout {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
         }
-        if (currentLang == Lang.EN) {
-            row.addView(makeShiftKey(weight = 1.5f))
-        }
-        keys.forEach { k ->
-            val display = if (currentLang == Lang.EN && (shiftOn || capsLock)) k.uppercase() else k
-            row.addView(makeKey(display, weight = 1f, fontSize = getLetterFontSize()) { commitLetter(display) })
+        row.addView(makeShiftKey(weight = 1.5f))
+        val keys = KeyboardLayoutData.englishRows[2]
+        val hints = KeyboardLayoutData.englishHints[2]
+        keys.forEachIndexed { index, k ->
+            val display = if (shiftOn || capsLock) k.uppercase() else k
+            val hint = hints.getOrNull(index)
+            row.addView(
+                makeKey(
+                    label = display,
+                    weight = 1f,
+                    fontSize = getLetterFontSize(),
+                    hint = hint,
+                    onLongClick = hint?.let { h -> { commitSymbol(h) } }
+                ) {
+                    commitLetter(display)
+                }
+            )
         }
         // Swipe left on backspace to delete more than one character at a time.
         row.addView(makeBackspaceKey(weight = 1.5f))
@@ -2330,6 +2387,7 @@ class CustomKeyboardService : InputMethodService() {
                 setTextColor(textColor())
                 setTypeface(Typeface.DEFAULT_BOLD)
                 textSize = fontSize
+                includeFontPadding = false
                 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
                 background = resting
                 applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP, onLongClick) { onClick() }
@@ -2339,34 +2397,39 @@ class CustomKeyboardService : InputMethodService() {
         val container = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
             background = resting
+            layoutDirection = View.LAYOUT_DIRECTION_LTR
         }
 
+        val isArabic = currentLang == Lang.AR
         val tvMain = TextView(this).apply {
             text = label
             gravity = Gravity.CENTER
             setTextColor(textColor())
             setTypeface(Typeface.DEFAULT_BOLD)
             textSize = fontSize
+            includeFontPadding = false
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
+            setPadding(0, dp(if (isArabic) 3 else 2), 0, 0)
         }
         container.addView(tvMain)
 
         val tvHint = TextView(this).apply {
             text = hint
             setTextColor(textColor())
-            alpha = 0.60f
-            textSize = 10f
-            setTypeface(Typeface.DEFAULT_BOLD)
+            alpha = 0.55f
+            textSize = getHintFontSize(isArabic)
+            setTypeface(Typeface.DEFAULT)
+            includeFontPadding = false
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.TOP or Gravity.END
+                Gravity.TOP or Gravity.RIGHT
             ).apply {
-                topMargin = dp(3)
-                marginEnd = dp(4)
+                topMargin = dp(2)
+                rightMargin = dp(if (isArabic) 2 else 3)
             }
         }
         container.addView(tvHint)

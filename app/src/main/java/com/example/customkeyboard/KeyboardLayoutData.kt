@@ -18,6 +18,13 @@ object KeyboardLayoutData {
         listOf("ذ", "ء", "ؤ", "ر", "ى", "ة", "و", "ز", "ظ", "د")
     )
 
+    // Secondary hint symbols for English layout (matching Gboard)
+    val englishHints = listOf(
+        listOf("%", "\\", "|", "=", "[", "]", "<", ">", "{", "}"),
+        listOf("@", "#", "$", "_", "&", "-", "+", "(", ")"),
+        listOf("*", "\"", "'", ":", ";", "!", "?")
+    )
+
     // Secondary hint symbols matching Gboard layout exactly
     val arabicHints = listOf(
         listOf("%", "\\", "|", "=", "]", "[", ">", "<", "}", "{", "°"),

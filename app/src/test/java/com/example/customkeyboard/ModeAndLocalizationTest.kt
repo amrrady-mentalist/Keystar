@@ -144,6 +144,36 @@ class ModeAndLocalizationTest {
     }
 
     @Test
+    fun testEnglishHintsLayoutExactMatch() {
+        assertEquals(3, KeyboardLayoutData.englishRows.size)
+        assertEquals(3, KeyboardLayoutData.englishHints.size)
+
+        // Row 0: 10 keys matching Q-P
+        assertEquals(10, KeyboardLayoutData.englishRows[0].size)
+        assertEquals(10, KeyboardLayoutData.englishHints[0].size)
+        assertEquals(
+            listOf("%", "\\", "|", "=", "[", "]", "<", ">", "{", "}"),
+            KeyboardLayoutData.englishHints[0]
+        )
+
+        // Row 1: 9 keys matching A-L
+        assertEquals(9, KeyboardLayoutData.englishRows[1].size)
+        assertEquals(9, KeyboardLayoutData.englishHints[1].size)
+        assertEquals(
+            listOf("@", "#", "$", "_", "&", "-", "+", "(", ")"),
+            KeyboardLayoutData.englishHints[1]
+        )
+
+        // Row 2: 7 keys matching Z-M
+        assertEquals(7, KeyboardLayoutData.englishRows[2].size)
+        assertEquals(7, KeyboardLayoutData.englishHints[2].size)
+        assertEquals(
+            listOf("*", "\"", "'", ":", ";", "!", "?"),
+            KeyboardLayoutData.englishHints[2]
+        )
+    }
+
+    @Test
     fun testCovertTypingSimulationExact() {
         val coverSentence = "Hey there, read my mind !!"
         var coverSentenceIndex = 0
