@@ -304,7 +304,7 @@ class CustomKeyboardService : InputMethodService() {
     // ---------- theming ----------
 
     private fun getThemeMode(): String {
-        return prefs.getString("theme_override", "system") ?: "system"
+        return prefs.getString("theme_override", "dark") ?: "dark"
     }
 
     private fun isDarkMode(): Boolean {
@@ -315,32 +315,23 @@ class CustomKeyboardService : InputMethodService() {
                 (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                     Configuration.UI_MODE_NIGHT_YES
             }
-            else -> false
+            else -> true
         }
     }
 
     private fun bgColor(): Int {
         return when (getThemeMode()) {
             "pitch_black" -> Color.parseColor("#000000") // Pure AMOLED Pitch Black
-            "material_you" -> {
-                if (isDarkMode()) Color.parseColor("#1B1B1F") // Material You Dark Greyish
-                else Color.parseColor("#EDEBF0") // Material You Light Greyish
-            }
-            "liquid_glass" -> Color.parseColor("#1E1F22") // Dark Charcoal Slate Canvas (Screenshot matching)
-            "dark" -> Color.parseColor("#131314")
             "light" -> Color.parseColor("#E9EAED")
-            else -> if (isDarkMode()) Color.parseColor("#131314") else Color.parseColor("#E9EAED")
+            else -> Color.parseColor("#1E1F21") // User requested keyboard background behind the buttons
         }
     }
 
     private fun textColor(): Int {
         return when (getThemeMode()) {
             "pitch_black" -> Color.parseColor("#FFFFFF")
-            "material_you" -> {
-                if (isDarkMode()) Color.parseColor("#E5E1E6") else Color.parseColor("#1B1B1F")
-            }
-            "liquid_glass" -> Color.parseColor("#FFFFFF") // Crisp White (Screenshot matching)
-            else -> if (isDarkMode()) Color.parseColor("#E3E3E3") else Color.parseColor("#1F1F1F")
+            "light" -> Color.parseColor("#1F1F1F")
+            else -> Color.parseColor("#AAABAB") // User requested letter itself and suggestions
         }
     }
 
@@ -349,69 +340,45 @@ class CustomKeyboardService : InputMethodService() {
     private fun keyColor(): Int {
         return when (getThemeMode()) {
             "pitch_black" -> Color.parseColor("#141414") // Pure Black AMOLED Tile
-            "material_you" -> {
-                if (isDarkMode()) Color.parseColor("#2B2A2F") // Elevated Greyish Tile
-                else Color.parseColor("#FEF7FF") // M3 Elevated Surface
-            }
-            "liquid_glass" -> Color.parseColor("#35373C") // Slate-Gray Letter Tile (Screenshot matching)
-            else -> if (isDarkMode()) Color.parseColor("#2D2E30") else Color.parseColor("#FFFFFF")
+            "light" -> Color.parseColor("#FFFFFF")
+            else -> Color.parseColor("#38393B") // User requested button behind the letter
         }
     }
 
     private fun specialKeyColor(): Int {
         return when (getThemeMode()) {
             "pitch_black" -> Color.parseColor("#212121")
-            "material_you" -> {
-                if (isDarkMode()) Color.parseColor("#38363C") else Color.parseColor("#DFE0E6")
-            }
-            "liquid_glass" -> Color.parseColor("#28292E") // Darker Slate Special Keys (Screenshot matching)
-            else -> if (isDarkMode()) Color.parseColor("#3C3F41") else Color.parseColor("#F1F3F4")
+            "light" -> Color.parseColor("#DFE0E6")
+            else -> Color.parseColor("#38393B") // Matching screenshot keys (shift, backspace, comma, etc.)
         }
     }
 
     private fun pressHighlightColor(): Int {
         return when (getThemeMode()) {
             "pitch_black" -> Color.parseColor("#363636")
-            "material_you" -> {
-                if (isDarkMode()) Color.parseColor("#4E4B52") else Color.parseColor("#CACBD2")
-            }
-            "liquid_glass" -> Color.parseColor("#4A4C54") // Pressed Slate Highlight (Screenshot matching)
-            else -> if (isDarkMode()) Color.parseColor("#4C4F52") else Color.parseColor("#DADCE0")
+            "light" -> Color.parseColor("#DADCE0")
+            else -> Color.parseColor("#4D4E52")
         }
     }
 
     // Material You dynamic accent when available (Android 12+), with a sensible fallback.
     private fun accentColor(): Int {
         val theme = getThemeMode()
-        if (theme == "liquid_glass") {
-            return Color.parseColor("#007AFF") // Apple vibrant iOS system blue
-        }
         if (theme == "pitch_black") {
             return Color.parseColor("#5A95FF")
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            return try {
-                val resId = if (isDarkMode()) android.R.color.system_accent1_200 else android.R.color.system_accent1_600
-                getColor(resId)
-            } catch (e: Exception) {
-                fallbackAccent()
-            }
-        }
-        return fallbackAccent()
+        return Color.parseColor("#A8C7FA") // Soft blue matching enter pill button in screenshot
     }
 
     private fun fallbackAccent(): Int {
-        val theme = getThemeMode()
-        if (theme == "liquid_glass") return Color.parseColor("#007AFF")
-        if (theme == "pitch_black") return Color.parseColor("#5A95FF")
-        return if (isDarkMode()) Color.parseColor("#A8C7FA") else Color.parseColor("#0B57D0")
+        return Color.parseColor("#A8C7FA")
     }
 
     private fun enterIconColor(): Int {
-        if (getThemeMode() == "liquid_glass" || getThemeMode() == "pitch_black") {
+        if (getThemeMode() == "pitch_black") {
             return Color.parseColor("#FFFFFF")
         }
-        return if (isDarkMode()) Color.parseColor("#062E6F") else Color.parseColor("#FFFFFF")
+        return Color.parseColor("#041E49") // Deep navy blue matching return icon in screenshot
     }
 
     /** A translucent wash of the accent color, used as the shift key's background while active. */
@@ -2549,33 +2516,45 @@ class CustomKeyboardService : InputMethodService() {
             isHapticFeedbackEnabled = true
         }
 
-        val tvComma = TextView(this).apply {
-            text = ","
-            gravity = Gravity.CENTER
-            setTextColor(textColor())
-            setTypeface(Typeface.DEFAULT_BOLD)
-            textSize = 20f
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
             layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER
             )
         }
-        container.addView(tvComma)
 
-        val tvEmojiHint = TextView(this).apply {
-            text = "🙂"
-            textSize = 10f
-            alpha = 0.6f
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.TOP or Gravity.END
-            ).apply {
-                topMargin = dp(2)
-                marginEnd = dp(4)
+        val ivEmoji = ImageView(this).apply {
+            setImageResource(R.drawable.ic_emoji_toolbar)
+            setColorFilter(textColor())
+            val emojiSize = dp(14)
+            layoutParams = LinearLayout.LayoutParams(emojiSize, emojiSize).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                bottomMargin = dp(1)
             }
         }
-        container.addView(tvEmojiHint)
+        content.addView(ivEmoji)
+
+        val tvComma = TextView(this).apply {
+            text = ","
+            gravity = Gravity.CENTER_HORIZONTAL
+            setTextColor(textColor())
+            setTypeface(Typeface.DEFAULT_BOLD)
+            textSize = 19f
+            includeFontPadding = false
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                topMargin = -dp(2)
+            }
+        }
+        content.addView(tvComma)
+
+        container.addView(content)
 
         applyKeyTouchBehavior(
             container,
@@ -2613,31 +2592,49 @@ class CustomKeyboardService : InputMethodService() {
         val container = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
             background = resting
+            isClickable = true
+            isHapticFeedbackEnabled = true
         }
-        val tvComma = TextView(this).apply {
-            text = "،"
-            gravity = Gravity.CENTER
-            setTextColor(textColor())
-            setTypeface(Typeface.DEFAULT_BOLD)
-            textSize = 21f
+
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
             layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            ).apply {
-                topMargin = dp(2)
-            }
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER
+            )
         }
-        container.addView(tvComma)
 
         val ivEmoji = ImageView(this).apply {
             setImageResource(R.drawable.ic_emoji_toolbar)
             setColorFilter(textColor())
-            alpha = 0.65f
-            layoutParams = FrameLayout.LayoutParams(dp(13), dp(13), Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply {
-                topMargin = dp(4)
+            val emojiSize = dp(14)
+            layoutParams = LinearLayout.LayoutParams(emojiSize, emojiSize).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                bottomMargin = dp(1)
             }
         }
-        container.addView(ivEmoji)
+        content.addView(ivEmoji)
+
+        val tvComma = TextView(this).apply {
+            text = "،"
+            gravity = Gravity.CENTER_HORIZONTAL
+            setTextColor(textColor())
+            setTypeface(Typeface.DEFAULT_BOLD)
+            textSize = 19f
+            includeFontPadding = false
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                topMargin = -dp(1)
+            }
+        }
+        content.addView(tvComma)
+
+        container.addView(content)
 
         applyKeyTouchBehavior(
             container,
@@ -2922,6 +2919,7 @@ class CustomKeyboardService : InputMethodService() {
         val icon = GlyphIconView(this, GlyphIconView.Glyph.SHIFT).apply {
             iconColor = if (active) accentColor() else textColor()
             locked = capsLock
+            isActive = active
             layoutParams = FrameLayout.LayoutParams(dp(ICON_GLYPH_DP), dp(ICON_GLYPH_DP), Gravity.CENTER)
         }
         container.addView(icon)
@@ -2942,6 +2940,7 @@ class CustomKeyboardService : InputMethodService() {
         }
         val icon = GlyphIconView(this, GlyphIconView.Glyph.BACKSPACE).apply {
             iconColor = textColor()
+            isRtl = currentLang == Lang.AR
             layoutParams = FrameLayout.LayoutParams(dp(ICON_GLYPH_DP), dp(ICON_GLYPH_DP), Gravity.CENTER)
         }
         container.addView(icon)
@@ -3798,6 +3797,7 @@ private class GlyphIconView(context: Context, var glyph: Glyph) : View(context) 
     var iconColor: Int = Color.BLACK
     /** Only used by Glyph.SHIFT - draws an underline bar beneath the arrow to indicate caps lock. */
     var locked: Boolean = false
+    var isActive: Boolean = false
     var isRtl: Boolean = false
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -3817,23 +3817,40 @@ private class GlyphIconView(context: Context, var glyph: Glyph) : View(context) 
         when (glyph) {
             Glyph.RETURN -> {
                 paint.style = Paint.Style.STROKE
-                val top = h * 0.30f
-                val bottom = h * 0.65f
-                val headSize = w * 0.16f
+                paint.strokeCap = Paint.Cap.ROUND
+                paint.strokeJoin = Paint.Join.ROUND
+                paint.strokeWidth = h * 0.11f
+
                 if (isRtl) {
-                    val left = w * 0.26f
-                    val right = w * 0.76f
-                    canvas.drawLine(left, top, left, bottom, paint)
-                    canvas.drawLine(left, bottom, right, bottom, paint)
-                    canvas.drawLine(right, bottom, right - headSize, bottom - headSize, paint)
-                    canvas.drawLine(right, bottom, right - headSize, bottom + headSize, paint)
+                    val tipX = w * 0.70f
+                    val leftX = w * 0.30f
+                    val hookTopY = h * 0.32f
+                    val midY = h * 0.52f
+                    val headSize = w * 0.16f
+
+                    val path = Path().apply {
+                        moveTo(leftX, hookTopY)
+                        lineTo(leftX, midY)
+                        lineTo(tipX, midY)
+                    }
+                    canvas.drawPath(path, paint)
+                    canvas.drawLine(tipX, midY, tipX - headSize, midY - headSize, paint)
+                    canvas.drawLine(tipX, midY, tipX - headSize, midY + headSize, paint)
                 } else {
-                    val left = w * 0.24f
-                    val right = w * 0.74f
-                    canvas.drawLine(right, top, right, bottom, paint)
-                    canvas.drawLine(right, bottom, left, bottom, paint)
-                    canvas.drawLine(left, bottom, left + headSize, bottom - headSize, paint)
-                    canvas.drawLine(left, bottom, left + headSize, bottom + headSize, paint)
+                    val tipX = w * 0.30f
+                    val rightX = w * 0.70f
+                    val hookTopY = h * 0.32f
+                    val midY = h * 0.52f
+                    val headSize = w * 0.16f
+
+                    val path = Path().apply {
+                        moveTo(rightX, hookTopY)
+                        lineTo(rightX, midY)
+                        lineTo(tipX, midY)
+                    }
+                    canvas.drawPath(path, paint)
+                    canvas.drawLine(tipX, midY, tipX + headSize, midY - headSize, paint)
+                    canvas.drawLine(tipX, midY, tipX + headSize, midY + headSize, paint)
                 }
             }
             Glyph.SEARCH -> {
@@ -3905,38 +3922,97 @@ private class GlyphIconView(context: Context, var glyph: Glyph) : View(context) 
                 canvas.drawLine(p2X, p2Y, p3X, p3Y, paint)
             }
             Glyph.BACKSPACE -> {
-                // A generously-sized arrow-box outline with a clearly-inset X, so the X never
-                // crowds the edges of the box at small key sizes.
-                val left = w * 0.10f
-                val notch = w * 0.30f
-                val right = w * 0.90f
-                val top = h * 0.16f
-                val bottom = h * 0.84f
-                val midY = h * 0.5f
-                canvas.drawLine(left, midY, notch, top, paint)
-                canvas.drawLine(notch, top, right, top, paint)
-                canvas.drawLine(right, top, right, bottom, paint)
-                canvas.drawLine(right, bottom, notch, bottom, paint)
-                canvas.drawLine(notch, bottom, left, midY, paint)
-                val xLeft = notch + w * 0.10f
-                val xRight = right - w * 0.10f
-                val xTop = top + h * 0.16f
-                val xBottom = bottom - h * 0.16f
-                canvas.drawLine(xLeft, xTop, xRight, xBottom, paint)
-                canvas.drawLine(xRight, xTop, xLeft, xBottom, paint)
+                paint.style = Paint.Style.STROKE
+                paint.strokeCap = Paint.Cap.ROUND
+                paint.strokeJoin = Paint.Join.ROUND
+                paint.strokeWidth = h * 0.095f
+
+                if (isRtl) {
+                    val tipX = w * 0.85f
+                    val notchX = w * 0.62f
+                    val leftX = w * 0.15f
+                    val topY = h * 0.20f
+                    val bottomY = h * 0.80f
+                    val midY = h * 0.50f
+
+                    val path = Path().apply {
+                        moveTo(tipX, midY)
+                        lineTo(notchX, topY)
+                        lineTo(leftX, topY)
+                        lineTo(leftX, bottomY)
+                        lineTo(notchX, bottomY)
+                        close()
+                    }
+                    canvas.drawPath(path, paint)
+
+                    val rectCenterX = (notchX + leftX) * 0.5f
+                    val xRadius = (notchX - leftX) * 0.28f
+                    val yRadius = (bottomY - topY) * 0.24f
+                    canvas.drawLine(rectCenterX - xRadius, midY - yRadius, rectCenterX + xRadius, midY + yRadius, paint)
+                    canvas.drawLine(rectCenterX + xRadius, midY - yRadius, rectCenterX - xRadius, midY + yRadius, paint)
+                } else {
+                    val tipX = w * 0.15f
+                    val notchX = w * 0.38f
+                    val rightX = w * 0.85f
+                    val topY = h * 0.20f
+                    val bottomY = h * 0.80f
+                    val midY = h * 0.50f
+
+                    val path = Path().apply {
+                        moveTo(tipX, midY)
+                        lineTo(notchX, topY)
+                        lineTo(rightX, topY)
+                        lineTo(rightX, bottomY)
+                        lineTo(notchX, bottomY)
+                        close()
+                    }
+                    canvas.drawPath(path, paint)
+
+                    val rectCenterX = (notchX + rightX) * 0.5f
+                    val xRadius = (rightX - notchX) * 0.28f
+                    val yRadius = (bottomY - topY) * 0.24f
+                    canvas.drawLine(rectCenterX - xRadius, midY - yRadius, rectCenterX + xRadius, midY + yRadius, paint)
+                    canvas.drawLine(rectCenterX + xRadius, midY - yRadius, rectCenterX - xRadius, midY + yRadius, paint)
+                }
             }
             Glyph.SHIFT -> {
-                val midX = w * 0.5f
-                val top = h * 0.14f
-                val chevronBottom = h * 0.52f
-                val leftX = w * 0.16f
-                val rightX = w * 0.84f
-                val stemBottom = h * 0.78f
-                canvas.drawLine(midX, top, leftX, chevronBottom, paint)
-                canvas.drawLine(midX, top, rightX, chevronBottom, paint)
-                canvas.drawLine(midX, chevronBottom * 0.9f, midX, stemBottom, paint)
+                paint.strokeCap = Paint.Cap.ROUND
+                paint.strokeJoin = Paint.Join.ROUND
+                paint.strokeWidth = h * 0.088f
+
+                val midX = w * 0.50f
+                val topY = h * 0.18f
+                val roofBottomY = h * 0.50f
+                val roofLeftX = w * 0.22f
+                val roofRightX = w * 0.78f
+                val stemLeftX = w * 0.37f
+                val stemRightX = w * 0.63f
+                val stemBottomY = if (locked) h * 0.70f else h * 0.78f
+
+                val path = Path().apply {
+                    moveTo(midX, topY)
+                    lineTo(roofLeftX, roofBottomY)
+                    lineTo(stemLeftX, roofBottomY)
+                    lineTo(stemLeftX, stemBottomY)
+                    lineTo(stemRightX, stemBottomY)
+                    lineTo(stemRightX, roofBottomY)
+                    lineTo(roofRightX, roofBottomY)
+                    close()
+                }
+
+                if (isActive) {
+                    paint.style = Paint.Style.FILL_AND_STROKE
+                    canvas.drawPath(path, paint)
+                } else {
+                    paint.style = Paint.Style.STROKE
+                    canvas.drawPath(path, paint)
+                }
+
                 if (locked) {
-                    canvas.drawLine(w * 0.22f, h * 0.90f, w * 0.78f, h * 0.90f, paint)
+                    paint.style = Paint.Style.STROKE
+                    paint.strokeWidth = h * 0.09f
+                    val barY = h * 0.86f
+                    canvas.drawLine(w * 0.26f, barY, w * 0.74f, barY, paint)
                 }
             }
         }

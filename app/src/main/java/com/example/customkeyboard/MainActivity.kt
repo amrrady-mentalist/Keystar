@@ -43,11 +43,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         prefs = getSharedPreferences("keyboard_prefs", Context.MODE_PRIVATE)
-        val savedTheme = prefs.getString("theme_override", "system")
+        val savedTheme = prefs.getString("theme_override", "dark")
         when (savedTheme) {
             "light" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
-            "dark", "pitch_black", "liquid_glass" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
-            else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+            "pitch_black", "liquid_glass" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+            "system" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+            else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
         }
 
         super.onCreate(savedInstanceState)
@@ -82,13 +83,13 @@ class MainActivity : AppCompatActivity() {
             imm.showInputMethodPicker()
         }
 
-        when (prefs.getString("theme_override", "system")) {
+        when (prefs.getString("theme_override", "dark")) {
             "light" -> findViewById<RadioButton>(R.id.radioThemeLight).isChecked = true
-            "dark" -> findViewById<RadioButton>(R.id.radioThemeDark).isChecked = true
             "material_you" -> findViewById<RadioButton>(R.id.radioThemeMaterialYou).isChecked = true
             "pitch_black" -> findViewById<RadioButton>(R.id.radioThemePitchBlack).isChecked = true
             "liquid_glass" -> findViewById<RadioButton>(R.id.radioThemeLiquidGlass).isChecked = true
-            else -> findViewById<RadioButton>(R.id.radioThemeSystem).isChecked = true
+            "system" -> findViewById<RadioButton>(R.id.radioThemeSystem).isChecked = true
+            else -> findViewById<RadioButton>(R.id.radioThemeDark).isChecked = true
         }
 
         themeGroup.setOnCheckedChangeListener { _, checkedId ->
