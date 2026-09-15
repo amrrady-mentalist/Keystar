@@ -176,6 +176,13 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
         }
 
+        val switchKeyPopup = findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.switchKeyPopupPreview)
+        switchKeyPopup?.isChecked = prefs.getBoolean("key_popup_preview", true)
+        switchKeyPopup?.setOnCheckedChangeListener { _, isChecked ->
+            prefs.edit().putBoolean("key_popup_preview", isChecked).apply()
+            CustomKeyboardService.activeInstance?.refreshKeyboardSettings()
+        }
+
         btnClearSandbox.setOnClickListener {
             editSandbox.setText("")
         }

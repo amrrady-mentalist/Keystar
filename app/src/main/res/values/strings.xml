@@ -40,6 +40,8 @@
     <string name="personal_dict_title">Personal Dictionary</string>
     <string name="personal_dict_desc">Add custom words, names, and shortcuts. When you type the first 2 or 3 letters, your personal words appear first in the suggestions bar.</string>
     <string name="btn_manage_personal_dict">Manage Personal Dictionary</string>
+    <string name="key_popup_preview_label">Key Popup Preview</string>
+    <string name="key_popup_preview_desc">Snappy animated preview on key press; hold longer to show associated character</string>
     <string name="accessibility_service_label">Keystar Auto-Submit Service</string>
     <string name="accessibility_service_description">Enables automatic confirmation/click of the checkmark (✓) or send button in WhatsApp, Telegram, and other apps when a covert trigger executes.</string>
 </resources>

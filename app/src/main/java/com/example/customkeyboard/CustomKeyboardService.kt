@@ -51,8 +51,10 @@ class CustomKeyboardService : InputMethodService() {
     private var lastCommittedWord = ""
     private var selectedClipboardEffectTab = "covert"
 
+    private lateinit var rootOverlayContainer: FrameLayout
     private lateinit var rootContainer: LinearLayout
     private lateinit var topBarContainer: LinearLayout
+    private var keyPopupManager: KeyPopupPreviewManager? = null
     private lateinit var prefs: SharedPreferences
     private lateinit var clipboardManager: ClipboardManager
     private lateinit var clipHistory: ClipboardHistory
@@ -191,7 +193,7 @@ class CustomKeyboardService : InputMethodService() {
 
     private val prefChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         when (key) {
-            "key_font_size", "font_style", "keyboard_height", "theme_override", "button_width" -> {
+            "key_font_size", "font_style", "keyboard_height", "theme_override", "button_width", "key_popup_preview" -> {
                 if (::rootContainer.isInitialized) {
                     render()
                 }
@@ -269,11 +271,13 @@ class CustomKeyboardService : InputMethodService() {
 
     override fun onWindowHidden() {
         super.onWindowHidden()
+        keyPopupManager?.hidePopup(immediate = true)
         // Keep trigger session alive so triggers work even if spectator dismissed keyboard
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
         super.onFinishInputView(finishingInput)
+        keyPopupManager?.hidePopup(immediate = true)
         // Keep trigger session alive so triggers work even if spectator dismissed keyboard
     }
 
@@ -451,19 +455,42 @@ class CustomKeyboardService : InputMethodService() {
     // ---------- view construction ----------
 
     override fun onCreateInputView(): View {
-        rootContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+        rootOverlayContainer = FrameLayout(this).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
+            clipChildren = false
+            clipToPadding = false
         }
+        rootContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            clipChildren = false
+            clipToPadding = false
+        }
+        rootOverlayContainer.addView(rootContainer)
+
+        keyPopupManager = KeyPopupPreviewManager(
+            this,
+            rootOverlayContainer,
+            { getThemeMode() },
+            { getKeyTypeface() }
+        ).apply {
+            isEnabled = prefs.getBoolean("key_popup_preview", true)
+        }
+
         render()
-        return rootContainer
+        return rootOverlayContainer
     }
 
     private fun render() {
         applyWindowChrome()
+        keyPopupManager?.applyTheme()
+        keyPopupManager?.isEnabled = prefs.getBoolean("key_popup_preview", true)
         rootContainer.removeAllViews()
         rootContainer.setBackgroundColor(bgColor())
         rootContainer.setPadding(dp(1), dp(3), dp(1), dp(2))
@@ -2502,7 +2529,15 @@ class CustomKeyboardService : InputMethodService() {
                     }
                     translationY = -dpF(raiseDp)
                 }
-                applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP, onLongClick) { onClick() }
+                applyKeyTouchBehavior(
+                    this,
+                    pressHighlightColor(),
+                    resting,
+                    KEY_RADIUS_DP,
+                    popupLabel = label,
+                    popupHint = null,
+                    onLongClick = onLongClick
+                ) { onClick() }
             }
         }
 
@@ -2580,6 +2615,8 @@ class CustomKeyboardService : InputMethodService() {
             pressHighlightColor(),
             resting,
             KEY_RADIUS_DP,
+            popupLabel = label,
+            popupHint = hint,
             onLongClick = effectiveLongClick
         ) { onClick() }
 
@@ -3320,6 +3357,8 @@ class CustomKeyboardService : InputMethodService() {
         pressColor: Int,
         restingBackground: Drawable?,
         radiusDp: Int,
+        popupLabel: String? = null,
+        popupHint: String? = null,
         onLongClick: (() -> Unit)? = null,
         onTap: () -> Unit
     ) {
@@ -3332,7 +3371,11 @@ class CustomKeyboardService : InputMethodService() {
             if (pressed) {
                 isLongPressed = true
                 view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
-                onLongClick?.invoke()
+                if (popupHint != null) {
+                    keyPopupManager?.transitionToLongPress(popupHint)
+                } else {
+                    onLongClick?.invoke()
+                }
             }
         }
         view.setOnTouchListener { v, event ->
@@ -3340,11 +3383,14 @@ class CustomKeyboardService : InputMethodService() {
                 MotionEvent.ACTION_DOWN -> {
                     pressed = true
                     isLongPressed = false
-                    if (onLongClick != null) {
-                        longPressHandler.postDelayed(longPressRunnable, 380)
+                    if (onLongClick != null || popupHint != null) {
+                        longPressHandler.postDelayed(longPressRunnable, 300)
                     }
                     v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
                     v.background = keyBackground(pressColor, radiusDp)
+                    if (popupLabel != null) {
+                        keyPopupManager?.showPopup(v, popupLabel, popupHint)
+                    }
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -3353,32 +3399,39 @@ class CustomKeyboardService : InputMethodService() {
                         event.y >= -margin && event.y <= v.height + margin
                     if (!within && pressed) {
                         pressed = false
-                        if (onLongClick != null) {
+                        if (onLongClick != null || popupHint != null) {
                             longPressHandler.removeCallbacks(longPressRunnable)
                         }
                         v.background = restingBackground
+                        keyPopupManager?.hidePopup(immediate = true)
                     }
                     true
                 }
                 MotionEvent.ACTION_UP -> {
-                    if (onLongClick != null) {
+                    if (onLongClick != null || popupHint != null) {
                         longPressHandler.removeCallbacks(longPressRunnable)
                     }
                     v.background = restingBackground
+                    keyPopupManager?.hidePopup(immediate = false)
                     if (pressed) {
                         pressed = false
-                        if (!isLongPressed) {
+                        if (isLongPressed) {
+                            if (popupHint != null) {
+                                commitSymbol(popupHint)
+                            }
+                        } else {
                             onTap()
                         }
                     }
                     true
                 }
                 MotionEvent.ACTION_CANCEL -> {
-                    if (onLongClick != null) {
+                    if (onLongClick != null || popupHint != null) {
                         longPressHandler.removeCallbacks(longPressRunnable)
                     }
                     pressed = false
                     v.background = restingBackground
+                    keyPopupManager?.hidePopup(immediate = true)
                     true
                 }
                 else -> false
