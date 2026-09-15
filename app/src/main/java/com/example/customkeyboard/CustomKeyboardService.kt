@@ -107,11 +107,11 @@ class CustomKeyboardService : InputMethodService() {
         val isSystemFont = prefs.getString("font_style", "bold") == "system"
         val baseSize = when (prefs.getString("key_font_size", "normal")) {
             "small" -> 19f
-            "large" -> 27f
-            "extra_large" -> 32f
+            "large" -> 26.5f
+            "extra_large" -> 30.5f
             else -> 23f
         }
-        return if (isSystemFont) baseSize + 1.5f else baseSize
+        return if (isSystemFont) baseSize + 1f else baseSize
     }
 
     private fun getSuggestionFontSize(): Float {
@@ -537,6 +537,7 @@ class CustomKeyboardService : InputMethodService() {
     }
 
     private fun dp(v: Int) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v.toFloat(), resources.displayMetrics).toInt()
+    private fun dpF(v: Float) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, resources.displayMetrics)
 
     private fun isWordCharacter(c: Char): Boolean {
         if (c == '؟' || c == '،' || c == '؛') return false
@@ -2477,6 +2478,7 @@ class CustomKeyboardService : InputMethodService() {
     ): View {
         val resting = keyBackground(keyColor(), KEY_RADIUS_DP)
         if (hint == null) {
+            val isArabic = currentLang == Lang.AR
             return TextView(this).apply {
                 text = label
                 gravity = Gravity.CENTER
@@ -2486,6 +2488,14 @@ class CustomKeyboardService : InputMethodService() {
                 includeFontPadding = false
                 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
                 background = resting
+                if (isArabic) {
+                    val raiseDp = when (prefs.getString("key_font_size", "normal")) {
+                        "extra_large" -> 2.5f
+                        "large" -> 1.5f
+                        else -> 1f
+                    }
+                    translationY = -dpF(raiseDp)
+                }
                 applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP, onLongClick) { onClick() }
             }
         }
@@ -2508,7 +2518,16 @@ class CustomKeyboardService : InputMethodService() {
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
-            setPadding(0, dp(if (isArabic) 3 else 2), 0, 0)
+            // Raise letters vertically so descenders/tails (e.g. ض, ص, ي, ر, ز, و, ى, ش, س) fit cleanly inside the key border
+            val raiseDp = when {
+                isArabic && prefs.getString("key_font_size", "normal") == "extra_large" -> 4.5f
+                isArabic && prefs.getString("key_font_size", "normal") == "large" -> 3.5f
+                isArabic -> 2.5f
+                prefs.getString("key_font_size", "normal") == "extra_large" -> 2.5f
+                prefs.getString("key_font_size", "normal") == "large" -> 1.5f
+                else -> 1f
+            }
+            translationY = -dpF(raiseDp)
         }
         container.addView(tvMain)
 
@@ -2524,8 +2543,8 @@ class CustomKeyboardService : InputMethodService() {
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 Gravity.TOP or Gravity.RIGHT
             ).apply {
-                topMargin = dp(2)
-                rightMargin = dp(if (isArabic) 2 else 3)
+                topMargin = dp(if (isArabic) 3 else 2)
+                rightMargin = dp(if (isArabic) 3 else 3)
             }
         }
         container.addView(tvHint)
