@@ -156,6 +156,21 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Key size saved", Toast.LENGTH_SHORT).show()
         }
 
+        val fontStyleGroup = findViewById<RadioGroup>(R.id.fontStyleRadioGroup)
+        when (prefs.getString("font_style", "bold")) {
+            "system" -> findViewById<RadioButton>(R.id.radioFontSystem).isChecked = true
+            else -> findViewById<RadioButton>(R.id.radioFontBold).isChecked = true
+        }
+        fontStyleGroup.setOnCheckedChangeListener { _, checkedId ->
+            val value = when (checkedId) {
+                R.id.radioFontSystem -> "system"
+                else -> "bold"
+            }
+            prefs.edit().putString("font_style", value).apply()
+            val msg = if (value == "system") getString(R.string.font_switched_system) else getString(R.string.font_switched_bold)
+            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+        }
+
         btnClearSandbox.setOnClickListener {
             editSandbox.setText("")
         }

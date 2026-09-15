@@ -387,6 +387,23 @@ class CustomKeyboardService : InputMethodService() {
         return Color.argb(70, Color.red(c), Color.green(c), Color.blue(c))
     }
 
+    private fun getKeyTypeface(): Typeface {
+        return if (prefs.getString("font_style", "bold") == "system") {
+            Typeface.DEFAULT
+        } else {
+            Typeface.DEFAULT_BOLD
+        }
+    }
+
+    private fun toggleFontStyle() {
+        val current = prefs.getString("font_style", "bold") ?: "bold"
+        val newStyle = if (current == "bold") "system" else "bold"
+        prefs.edit().putString("font_style", newStyle).apply()
+        val label = if (newStyle == "system") getString(R.string.font_switched_system) else getString(R.string.font_switched_bold)
+        Toast.makeText(this, label, Toast.LENGTH_SHORT).show()
+        render()
+    }
+
     private fun applyWindowChrome() {
         val win = window?.window
         win?.navigationBarColor = bgColor()
@@ -590,6 +607,9 @@ class CustomKeyboardService : InputMethodService() {
         bar.addView(toolbarIconButton(R.drawable.ic_translate, "Language") {
             switchLanguage()
         })
+        bar.addView(toolbarIconButton(R.drawable.ic_font_switch, "Toggle Font Style") {
+            toggleFontStyle()
+        })
         bar.addView(toolbarIconButton(R.drawable.ic_settings, "Settings") {
             val intent = android.content.Intent(this, MainActivity::class.java).apply {
                 addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -602,8 +622,8 @@ class CustomKeyboardService : InputMethodService() {
         bar.addView(toolbarIconButton(R.drawable.ic_clipboard, "Clipboard") {
             switchMode(Mode.CLIPBOARD)
         })
-        bar.addView(toolbarIconButton(R.drawable.ic_grid, "Menu") {
-            Toast.makeText(this, "Quick Tools", Toast.LENGTH_SHORT).show()
+        bar.addView(toolbarIconButton(R.drawable.ic_grid, "Font Quick Switch") {
+            toggleFontStyle()
         })
 
         return bar
@@ -737,7 +757,7 @@ class CustomKeyboardService : InputMethodService() {
         return TextView(this).apply {
             text = item.text
             setTextColor(textColor())
-            setTypeface(Typeface.DEFAULT)
+            setTypeface(getKeyTypeface())
             textSize = getSuggestionFontSize()
             includeFontPadding = false
             maxLines = 1
@@ -2243,7 +2263,7 @@ class CustomKeyboardService : InputMethodService() {
                 text = op
                 gravity = Gravity.CENTER
                 setTextColor(textColor())
-                setTypeface(Typeface.DEFAULT_BOLD)
+                setTypeface(getKeyTypeface())
                 textSize = 21f
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
                 applyKeyTouchBehavior(this, pressHighlightColor(), null, KEY_RADIUS_DP) {
@@ -2275,7 +2295,7 @@ class CustomKeyboardService : InputMethodService() {
             text = "/"
             gravity = Gravity.CENTER
             setTextColor(textColor())
-            setTypeface(Typeface.DEFAULT_BOLD)
+            setTypeface(getKeyTypeface())
             textSize = 21f
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
             val resting = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
@@ -2295,7 +2315,7 @@ class CustomKeyboardService : InputMethodService() {
             text = label
             gravity = Gravity.CENTER
             setTextColor(textColor())
-            setTypeface(Typeface.DEFAULT_BOLD)
+            setTypeface(getKeyTypeface())
             textSize = getLetterFontSize() + 3f
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
             background = resting
@@ -2309,7 +2329,7 @@ class CustomKeyboardService : InputMethodService() {
             text = label
             gravity = Gravity.CENTER
             setTextColor(textColor())
-            setTypeface(Typeface.DEFAULT_BOLD)
+            setTypeface(getKeyTypeface())
             textSize = 21f
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
             background = resting
@@ -2362,7 +2382,7 @@ class CustomKeyboardService : InputMethodService() {
             textDirection = View.TEXT_DIRECTION_LTR
             gravity = Gravity.CENTER
             setTextColor(textCl)
-            setTypeface(Typeface.DEFAULT_BOLD)
+            setTypeface(getKeyTypeface())
             textSize = getSpecialKeyFontSize()
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
             background = resting
@@ -2424,7 +2444,7 @@ class CustomKeyboardService : InputMethodService() {
                 text = label
                 gravity = Gravity.CENTER
                 setTextColor(textColor())
-                setTypeface(Typeface.DEFAULT_BOLD)
+                setTypeface(getKeyTypeface())
                 textSize = fontSize
                 includeFontPadding = false
                 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
@@ -2444,7 +2464,7 @@ class CustomKeyboardService : InputMethodService() {
             text = label
             gravity = Gravity.CENTER
             setTextColor(textColor())
-            setTypeface(Typeface.DEFAULT_BOLD)
+            setTypeface(getKeyTypeface())
             textSize = fontSize
             includeFontPadding = false
             layoutParams = FrameLayout.LayoutParams(
@@ -2499,7 +2519,7 @@ class CustomKeyboardService : InputMethodService() {
             text = label
             gravity = Gravity.CENTER
             setTextColor(if (textHighlighted) accentColor() else textColor())
-            setTypeface(Typeface.DEFAULT_BOLD)
+            setTypeface(getKeyTypeface())
             textSize = getSpecialKeyFontSize()
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
             background = resting
@@ -2541,7 +2561,7 @@ class CustomKeyboardService : InputMethodService() {
             text = ","
             gravity = Gravity.CENTER_HORIZONTAL
             setTextColor(textColor())
-            setTypeface(Typeface.DEFAULT_BOLD)
+            setTypeface(getKeyTypeface())
             textSize = 19f
             includeFontPadding = false
             layoutParams = LinearLayout.LayoutParams(
@@ -2621,7 +2641,7 @@ class CustomKeyboardService : InputMethodService() {
             text = "،"
             gravity = Gravity.CENTER_HORIZONTAL
             setTextColor(textColor())
-            setTypeface(Typeface.DEFAULT_BOLD)
+            setTypeface(getKeyTypeface())
             textSize = 19f
             includeFontPadding = false
             layoutParams = LinearLayout.LayoutParams(
@@ -2660,7 +2680,7 @@ class CustomKeyboardService : InputMethodService() {
             text = "."
             gravity = Gravity.CENTER
             setTextColor(textColor())
-            setTypeface(Typeface.DEFAULT_BOLD)
+            setTypeface(getKeyTypeface())
             textSize = 21f
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -3113,7 +3133,7 @@ class CustomKeyboardService : InputMethodService() {
             text = label
             gravity = Gravity.CENTER
             setTextColor(textColor())
-            setTypeface(Typeface.DEFAULT_BOLD)
+            setTypeface(getKeyTypeface())
             textSize = getSpecialKeyFontSize()
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
             background = resting

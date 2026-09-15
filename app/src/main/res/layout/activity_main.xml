@@ -341,6 +341,42 @@
                         android:textSize="14sp" />
                 </RadioGroup>
 
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginBottom="10dp"
+                    android:background="?attr/colorOutlineVariant" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/font_style_label"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="?android:attr/textColorSecondary" />
+
+                <RadioGroup
+                    android:id="@+id/fontStyleRadioGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp">
+
+                    <RadioButton
+                        android:id="@+id/radioFontBold"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/font_style_bold"
+                        android:textSize="14sp" />
+
+                    <RadioButton
+                        android:id="@+id/radioFontSystem"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/font_style_system"
+                        android:textSize="14sp" />
+                </RadioGroup>
+
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
