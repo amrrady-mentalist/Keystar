@@ -104,39 +104,47 @@ class CustomKeyboardService : InputMethodService() {
     }
 
     private fun getLetterFontSize(): Float {
-        return when (prefs.getString("key_font_size", "normal")) {
-            "small" -> 20f
-            "large" -> 25f
-            "extra_large" -> 28f
+        val isSystemFont = prefs.getString("font_style", "bold") == "system"
+        val baseSize = when (prefs.getString("key_font_size", "normal")) {
+            "small" -> 19f
+            "large" -> 27f
+            "extra_large" -> 32f
             else -> 23f
         }
+        return if (isSystemFont) baseSize + 1.5f else baseSize
     }
 
     private fun getSuggestionFontSize(): Float {
-        return when (prefs.getString("key_font_size", "normal")) {
-            "small" -> 19f
-            "large" -> 24f
-            "extra_large" -> 27f
-            else -> 22f
+        val isSystemFont = prefs.getString("font_style", "bold") == "system"
+        val baseSize = when (prefs.getString("key_font_size", "normal")) {
+            "small" -> 15f
+            "large" -> 19.5f
+            "extra_large" -> 22f
+            else -> 17f
         }
+        return if (isSystemFont) baseSize + 1f else baseSize
     }
 
     private fun getSymbolFontSize(): Float {
-        return when (prefs.getString("key_font_size", "normal")) {
+        val isSystemFont = prefs.getString("font_style", "bold") == "system"
+        val baseSize = when (prefs.getString("key_font_size", "normal")) {
             "small" -> 18f
-            "large" -> 22f
-            "extra_large" -> 25f
-            else -> 20f
+            "large" -> 26f
+            "extra_large" -> 30f
+            else -> 22.5f
         }
+        return if (isSystemFont) baseSize + 1.5f else baseSize
     }
 
     private fun getSpecialKeyFontSize(): Float {
-        return when (prefs.getString("key_font_size", "normal")) {
-            "small" -> 13f
-            "large" -> 16f
-            "extra_large" -> 18f
-            else -> 14.5f
+        val isSystemFont = prefs.getString("font_style", "bold") == "system"
+        val baseSize = when (prefs.getString("key_font_size", "normal")) {
+            "small" -> 13.5f
+            "large" -> 17.5f
+            "extra_large" -> 20f
+            else -> 15f
         }
+        return if (isSystemFont) baseSize + 1f else baseSize
     }
 
     private fun getHintFontSize(isArabic: Boolean = (currentLang == Lang.AR)): Float {
@@ -170,9 +178,31 @@ class CustomKeyboardService : InputMethodService() {
 
     private var lastReplacedValue: String = ""
 
+    companion object {
+        var activeInstance: CustomKeyboardService? = null
+    }
+
+    fun refreshKeyboardSettings() {
+        if (::rootContainer.isInitialized) {
+            render()
+        }
+    }
+
+    private val prefChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        when (key) {
+            "key_font_size", "font_style", "keyboard_height", "theme_override", "button_width" -> {
+                if (::rootContainer.isInitialized) {
+                    render()
+                }
+            }
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
+        activeInstance = this
         prefs = getSharedPreferences("keyboard_prefs", Context.MODE_PRIVATE)
+        prefs.registerOnSharedPreferenceChangeListener(prefChangeListener)
         val savedAltMode = prefs.getString("last_alt_mode", Mode.NUMBERS.name)
         lastAltMode = try {
             val m = Mode.valueOf(savedAltMode ?: Mode.NUMBERS.name)
@@ -213,6 +243,10 @@ class CustomKeyboardService : InputMethodService() {
     }
 
     override fun onDestroy() {
+        if (activeInstance == this) activeInstance = null
+        if (::prefs.isInitialized) {
+            prefs.unregisterOnSharedPreferenceChangeListener(prefChangeListener)
+        }
         clipboardManager.removePrimaryClipChangedListener(systemClipListener)
         TriggerManager.stopActiveSession(this)
         TriggerManager.onCaptureLiveCursorContext = null
@@ -226,6 +260,9 @@ class CustomKeyboardService : InputMethodService() {
         TriggerManager.startActiveSession(this)
         if (covertManager.isTextReplaceEnabled) {
             covertManager.fetchLatestApiValue()
+        }
+        if (::rootContainer.isInitialized) {
+            render()
         }
     }
 
@@ -456,7 +493,7 @@ class CustomKeyboardService : InputMethodService() {
                     rootContainer.addView(buildArabicLetterRow(1))
                     rootContainer.addView(buildArabicLetterRow2WithBackspace())
                 } else {
-                    rootContainer.addView(buildRow(KeyboardLayoutData.numberRow))
+                    rootContainer.addView(buildRow(KeyboardLayoutData.numberRow, isLetterRow = true))
                     rootContainer.addView(buildEnglishLetterRow0())
                     rootContainer.addView(buildEnglishLetterRow1())
                     rootContainer.addView(buildEnglishLetterRow2WithShiftAndBackspace())
@@ -761,9 +798,9 @@ class CustomKeyboardService : InputMethodService() {
             textSize = getSuggestionFontSize()
             includeFontPadding = false
             maxLines = 1
-            ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
+            ellipsize = android.text.TextUtils.TruncateAt.END
             gravity = Gravity.CENTER
-            setPadding(dp(10), 0, dp(10), 0)
+            setPadding(dp(4), 0, dp(4), 0)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
             applyKeyTouchBehavior(this, pressHighlightColor(), null, KEY_RADIUS_DP) {
                 val ctx = getActiveTypingContext()

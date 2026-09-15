@@ -117,6 +117,7 @@ class MainActivity : AppCompatActivity() {
                 else -> "wide"
             }
             prefs.edit().putString("button_width", value).apply()
+            CustomKeyboardService.activeInstance?.refreshKeyboardSettings()
             Toast.makeText(this, "Button width updated", Toast.LENGTH_SHORT).show()
         }
 
@@ -135,6 +136,7 @@ class MainActivity : AppCompatActivity() {
                 else -> "normal"
             }
             prefs.edit().putString("keyboard_height", value).apply()
+            CustomKeyboardService.activeInstance?.refreshKeyboardSettings()
             Toast.makeText(this, "Keyboard height saved", Toast.LENGTH_SHORT).show()
         }
 
@@ -153,6 +155,7 @@ class MainActivity : AppCompatActivity() {
                 else -> "normal"
             }
             prefs.edit().putString("key_font_size", value).apply()
+            CustomKeyboardService.activeInstance?.refreshKeyboardSettings()
             Toast.makeText(this, "Key size saved", Toast.LENGTH_SHORT).show()
         }
 
@@ -167,6 +170,7 @@ class MainActivity : AppCompatActivity() {
                 else -> "bold"
             }
             prefs.edit().putString("font_style", value).apply()
+            CustomKeyboardService.activeInstance?.refreshKeyboardSettings()
             val msg = if (value == "system") getString(R.string.font_switched_system) else getString(R.string.font_switched_bold)
             Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
         }
