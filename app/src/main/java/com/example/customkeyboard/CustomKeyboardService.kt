@@ -77,6 +77,7 @@ class CustomKeyboardService : InputMethodService() {
     private val PILL_RADIUS_DP = 24
     private val ICON_GLYPH_DP = 26
     private val KEY_INSET_V_DP = 4
+    private val baselineArabicLetters = setOf("ط", "ك", "ف", "ث", "ا", "ة", "ظ", "د", "ب", "ت", "ذ", "ه", "ء")
 
     private fun getKeyInsetHDp(): Int {
         return when (prefs.getString("button_width", "wide")) {
@@ -2485,14 +2486,19 @@ class CustomKeyboardService : InputMethodService() {
                 setTextColor(textColor())
                 setTypeface(getKeyTypeface())
                 textSize = fontSize
-                includeFontPadding = false
+                includeFontPadding = if (isArabic) true else false
                 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
                 background = resting
                 if (isArabic) {
-                    val raiseDp = when (prefs.getString("key_font_size", "normal")) {
-                        "extra_large" -> 2.5f
-                        "large" -> 1.5f
-                        else -> 1f
+                    val isBaseline = label in baselineArabicLetters
+                    val raiseDp = if (isBaseline) {
+                        if (prefs.getString("key_font_size", "normal") == "extra_large") 0.5f else 0f
+                    } else {
+                        when (prefs.getString("key_font_size", "normal")) {
+                            "extra_large" -> 2.5f
+                            "large" -> 1.5f
+                            else -> 1f
+                        }
                     }
                     translationY = -dpF(raiseDp)
                 }
@@ -2503,6 +2509,8 @@ class CustomKeyboardService : InputMethodService() {
         val container = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
             background = resting
+            clipChildren = false
+            clipToPadding = false
             layoutDirection = View.LAYOUT_DIRECTION_LTR
         }
 
@@ -2513,19 +2521,29 @@ class CustomKeyboardService : InputMethodService() {
             setTextColor(textColor())
             setTypeface(getKeyTypeface())
             textSize = fontSize
-            includeFontPadding = false
+            includeFontPadding = if (isArabic) true else false
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
-            // Raise letters vertically so descenders/tails (e.g. ض, ص, ي, ر, ز, و, ى, ش, س) fit cleanly inside the key border
-            val raiseDp = when {
-                isArabic && prefs.getString("key_font_size", "normal") == "extra_large" -> 4.5f
-                isArabic && prefs.getString("key_font_size", "normal") == "large" -> 3.5f
-                isArabic -> 2.5f
-                prefs.getString("key_font_size", "normal") == "extra_large" -> 2.5f
-                prefs.getString("key_font_size", "normal") == "large" -> 1.5f
-                else -> 1f
+            // Baseline letters (ط, ك, ف, ث, ا, ة, ظ, د, etc.) have no descenders; keep them centered without colliding into hints.
+            // Descender letters (ض, ص, ي, ر, ز, و, ى, ش, س, ق, etc.) have low tails; apply a gentle lift to stay inside key borders.
+            val raiseDp = if (isArabic) {
+                if (label in baselineArabicLetters) {
+                    if (prefs.getString("key_font_size", "normal") == "extra_large") 0.5f else 0f
+                } else {
+                    when (prefs.getString("key_font_size", "normal")) {
+                        "extra_large" -> 2.5f
+                        "large" -> 1.5f
+                        else -> 1f
+                    }
+                }
+            } else {
+                when (prefs.getString("key_font_size", "normal")) {
+                    "extra_large" -> 2f
+                    "large" -> 1.2f
+                    else -> 0.8f
+                }
             }
             translationY = -dpF(raiseDp)
         }
@@ -2545,6 +2563,10 @@ class CustomKeyboardService : InputMethodService() {
             ).apply {
                 topMargin = dp(if (isArabic) 3 else 2)
                 rightMargin = dp(if (isArabic) 3 else 3)
+            }
+            // Underscore "_" is drawn at the bottom baseline of its font box; raise it into the top-right corner
+            if (hint == "_") {
+                translationY = -dpF(6f)
             }
         }
         container.addView(tvHint)

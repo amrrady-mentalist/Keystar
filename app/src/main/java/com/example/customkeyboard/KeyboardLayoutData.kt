@@ -35,7 +35,7 @@ object KeyboardLayoutData {
     // Page 1 of punctuation/symbols (the default "?123" screen).
     val symbolsPage1Rows = listOf(
         listOf("@", "#", "$", "_", "&", "-", "+", "(", ")", "/"),
-        listOf("*", "\"", "'", ":", ";", "!", "?", "%")
+        listOf("*", "\"", "'", ":", ";", "!", "×", "%")
     )
 
     // Page 2 of punctuation/symbols, reached via the "1/2" <-> "2/2" toggle key,
@@ -46,7 +46,7 @@ object KeyboardLayoutData {
     )
 
     // Shared bottom symbol row, shown on both pages (same as Gboard keeps a stable last row).
-    val symbolsSharedRow = listOf("~", "`", "|", "•", "√", "π", "÷", "×")
+    val symbolsSharedRow = listOf("~", "`", "|", "•", "√", "π", "÷", "?")
 
     val emojiCategoryIcons = listOf(
         "😀" to "Smileys",
