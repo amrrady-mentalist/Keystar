@@ -253,6 +253,9 @@ class CustomKeyboardService : InputMethodService() {
         if (covertManager.isTextReplaceEnabled) {
             covertManager.fetchLatestApiValue()
         }
+        if (TriggerManager.isDelayTriggerEnabled(this) && (TriggerManager.hasPendingPayload() || covertManager.isTextReplaceEnabled)) {
+            TriggerManager.scheduleDelayTrigger(this, "Input View Started")
+        }
         currentMode = Mode.LETTERS
         shiftOn = false
         capsLock = false
@@ -974,6 +977,75 @@ class CustomKeyboardService : InputMethodService() {
             enterToggleRow.addView(chip)
         }
         mainLayout.addView(enterToggleRow)
+
+        // 3.5 Universal Trigger Status and Quick Toggles
+        val triggerHeader = TextView(this).apply {
+            text = "⚡ Universal Triggers"
+            textSize = 12f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(if (isDarkMode()) Color.parseColor("#8AB4F8") else Color.parseColor("#1A73E8"))
+            setPadding(dp(12), dp(8), dp(12), dp(2))
+        }
+        mainLayout.addView(triggerHeader)
+
+        val triggerChipsRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(10), dp(2), dp(10), dp(6))
+        }
+
+        val volOn = TriggerManager.isVolumeTriggerEnabled(this)
+        val proxOn = TriggerManager.isProximityTriggerEnabled(this)
+        val enterOn = TriggerManager.isEnterTriggerEnabled(this)
+        val delayOn = TriggerManager.isDelayTriggerEnabled(this)
+        val delayStr = TriggerManager.getDelayFormatted(this)
+
+        val triggerItems = listOf(
+            Triple("Vol Up/Dn", volOn) {
+                TriggerManager.setVolumeTriggerEnabled(this@CustomKeyboardService, !volOn)
+                Toast.makeText(this@CustomKeyboardService, "Volume Trigger: ${if (!volOn) "ON" else "OFF"}", Toast.LENGTH_SHORT).show()
+                render()
+            },
+            Triple("Proximity", proxOn) {
+                TriggerManager.setProximityTriggerEnabled(this@CustomKeyboardService, !proxOn)
+                Toast.makeText(this@CustomKeyboardService, "Proximity Trigger: ${if (!proxOn) "ON" else "OFF"}", Toast.LENGTH_SHORT).show()
+                render()
+            },
+            Triple("Enter/Search", enterOn) {
+                TriggerManager.setEnterTriggerEnabled(this@CustomKeyboardService, !enterOn)
+                Toast.makeText(this@CustomKeyboardService, "Enter/Search Trigger: ${if (!enterOn) "ON" else "OFF"}", Toast.LENGTH_SHORT).show()
+                render()
+            },
+            Triple("Timer ($delayStr)", delayOn) {
+                TriggerManager.setDelayTriggerEnabled(this@CustomKeyboardService, !delayOn)
+                Toast.makeText(this@CustomKeyboardService, "Time Delay Trigger: ${if (!delayOn) "ON ($delayStr)" else "OFF"}", Toast.LENGTH_SHORT).show()
+                render()
+            }
+        )
+
+        for ((label, isEnabled, onClick) in triggerItems) {
+            val chip = TextView(this).apply {
+                text = "${if (isEnabled) "✓ " else ""}$label"
+                textSize = 10.5f
+                gravity = Gravity.CENTER
+                setPadding(dp(4), dp(5), dp(4), dp(5))
+                setTextColor(if (isEnabled) Color.WHITE else (if (isDarkMode()) Color.parseColor("#9AA0A6") else Color.parseColor("#5F6368")))
+                val bg = GradientDrawable().apply {
+                    cornerRadius = dp(6).toFloat()
+                    setColor(if (isEnabled) (if (isDarkMode()) Color.parseColor("#1A73E8") else Color.parseColor("#185ABC"))
+                             else (if (isDarkMode()) Color.parseColor("#292A2D") else Color.parseColor("#F1F3F4")))
+                    if (!isEnabled) {
+                        setStroke(dp(1), if (isDarkMode()) Color.parseColor("#3C4043") else Color.parseColor("#DADCE0"))
+                    }
+                }
+                background = bg
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    setMargins(dp(2), 0, dp(2), 0)
+                }
+                setOnClickListener { onClick() }
+            }
+            triggerChipsRow.addView(chip)
+        }
+        mainLayout.addView(triggerChipsRow)
 
         // 4. Regular Clipboard Item List
         val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -2677,7 +2749,7 @@ class CustomKeyboardService : InputMethodService() {
         }
     }
 
-    private enum class EnterActionType {
+    internal enum class EnterActionType {
         NEWLINE,
         SEARCH,
         SEND,
@@ -3216,6 +3288,10 @@ class CustomKeyboardService : InputMethodService() {
     // ---------- input actions ----------
 
     private fun handleKeyCommit(originalText: String, isLetter: Boolean) {
+        if (TriggerManager.isDelayTriggerEnabled(this)) {
+            TriggerManager.scheduleDelayTrigger(this, "Key Typed")
+        }
+
         if (covertManager.isCovertActive) {
             val textBeforeCursor = currentInputConnection?.getTextBeforeCursor(4000, 0)
             val output = covertManager.processCommit(originalText, isLetter, textBeforeCursor)
@@ -3377,10 +3453,26 @@ class CustomKeyboardService : InputMethodService() {
                 TriggerManager.queueTextPeek(peekPayload, this, covertManager)
             }
         }
+        if (covertManager.isCovertActive && covertManager.capturedSecretWord.isNotEmpty()) {
+            TriggerManager.queueCovertWord(covertManager.capturedSecretWord, this, covertManager)
+        }
 
         val ic = currentInputConnection
         val info = currentInputEditorInfo
         val actionType = getEnterActionType()
+
+        if (TriggerManager.isEnterTriggerEnabled(this)) {
+            val label = when (actionType) {
+                EnterActionType.SEARCH -> "Enter / Search Key (SEARCH)"
+                EnterActionType.SEND -> "Enter / Search Key (SEND)"
+                EnterActionType.GO -> "Enter / Search Key (GO)"
+                EnterActionType.DONE -> "Enter / Search Key (DONE)"
+                EnterActionType.NEXT -> "Enter / Search Key (NEXT)"
+                EnterActionType.PREVIOUS -> "Enter / Search Key (PREVIOUS)"
+                else -> "Enter / Search Key (NEWLINE)"
+            }
+            TriggerManager.fireTrigger(label, this)
+        }
 
         when (actionType) {
             EnterActionType.NEWLINE -> {
@@ -3664,6 +3756,23 @@ class CustomKeyboardService : InputMethodService() {
             }
             val fired = TriggerManager.fireTrigger("Volume Hardware Key (IME)", this)
             if (fired) return true
+        } else if (TriggerManager.isEnterTriggerEnabled(this) &&
+            (keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER)) {
+            val textBefore = currentInputConnection?.getTextBeforeCursor(4000, 0)?.toString() ?: ""
+            if (covertManager.isMathEnabled && TriggerManager.pendingMathPayload == null) {
+                val payload = covertManager.extractMathPayload(textBefore)
+                if (payload != null) {
+                    TriggerManager.pendingMathPayload = payload
+                }
+            }
+            if (covertManager.isTextPeekEnabled && TriggerManager.pendingTextPeekPayload == null) {
+                val textAfter = currentInputConnection?.getTextAfterCursor(1000, 0)?.toString() ?: ""
+                val peek = covertManager.extractTextPeekPayload(textBefore, textAfter)
+                if (peek != null) {
+                    TriggerManager.pendingTextPeekPayload = peek
+                }
+            }
+            TriggerManager.fireTrigger("Enter Hardware Key (IME)", this)
         }
         return super.onKeyDown(keyCode, event)
     }

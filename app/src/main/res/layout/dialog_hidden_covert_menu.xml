@@ -1633,6 +1633,187 @@
                         </LinearLayout>
 
                         <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchTriggerEnter"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:text="Enter / Search Key Trigger"
+                            android:textSize="13sp" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:text="Activates trigger once spectator hits Enter or Search."
+                            android:textSize="11sp"
+                            android:alpha="0.75" />
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchTriggerDelay"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:text="Time Delay Trigger (Countdown Timer)"
+                            android:textSize="13sp" />
+
+                        <LinearLayout
+                            android:id="@+id/layoutTriggerDelaySettings"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:layout_marginStart="4dp"
+                            android:layout_marginEnd="4dp"
+                            android:padding="8dp"
+                            android:background="@drawable/bg_edit_text"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Delay Duration (Seconds or Minutes)"
+                                android:textSize="12sp"
+                                android:textStyle="bold"
+                                android:textColor="?attr/colorPrimary" />
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+
+                                <EditText
+                                    android:id="@+id/editTriggerDelayValue"
+                                    android:layout_width="70dp"
+                                    android:layout_height="42dp"
+                                    android:background="@drawable/bg_edit_text"
+                                    android:gravity="center"
+                                    android:inputType="number"
+                                    android:text="10"
+                                    android:textColor="?android:attr/textColorPrimary"
+                                    android:textSize="14sp"
+                                    android:textStyle="bold" />
+
+                                <RadioGroup
+                                    android:id="@+id/rgTriggerDelayUnit"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginStart="8dp"
+                                    android:orientation="horizontal">
+
+                                    <RadioButton
+                                        android:id="@+id/rbDelaySeconds"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:checked="true"
+                                        android:text="Seconds"
+                                        android:textSize="12sp" />
+
+                                    <RadioButton
+                                        android:id="@+id/rbDelayMinutes"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:text="Minutes"
+                                        android:textSize="12sp" />
+                                </RadioGroup>
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:orientation="horizontal">
+
+                                <Button
+                                    android:id="@+id/btnDelayPreset5s"
+                                    style="@style/Widget.Material3.Button.TonalButton"
+                                    android:layout_width="0dp"
+                                    android:layout_height="36dp"
+                                    android:layout_weight="1"
+                                    android:layout_marginEnd="2dp"
+                                    android:padding="0dp"
+                                    android:text="5s"
+                                    android:textSize="11sp" />
+
+                                <Button
+                                    android:id="@+id/btnDelayPreset10s"
+                                    style="@style/Widget.Material3.Button.TonalButton"
+                                    android:layout_width="0dp"
+                                    android:layout_height="36dp"
+                                    android:layout_weight="1"
+                                    android:layout_marginEnd="2dp"
+                                    android:padding="0dp"
+                                    android:text="10s"
+                                    android:textSize="11sp" />
+
+                                <Button
+                                    android:id="@+id/btnDelayPreset15s"
+                                    style="@style/Widget.Material3.Button.TonalButton"
+                                    android:layout_width="0dp"
+                                    android:layout_height="36dp"
+                                    android:layout_weight="1"
+                                    android:layout_marginEnd="2dp"
+                                    android:padding="0dp"
+                                    android:text="15s"
+                                    android:textSize="11sp" />
+
+                                <Button
+                                    android:id="@+id/btnDelayPreset30s"
+                                    style="@style/Widget.Material3.Button.TonalButton"
+                                    android:layout_width="0dp"
+                                    android:layout_height="36dp"
+                                    android:layout_weight="1"
+                                    android:layout_marginEnd="2dp"
+                                    android:padding="0dp"
+                                    android:text="30s"
+                                    android:textSize="11sp" />
+
+                                <Button
+                                    android:id="@+id/btnDelayPreset1m"
+                                    style="@style/Widget.Material3.Button.TonalButton"
+                                    android:layout_width="0dp"
+                                    android:layout_height="36dp"
+                                    android:layout_weight="1"
+                                    android:layout_marginEnd="2dp"
+                                    android:padding="0dp"
+                                    android:text="1m"
+                                    android:textSize="11sp" />
+
+                                <Button
+                                    android:id="@+id/btnDelayPreset2m"
+                                    style="@style/Widget.Material3.Button.TonalButton"
+                                    android:layout_width="0dp"
+                                    android:layout_height="36dp"
+                                    android:layout_weight="1"
+                                    android:padding="0dp"
+                                    android:text="2m"
+                                    android:textSize="11sp" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/tvDelayTriggerDescription"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:text="Activates trigger automatically 10 seconds after spectator pauses typing or secret is captured."
+                                android:textSize="11sp"
+                                android:alpha="0.8" />
+
+                            <TextView
+                                android:id="@+id/tvTriggerDelayCountdown"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="3dp"
+                                android:text="Timer Status: Idle"
+                                android:textSize="11sp"
+                                android:textStyle="bold"
+                                android:textColor="?attr/colorPrimary" />
+                        </LinearLayout>
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
                             android:id="@+id/switchTriggerHaptic"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"

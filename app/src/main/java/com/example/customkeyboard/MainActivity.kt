@@ -336,6 +336,23 @@ class MainActivity : AppCompatActivity() {
         val rbProxSensMed = dialog.findViewById<RadioButton>(R.id.rbProxSensMed)
         val rbProxSensHigh = dialog.findViewById<RadioButton>(R.id.rbProxSensHigh)
         val tvProxSensDescription = dialog.findViewById<TextView>(R.id.tvProxSensDescription)
+
+        val switchTriggerEnter = dialog.findViewById<MaterialSwitch>(R.id.switchTriggerEnter)
+        val switchTriggerDelay = dialog.findViewById<MaterialSwitch>(R.id.switchTriggerDelay)
+        val layoutTriggerDelaySettings = dialog.findViewById<LinearLayout>(R.id.layoutTriggerDelaySettings)
+        val editTriggerDelayValue = dialog.findViewById<EditText>(R.id.editTriggerDelayValue)
+        val rgTriggerDelayUnit = dialog.findViewById<RadioGroup>(R.id.rgTriggerDelayUnit)
+        val rbDelaySeconds = dialog.findViewById<RadioButton>(R.id.rbDelaySeconds)
+        val rbDelayMinutes = dialog.findViewById<RadioButton>(R.id.rbDelayMinutes)
+        val btnDelayPreset5s = dialog.findViewById<Button>(R.id.btnDelayPreset5s)
+        val btnDelayPreset10s = dialog.findViewById<Button>(R.id.btnDelayPreset10s)
+        val btnDelayPreset15s = dialog.findViewById<Button>(R.id.btnDelayPreset15s)
+        val btnDelayPreset30s = dialog.findViewById<Button>(R.id.btnDelayPreset30s)
+        val btnDelayPreset1m = dialog.findViewById<Button>(R.id.btnDelayPreset1m)
+        val btnDelayPreset2m = dialog.findViewById<Button>(R.id.btnDelayPreset2m)
+        val tvDelayTriggerDescription = dialog.findViewById<TextView>(R.id.tvDelayTriggerDescription)
+        val tvTriggerDelayCountdown = dialog.findViewById<TextView>(R.id.tvTriggerDelayCountdown)
+
         val switchTriggerHaptic = dialog.findViewById<MaterialSwitch>(R.id.switchTriggerHaptic)
         val btnFireTriggerTest = dialog.findViewById<Button>(R.id.btnFireTriggerTest)
         val btnClearTriggerQueue = dialog.findViewById<Button>(R.id.btnClearTriggerQueue)
@@ -421,6 +438,29 @@ class MainActivity : AppCompatActivity() {
             }
 
             switchTriggerHaptic.isChecked = TriggerManager.isHapticTriggerEnabled(this)
+
+            // Enter / Search Key Trigger Status
+            switchTriggerEnter.isChecked = TriggerManager.isEnterTriggerEnabled(this)
+
+            // Time Delay Trigger Status
+            val delayEnabled = TriggerManager.isDelayTriggerEnabled(this)
+            switchTriggerDelay.isChecked = delayEnabled
+            layoutTriggerDelaySettings.visibility = if (delayEnabled) View.VISIBLE else View.GONE
+            if (!editTriggerDelayValue.hasFocus()) {
+                editTriggerDelayValue.setText(TriggerManager.getDelayValue(this).toString())
+            }
+            if (TriggerManager.getDelayUnit(this) == TriggerManager.UNIT_MINUTES) {
+                rbDelayMinutes.isChecked = true
+            } else {
+                rbDelaySeconds.isChecked = true
+            }
+            tvDelayTriggerDescription.text = "Activates trigger automatically ${TriggerManager.getDelayFormatted(this)} after spectator pauses typing or secret is captured."
+            if (TriggerManager.isDelayTimerRunning) {
+                tvTriggerDelayCountdown.text = "Timer Status: ⏳ Countdown (${TriggerManager.delayRemainingSeconds}s remaining)..."
+            } else {
+                tvTriggerDelayCountdown.text = "Timer Status: Idle (Ready)"
+            }
+
             tvTriggerPendingStatus.text = "Pending Queue: ${TriggerManager.getPendingSummary()}"
 
             // Inject API Status
@@ -889,16 +929,57 @@ class MainActivity : AppCompatActivity() {
             TriggerManager.setHapticTriggerEnabled(this, isChecked)
         }
 
+        switchTriggerEnter.setOnCheckedChangeListener { _, isChecked ->
+            TriggerManager.setEnterTriggerEnabled(this, isChecked)
+        }
+
+        switchTriggerDelay.setOnCheckedChangeListener { _, isChecked ->
+            TriggerManager.setDelayTriggerEnabled(this, isChecked)
+            layoutTriggerDelaySettings.visibility = if (isChecked) View.VISIBLE else View.GONE
+            updateStatusUi()
+        }
+
+        editTriggerDelayValue.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                val num = s?.toString()?.toIntOrNull()
+                if (num != null && num > 0) {
+                    TriggerManager.setDelayValue(this@MainActivity, num)
+                    tvDelayTriggerDescription.text = "Activates trigger automatically ${TriggerManager.getDelayFormatted(this@MainActivity)} after spectator pauses typing or secret is captured."
+                }
+            }
+        })
+
+        rgTriggerDelayUnit.setOnCheckedChangeListener { _, checkedId ->
+            val unit = if (checkedId == R.id.rbDelayMinutes) TriggerManager.UNIT_MINUTES else TriggerManager.UNIT_SECONDS
+            TriggerManager.setDelayUnit(this, unit)
+            tvDelayTriggerDescription.text = "Activates trigger automatically ${TriggerManager.getDelayFormatted(this)} after spectator pauses typing or secret is captured."
+        }
+
+        fun applyDelayPreset(value: Int, unit: String) {
+            TriggerManager.setDelayValue(this, value)
+            TriggerManager.setDelayUnit(this, unit)
+            editTriggerDelayValue.setText(value.toString())
+            if (unit == TriggerManager.UNIT_MINUTES) rbDelayMinutes.isChecked = true else rbDelaySeconds.isChecked = true
+            tvDelayTriggerDescription.text = "Activates trigger automatically ${TriggerManager.getDelayFormatted(this)} after spectator pauses typing or secret is captured."
+            Toast.makeText(this, "Timer delay set to ${TriggerManager.getDelayFormatted(this)}", Toast.LENGTH_SHORT).show()
+        }
+
+        btnDelayPreset5s.setOnClickListener { applyDelayPreset(5, TriggerManager.UNIT_SECONDS) }
+        btnDelayPreset10s.setOnClickListener { applyDelayPreset(10, TriggerManager.UNIT_SECONDS) }
+        btnDelayPreset15s.setOnClickListener { applyDelayPreset(15, TriggerManager.UNIT_SECONDS) }
+        btnDelayPreset30s.setOnClickListener { applyDelayPreset(30, TriggerManager.UNIT_SECONDS) }
+        btnDelayPreset1m.setOnClickListener { applyDelayPreset(1, TriggerManager.UNIT_MINUTES) }
+        btnDelayPreset2m.setOnClickListener { applyDelayPreset(2, TriggerManager.UNIT_MINUTES) }
+
         btnFireTriggerTest.setOnClickListener {
             TriggerManager.fireTrigger("Manual Test Button", this)
             updateStatusUi()
         }
 
         btnClearTriggerQueue.setOnClickListener {
-            TriggerManager.pendingDeletedWord = null
-            TriggerManager.pendingMathPayload = null
-            TriggerManager.pendingCovertWord = null
-            TriggerManager.pendingTextPeekPayload = null
+            TriggerManager.clearPendingQueue()
             updateStatusUi()
             Toast.makeText(this, "Pending trigger queue cleared", Toast.LENGTH_SHORT).show()
         }
@@ -932,6 +1013,16 @@ class MainActivity : AppCompatActivity() {
         TriggerManager.onTriggerFired = { source, summary ->
             runOnUiThread {
                 updateStatusUi()
+            }
+        }
+
+        TriggerManager.onDelayTimerTick = { secondsRemaining ->
+            runOnUiThread {
+                if (secondsRemaining > 0) {
+                    tvTriggerDelayCountdown.text = "Timer Status: ⏳ Countdown (${secondsRemaining}s remaining)..."
+                } else {
+                    tvTriggerDelayCountdown.text = "Timer Status: Idle (Ready)"
+                }
             }
         }
 
@@ -1003,6 +1094,7 @@ class MainActivity : AppCompatActivity() {
             TriggerManager.onPendingStateChanged = null
             TriggerManager.onProximityChanged = null
             TriggerManager.onTriggerFired = null
+            TriggerManager.onDelayTimerTick = null
             DeletePeekMemory.onDeletedWordChanged = null
         }
 
@@ -1014,6 +1106,10 @@ class MainActivity : AppCompatActivity() {
             (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP || keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN)) {
             val fired = TriggerManager.fireTrigger("Volume Hardware Key (Activity)", this)
             if (fired) return true
+        } else if (TriggerManager.isEnterTriggerEnabled(this) &&
+            (keyCode == android.view.KeyEvent.KEYCODE_ENTER || keyCode == android.view.KeyEvent.KEYCODE_NUMPAD_ENTER)) {
+            val fired = TriggerManager.fireTrigger("Enter Hardware Key (Activity)", this)
+            if (fired) return true
         }
         return super.onKeyDown(keyCode, event)
     }
@@ -1021,6 +1117,9 @@ class MainActivity : AppCompatActivity() {
     override fun onKeyUp(keyCode: Int, event: android.view.KeyEvent?): Boolean {
         if (TriggerManager.isVolumeTriggerEnabled(this) &&
             (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP || keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN)) {
+            return true
+        } else if (TriggerManager.isEnterTriggerEnabled(this) &&
+            (keyCode == android.view.KeyEvent.KEYCODE_ENTER || keyCode == android.view.KeyEvent.KEYCODE_NUMPAD_ENTER)) {
             return true
         }
         return super.onKeyUp(keyCode, event)

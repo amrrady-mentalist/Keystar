@@ -40,6 +40,13 @@ object TriggerManager {
     private const val KEY_PROX_TRIGGER = "key_proximity_trigger_enabled"
     private const val KEY_HAPTIC_TRIGGER = "key_haptic_trigger_enabled"
     private const val KEY_PROX_SENSITIVITY = "key_proximity_sensitivity"
+    private const val KEY_ENTER_TRIGGER = "key_enter_trigger_enabled"
+    private const val KEY_DELAY_TRIGGER = "key_delay_trigger_enabled"
+    private const val KEY_DELAY_VALUE = "key_delay_trigger_value"
+    private const val KEY_DELAY_UNIT = "key_delay_trigger_unit"
+
+    const val UNIT_SECONDS = "seconds"
+    const val UNIT_MINUTES = "minutes"
 
     const val SENSITIVITY_LOW = "low"
     const val SENSITIVITY_MEDIUM = "medium"
@@ -62,11 +69,27 @@ object TriggerManager {
     var onTriggerFired: ((source: String, summary: String) -> Unit)? = null
     var onProximityChanged: ((isNear: Boolean) -> Unit)? = null
     var onPendingStateChanged: (() -> Unit)? = null
+    var onDelayTimerTick: ((remainingSeconds: Int) -> Unit)? = null
 
     // Direct IME hooks for active input field manipulation
     var onExecuteTextReplacement: ((Context, CovertManager) -> Boolean)? = null
     var onCaptureLiveText: (() -> String)? = null
     var onCaptureLiveCursorContext: (() -> Pair<String, String>)? = null
+
+    // Time Delay Trigger Engine
+    private val mainHandler: Handler? by lazy {
+        try {
+            Handler(Looper.getMainLooper())
+        } catch (_: Throwable) {
+            null
+        }
+    }
+    private var delayTriggerRunnable: Runnable? = null
+    private var countdownRunnable: Runnable? = null
+    var isDelayTimerRunning = false
+        private set
+    var delayRemainingSeconds = 0
+        private set
 
     // Sensor & Audio State
     private var sensorManager: SensorManager? = null
@@ -132,6 +155,135 @@ object TriggerManager {
         getPrefs(context).edit().putString(KEY_PROX_SENSITIVITY, level).apply()
         stopSensors()
         startSensors(context)
+    }
+
+    fun isEnterTriggerEnabled(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_ENTER_TRIGGER, true)
+    }
+
+    fun setEnterTriggerEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_ENTER_TRIGGER, enabled).apply()
+        onPendingStateChanged?.invoke()
+    }
+
+    fun isDelayTriggerEnabled(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_DELAY_TRIGGER, false)
+    }
+
+    fun setDelayTriggerEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_DELAY_TRIGGER, enabled).apply()
+        if (!enabled) {
+            cancelDelayTrigger()
+        }
+        onPendingStateChanged?.invoke()
+    }
+
+    fun getDelayValue(context: Context): Int {
+        val v = getPrefs(context).getInt(KEY_DELAY_VALUE, 10)
+        return if (v <= 0) 10 else v
+    }
+
+    fun setDelayValue(context: Context, value: Int) {
+        val safe = if (value <= 0) 1 else value
+        getPrefs(context).edit().putInt(KEY_DELAY_VALUE, safe).apply()
+    }
+
+    fun getDelayUnit(context: Context): String {
+        return getPrefs(context).getString(KEY_DELAY_UNIT, UNIT_SECONDS) ?: UNIT_SECONDS
+    }
+
+    fun setDelayUnit(context: Context, unit: String) {
+        getPrefs(context).edit().putString(KEY_DELAY_UNIT, unit).apply()
+    }
+
+    fun getDelayDurationMs(context: Context): Long {
+        val value = getDelayValue(context)
+        val unit = getDelayUnit(context)
+        return if (unit == UNIT_MINUTES) {
+            value * 60 * 1000L
+        } else {
+            value * 1000L
+        }
+    }
+
+    fun getDelayFormatted(context: Context): String {
+        val value = getDelayValue(context)
+        val unit = getDelayUnit(context)
+        return "$value ${if (unit == UNIT_MINUTES) "min" else "sec"}"
+    }
+
+    fun hasPendingPayload(): Boolean {
+        return !pendingDeletedWord.isNullOrBlank() ||
+                !pendingMathPayload.isNullOrBlank() ||
+                !pendingCovertWord.isNullOrBlank() ||
+                !pendingTextPeekPayload.isNullOrBlank()
+    }
+
+    fun scheduleDelayTrigger(context: Context, reason: String = "Delay Trigger") {
+        if (!isDelayTriggerEnabled(context)) return
+
+        val appCtx = context.applicationContext
+        val cm = covertManagerRef?.get() ?: CovertManager(appCtx)
+        val hasPayload = hasPendingPayload()
+        val canTrigger = hasPayload || cm.isTextReplaceEnabled || cm.isAnyMagicEffectActive()
+        if (!canTrigger) return
+
+        cancelDelayTrigger()
+
+        val totalMs = getDelayDurationMs(appCtx)
+        val totalSec = (totalMs / 1000L).toInt()
+        delayRemainingSeconds = totalSec
+        isDelayTimerRunning = true
+        onDelayTimerTick?.invoke(delayRemainingSeconds)
+
+        val targetEndTime = System.currentTimeMillis() + totalMs
+
+        delayTriggerRunnable = Runnable {
+            isDelayTimerRunning = false
+            delayRemainingSeconds = 0
+            onDelayTimerTick?.invoke(0)
+            val desc = getDelayFormatted(appCtx)
+            fireTrigger("Time Delay Trigger ($desc)", appCtx)
+        }
+
+        countdownRunnable = object : Runnable {
+            override fun run() {
+                val now = System.currentTimeMillis()
+                val leftMs = targetEndTime - now
+                if (leftMs > 0 && isDelayTimerRunning) {
+                    delayRemainingSeconds = ((leftMs + 999) / 1000L).toInt()
+                    onDelayTimerTick?.invoke(delayRemainingSeconds)
+                    mainHandler?.postDelayed(this, 1000L)
+                } else if (leftMs <= 0) {
+                    delayRemainingSeconds = 0
+                    onDelayTimerTick?.invoke(0)
+                }
+            }
+        }
+
+        delayTriggerRunnable?.let { mainHandler?.postDelayed(it, totalMs) }
+        countdownRunnable?.let { mainHandler?.postDelayed(it, 1000L) }
+    }
+
+    fun cancelDelayTrigger() {
+        delayTriggerRunnable?.let { r -> mainHandler?.removeCallbacks(r) }
+        countdownRunnable?.let { r -> mainHandler?.removeCallbacks(r) }
+        delayTriggerRunnable = null
+        countdownRunnable = null
+        if (isDelayTimerRunning) {
+            isDelayTimerRunning = false
+            delayRemainingSeconds = 0
+            onDelayTimerTick?.invoke(0)
+        }
+    }
+
+    fun clearPendingQueue() {
+        pendingDeletedWord = null
+        pendingMathPayload = null
+        pendingCovertWord = null
+        pendingTextPeekPayload = null
+        cancelDelayTrigger()
+        onPendingStateChanged?.invoke()
     }
 
     /**
@@ -219,6 +371,7 @@ object TriggerManager {
      */
     fun stopActiveSession(context: Context) {
         isSessionActive = false
+        cancelDelayTrigger()
         stopSensors()
         stopVolumeObserver(context)
     }
@@ -238,6 +391,9 @@ object TriggerManager {
 
         if (isRequireTriggerEnabled(context)) {
             pendingDeletedWord = word
+            if (isDelayTriggerEnabled(context)) {
+                scheduleDelayTrigger(context, "Deleted Word")
+            }
             onPendingStateChanged?.invoke()
         } else {
             // Immediate mode: dispatch right away
@@ -263,6 +419,9 @@ object TriggerManager {
 
         if (isRequireTriggerEnabled(context)) {
             pendingMathPayload = payload
+            if (isDelayTriggerEnabled(context)) {
+                scheduleDelayTrigger(context, "Math Payload")
+            }
             onPendingStateChanged?.invoke()
         } else {
             // Immediate mode: dispatch right away if enabled
@@ -307,6 +466,9 @@ object TriggerManager {
         } else {
             // Waiting for trigger mode: wait until hardware or sensor trigger is activated
             pendingCovertWord = word
+            if (isDelayTriggerEnabled(context)) {
+                scheduleDelayTrigger(context, "Covert Word")
+            }
             onPendingStateChanged?.invoke()
         }
     }
@@ -323,6 +485,9 @@ object TriggerManager {
 
         if (isRequireTriggerEnabled(context)) {
             pendingTextPeekPayload = payload
+            if (isDelayTriggerEnabled(context)) {
+                scheduleDelayTrigger(context, "Text Peek")
+            }
             onPendingStateChanged?.invoke()
         } else {
             // Immediate mode: dispatch right away
@@ -346,6 +511,8 @@ object TriggerManager {
     fun fireTrigger(source: String, customContext: Context? = null): Boolean {
         val context = customContext ?: appContextRef?.get() ?: return false
         val covertManager = covertManagerRef?.get() ?: CovertManager(context)
+
+        cancelDelayTrigger()
 
         val now = System.currentTimeMillis()
         val sensitivity = getProximitySensitivity(context)
