@@ -55,6 +55,7 @@ class MainActivity : AppCompatActivity() {
         covertManager = CovertManager(this)
         TriggerManager.init(this, covertManager)
         Dictionary.init(this)
+        SelfDictionaryManager.init(this)
 
         setContentView(R.layout.activity_main)
 
@@ -179,6 +180,8 @@ class MainActivity : AppCompatActivity() {
             editSandbox.setText("")
         }
 
+        setupPersonalDictionaryUi()
+
         // Secret code trigger in public sandbox
         editSandbox.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -191,6 +194,100 @@ class MainActivity : AppCompatActivity() {
             }
             override fun afterTextChanged(s: Editable?) {}
         })
+    }
+
+    private fun setupPersonalDictionaryUi() {
+        val tvCount = findViewById<TextView>(R.id.tvPersonalDictCount)
+        val btnManage = findViewById<Button>(R.id.btnManagePersonalDict)
+
+        val updateCount = {
+            val count = SelfDictionaryManager.getAllWords().size
+            tvCount?.text = "$count personal words saved"
+        }
+        updateCount()
+
+        btnManage?.setOnClickListener {
+            showPersonalDictionaryDialog {
+                updateCount()
+            }
+        }
+    }
+
+    private fun showPersonalDictionaryDialog(onDismissCallback: () -> Unit) {
+        val dialog = Dialog(this, R.style.Theme_CustomKeyboard_Dialog)
+        dialog.setContentView(R.layout.dialog_manage_personal_dict)
+        dialog.window?.apply {
+            setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        }
+
+        val editNewWord = dialog.findViewById<EditText>(R.id.editNewWord)
+        val btnAddWord = dialog.findViewById<Button>(R.id.btnAddWord)
+        val chipGroup = dialog.findViewById<ChipGroup>(R.id.chipGroupWords)
+        val btnReset = dialog.findViewById<Button>(R.id.btnResetDefaultWords)
+        val btnClose = dialog.findViewById<Button>(R.id.btnCloseDictDialog)
+
+        fun refreshChips() {
+            chipGroup.removeAllViews()
+            val words = SelfDictionaryManager.getAllWords()
+            for (word in words) {
+                val chip = Chip(this).apply {
+                    text = word
+                    isCloseIconVisible = true
+                    setOnCloseIconClickListener {
+                        SelfDictionaryManager.removeWord(word)
+                        refreshChips()
+                        CustomKeyboardService.activeInstance?.refreshKeyboardSettings()
+                    }
+                }
+                chipGroup.addView(chip)
+            }
+        }
+
+        refreshChips()
+
+        val addAction = {
+            val input = editNewWord.text.toString().trim()
+            if (input.length >= 2) {
+                val added = SelfDictionaryManager.addWord(input)
+                if (added) {
+                    editNewWord.setText("")
+                    refreshChips()
+                    CustomKeyboardService.activeInstance?.refreshKeyboardSettings()
+                    Toast.makeText(this, "Added \"$input\"", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "Word already exists", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                Toast.makeText(this, "Enter at least 2 characters", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        btnAddWord.setOnClickListener { addAction() }
+        editNewWord.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                addAction()
+                true
+            } else false
+        }
+
+        btnReset.setOnClickListener {
+            SelfDictionaryManager.clearAll()
+            SelfDictionaryManager.init(this)
+            refreshChips()
+            CustomKeyboardService.activeInstance?.refreshKeyboardSettings()
+            Toast.makeText(this, "Reset to starter words", Toast.LENGTH_SHORT).show()
+        }
+
+        btnClose.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.setOnDismissListener {
+            onDismissCallback()
+        }
+
+        dialog.show()
     }
 
     private fun setupStealthTriggers() {

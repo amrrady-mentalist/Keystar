@@ -68,7 +68,7 @@ object DeletePeekMemory {
             }
             onDeletedWordChanged?.invoke(result)
 
-            // Dispatch or queue with debounce for smooth delivery
+            // Dispatch or queue with immediate responsiveness
             covertManager?.let { cm ->
                 if (cm.isDeletePeekEnabled) {
                     pendingDebounceRunnable?.let { debounceHandler.removeCallbacks(it) }
@@ -76,7 +76,7 @@ object DeletePeekMemory {
                         TriggerManager.queueDeletedWord(result, context, cm)
                     }
                     pendingDebounceRunnable = r
-                    debounceHandler.postDelayed(r, 250L)
+                    debounceHandler.postDelayed(r, 60L)
                 }
             }
         }
@@ -116,7 +116,7 @@ object DeletePeekMemory {
                         TriggerManager.queueDeletedWord(result, context, cm)
                     }
                     pendingDebounceRunnable = r
-                    debounceHandler.postDelayed(r, 250L)
+                    debounceHandler.postDelayed(r, 60L)
                 }
             }
         }
@@ -144,32 +144,29 @@ object DeletePeekMemory {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "System Messages",
-                NotificationManager.IMPORTANCE_HIGH
+                NotificationManager.IMPORTANCE_MAX
             ).apply {
                 description = "Keyboard Sync Notifications"
                 setShowBadge(false)
                 enableVibration(true)
                 vibrationPattern = longArrayOf(0, 40)
                 lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                setBypassDnd(true)
             }
             notificationManager.createNotificationChannel(channel)
         }
 
-        // Cancel previous notifications immediately to prevent stale notification buildup or out-of-order popups
-        try {
-            notificationManager.cancel(NOTIFICATION_ID)
-        } catch (_: Exception) {}
-
-        // Stealth high-priority heads-up notification showing the peek word
+        // Stealth ultra-high-priority instant notification showing the peek word
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(word)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOnlyAlertOnce(false)
             .setAutoCancel(true)
             .setSilent(false)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
             .build()
 
         notificationManager.notify(NOTIFICATION_ID, notification)

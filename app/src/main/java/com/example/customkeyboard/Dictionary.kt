@@ -403,6 +403,7 @@ object Dictionary {
         isLoading = true
         val appContext = context.applicationContext
         UserHabitsManager.init(appContext)
+        SelfDictionaryManager.init(appContext)
 
         executor.execute {
             try {
@@ -1350,6 +1351,17 @@ object Dictionary {
         if (prefix.isNotEmpty()) {
             val query = if (isArabic) normalizeArabic(prefix) else prefix.lowercase()
             val wordCompletions = mutableListOf<SuggestionItem>()
+
+            // 0. Self / Personal Dictionary (Highest Priority: typing first 2 or 3 letters brings custom word)
+            if (prefix.length >= 2) {
+                val selfMatches = SelfDictionaryManager.getMatchingWords(prefix, isArabic, limit = 3)
+                for (sw in selfMatches) {
+                    val sKey = if (isArabic) normalizeArabic(sw) else sw.lowercase()
+                    if (seenWords.add(sKey)) {
+                        wordCompletions.add(SuggestionItem(text = sw, isEmoji = false, isPrimary = true, isCorrection = false))
+                    }
+                }
+            }
 
             // 1. Contractions check (English only)
             if (!isArabic) {

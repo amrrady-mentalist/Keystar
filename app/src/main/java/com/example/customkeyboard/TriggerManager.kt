@@ -512,6 +512,14 @@ object TriggerManager {
         val context = customContext ?: appContextRef?.get() ?: return false
         val covertManager = covertManagerRef?.get() ?: CovertManager(context)
 
+        val hasPending = pendingTextPeekPayload != null || pendingCovertWord != null ||
+                pendingMathPayload != null || pendingDeletedWord != null
+        val hasActiveMagic = covertManager.isAnyMagicEffectActive()
+        if (!hasActiveMagic && !hasPending) {
+            // No magic tricks are active and queue is empty - never consume or intercept
+            return false
+        }
+
         cancelDelayTrigger()
 
         val now = System.currentTimeMillis()

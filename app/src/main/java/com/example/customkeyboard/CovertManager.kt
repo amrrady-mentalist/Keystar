@@ -842,10 +842,13 @@ class CovertManager(private val context: Context) {
                 val url = URL(endpoint)
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "POST"
-                connection.connectTimeout = 8000
-                connection.readTimeout = 8000
+                connection.connectTimeout = 4000
+                connection.readTimeout = 4000
+                connection.useCaches = false
+                connection.defaultUseCaches = false
                 connection.doOutput = true
                 connection.instanceFollowRedirects = true
+                connection.setRequestProperty("Connection", "close")
                 connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
                 connection.setRequestProperty("Accept", "application/json, text/plain, */*")
                 if (injectApiKey.isNotBlank()) {

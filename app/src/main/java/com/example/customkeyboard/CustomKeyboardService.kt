@@ -369,7 +369,7 @@ class CustomKeyboardService : InputMethodService() {
         return when (getThemeMode()) {
             "pitch_black" -> Color.parseColor("#FFFFFF")
             "light" -> Color.parseColor("#1F1F1F")
-            else -> Color.parseColor("#AAABAB") // User requested letter itself and suggestions
+            else -> Color.parseColor("#FFFFFF") // Crisp, clear pure white as requested
         }
     }
 
@@ -2630,8 +2630,10 @@ class CustomKeyboardService : InputMethodService() {
             val emojiSize = dp(14)
             layoutParams = LinearLayout.LayoutParams(emojiSize, emojiSize).apply {
                 gravity = Gravity.CENTER_HORIZONTAL
-                bottomMargin = dp(1)
+                topMargin = dp(2)
+                bottomMargin = dp(0)
             }
+            translationY = dpF(2.5f)
         }
         content.addView(ivEmoji)
 
@@ -3343,7 +3345,6 @@ class CustomKeyboardService : InputMethodService() {
                     }
                     v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
                     v.background = keyBackground(pressColor, radiusDp)
-                    v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(45).start()
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -3352,15 +3353,17 @@ class CustomKeyboardService : InputMethodService() {
                         event.y >= -margin && event.y <= v.height + margin
                     if (!within && pressed) {
                         pressed = false
-                        longPressHandler.removeCallbacks(longPressRunnable)
+                        if (onLongClick != null) {
+                            longPressHandler.removeCallbacks(longPressRunnable)
+                        }
                         v.background = restingBackground
-                        v.animate().scaleX(1f).scaleY(1f).setDuration(80).start()
                     }
                     true
                 }
                 MotionEvent.ACTION_UP -> {
-                    longPressHandler.removeCallbacks(longPressRunnable)
-                    v.animate().scaleX(1f).scaleY(1f).setDuration(80).start()
+                    if (onLongClick != null) {
+                        longPressHandler.removeCallbacks(longPressRunnable)
+                    }
                     v.background = restingBackground
                     if (pressed) {
                         pressed = false
@@ -3371,10 +3374,11 @@ class CustomKeyboardService : InputMethodService() {
                     true
                 }
                 MotionEvent.ACTION_CANCEL -> {
-                    longPressHandler.removeCallbacks(longPressRunnable)
+                    if (onLongClick != null) {
+                        longPressHandler.removeCallbacks(longPressRunnable)
+                    }
                     pressed = false
                     v.background = restingBackground
-                    v.animate().scaleX(1f).scaleY(1f).setDuration(80).start()
                     true
                 }
                 else -> false
@@ -3834,25 +3838,35 @@ class CustomKeyboardService : InputMethodService() {
         ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
     }
 
+    private var volumeKeyHandledByTrigger = false
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (TriggerManager.isVolumeTriggerEnabled(this) &&
-            (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN)) {
-            val textBefore = currentInputConnection?.getTextBeforeCursor(4000, 0)?.toString() ?: ""
-            if (covertManager.isMathEnabled && TriggerManager.pendingMathPayload == null) {
-                val payload = covertManager.extractMathPayload(textBefore)
-                if (payload != null) {
-                    TriggerManager.pendingMathPayload = payload
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+            val volumeEnabled = TriggerManager.isVolumeTriggerEnabled(this)
+            val magicActive = covertManager.isAnyMagicEffectActive()
+            if (volumeEnabled && magicActive) {
+                val textBefore = currentInputConnection?.getTextBeforeCursor(4000, 0)?.toString() ?: ""
+                if (covertManager.isMathEnabled && TriggerManager.pendingMathPayload == null) {
+                    val payload = covertManager.extractMathPayload(textBefore)
+                    if (payload != null) {
+                        TriggerManager.pendingMathPayload = payload
+                    }
+                }
+                if (covertManager.isTextPeekEnabled && TriggerManager.pendingTextPeekPayload == null) {
+                    val textAfter = currentInputConnection?.getTextAfterCursor(1000, 0)?.toString() ?: ""
+                    val peek = covertManager.extractTextPeekPayload(textBefore, textAfter)
+                    if (peek != null) {
+                        TriggerManager.pendingTextPeekPayload = peek
+                    }
+                }
+                val fired = TriggerManager.fireTrigger("Volume Hardware Key (IME)", this)
+                if (fired) {
+                    volumeKeyHandledByTrigger = true
+                    return true
                 }
             }
-            if (covertManager.isTextPeekEnabled && TriggerManager.pendingTextPeekPayload == null) {
-                val textAfter = currentInputConnection?.getTextAfterCursor(1000, 0)?.toString() ?: ""
-                val peek = covertManager.extractTextPeekPayload(textBefore, textAfter)
-                if (peek != null) {
-                    TriggerManager.pendingTextPeekPayload = peek
-                }
-            }
-            val fired = TriggerManager.fireTrigger("Volume Hardware Key (IME)", this)
-            if (fired) return true
+            volumeKeyHandledByTrigger = false
+            return super.onKeyDown(keyCode, event)
         } else if (TriggerManager.isEnterTriggerEnabled(this) &&
             (keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER)) {
             val textBefore = currentInputConnection?.getTextBeforeCursor(4000, 0)?.toString() ?: ""
@@ -3875,9 +3889,12 @@ class CustomKeyboardService : InputMethodService() {
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
-        if (TriggerManager.isVolumeTriggerEnabled(this) &&
-            (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN)) {
-            return true
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+            if (volumeKeyHandledByTrigger) {
+                volumeKeyHandledByTrigger = false
+                return true
+            }
+            return super.onKeyUp(keyCode, event)
         }
         return super.onKeyUp(keyCode, event)
     }
