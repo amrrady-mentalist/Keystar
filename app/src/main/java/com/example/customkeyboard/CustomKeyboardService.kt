@@ -275,15 +275,25 @@ class CustomKeyboardService : InputMethodService() {
         super.onDestroy()
     }
 
+    override fun onEvaluateFullscreenMode(): Boolean {
+        // Disallow extracted fullscreen mode to ensure smooth insets animations and prevent CUJ timeouts
+        return false
+    }
+
+    override fun onComputeInsets(outInsets: Insets) {
+        super.onComputeInsets(outInsets)
+        if (!isFullscreenMode) {
+            outInsets.contentTopInsets = outInsets.visibleTopInsets
+        }
+    }
+
     override fun onWindowShown() {
         super.onWindowShown()
         TriggerManager.startActiveSession(this)
         if (covertManager.isTextReplaceEnabled) {
             covertManager.fetchLatestApiValue()
         }
-        if (::rootContainer.isInitialized) {
-            render()
-        }
+        // Avoid calling render() here; view hierarchy is already ready and rebuilding here drops animation frames
     }
 
     override fun onWindowHidden() {
@@ -302,9 +312,7 @@ class CustomKeyboardService : InputMethodService() {
 
     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
-        if (isInputViewShown) {
-            render()
-        }
+        // Avoid redundant render() during input initialization
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
@@ -324,12 +332,14 @@ class CustomKeyboardService : InputMethodService() {
                 inputClass == InputType.TYPE_CLASS_PHONE ||
                 inputClass == InputType.TYPE_CLASS_DATETIME
 
-        currentMode = if (isNumericField) Mode.NUMBERS else Mode.LETTERS
+        val targetMode = if (isNumericField) Mode.NUMBERS else Mode.LETTERS
+        val modeChanged = currentMode != targetMode
+        currentMode = targetMode
         shiftOn = false
         capsLock = false
         symbolsPage = 1
         wordBuffer.clear()
-        val textBeforeRaw = currentInputConnection?.getTextBeforeCursor(4000, 0)?.toString() ?: ""
+        val textBeforeRaw = currentInputConnection?.getTextBeforeCursor(200, 0)?.toString() ?: ""
         if (textBeforeRaw.isEmpty()) {
             covertManager.resetSession()
         } else if (covertManager.isCovertActive) {
@@ -337,12 +347,12 @@ class CustomKeyboardService : InputMethodService() {
         }
         val textBefore = textBeforeRaw.trim()
         lastCommittedWord = textBefore.split(Regex("\\s+")).lastOrNull { it.isNotEmpty() } ?: ""
-        val et = currentInputConnection?.getExtractedText(ExtractedTextRequest(), 0)
-        if (et != null) {
-            currentSelStart = et.selectionStart
-            currentSelEnd = et.selectionEnd
+
+        if (!::rootContainer.isInitialized || rootContainer.childCount == 0 || modeChanged) {
+            render()
+        } else {
+            refreshTopBar()
         }
-        render()
     }
 
     override fun onUpdateSelection(

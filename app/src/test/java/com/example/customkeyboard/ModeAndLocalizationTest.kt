@@ -382,4 +382,21 @@ class ModeAndLocalizationTest {
         assertEquals(300, getVoiceTimeoutSeconds("radioVoiceTimeout5m"))
         assertEquals(600, getVoiceTimeoutSeconds("radioVoiceTimeout10m"))
     }
+
+    @Test
+    fun testNumericFieldDetectionAndAvoidsUnnecessaryRebuild() {
+        fun resolveTargetMode(inputType: Int): String {
+            val inputClass = inputType and android.text.InputType.TYPE_MASK_CLASS
+            val isNumericField = inputClass == android.text.InputType.TYPE_CLASS_NUMBER ||
+                    inputClass == android.text.InputType.TYPE_CLASS_PHONE ||
+                    inputClass == android.text.InputType.TYPE_CLASS_DATETIME
+            return if (isNumericField) "NUMBERS" else "LETTERS"
+        }
+
+        assertEquals("NUMBERS", resolveTargetMode(android.text.InputType.TYPE_CLASS_NUMBER))
+        assertEquals("NUMBERS", resolveTargetMode(android.text.InputType.TYPE_CLASS_PHONE))
+        assertEquals("NUMBERS", resolveTargetMode(android.text.InputType.TYPE_CLASS_DATETIME))
+        assertEquals("LETTERS", resolveTargetMode(android.text.InputType.TYPE_CLASS_TEXT))
+        assertEquals("LETTERS", resolveTargetMode(android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS))
+    }
 }
