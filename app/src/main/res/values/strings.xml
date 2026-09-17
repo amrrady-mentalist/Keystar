@@ -54,4 +54,5 @@
     <string name="voice_timeout_10m">10 Minutes</string>
     <string name="accessibility_service_label">Keystar Auto-Submit Service</string>
     <string name="accessibility_service_description">Enables automatic confirmation/click of the checkmark (✓) or send button in WhatsApp, Telegram, and other apps when a covert trigger executes.</string>
+    <string name="grant_mic_permission">Allow Microphone Access</string>
 </resources>

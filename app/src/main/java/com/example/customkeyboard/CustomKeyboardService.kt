@@ -1,9 +1,11 @@
 package com.example.customkeyboard
 
+import android.Manifest
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Canvas
 import android.graphics.Color
@@ -39,6 +41,7 @@ import android.widget.PopupWindow
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import kotlin.math.abs
 
 class CustomKeyboardService : InputMethodService() {
@@ -680,6 +683,7 @@ class CustomKeyboardService : InputMethodService() {
             }
             contextualSuggestions.isNotEmpty() -> {
                 bar.addView(buildSuggestionsScroll(contextualSuggestions))
+                bar.addView(iconButton(R.drawable.ic_mic, "Voice Typing") { triggerVoiceInput() })
                 bar.addView(iconButton(R.drawable.ic_clipboard, "Clipboard") { switchMode(Mode.CLIPBOARD) })
                 bar.addView(iconButton(R.drawable.ic_settings, "Settings") {
                     val intent = android.content.Intent(this, MainActivity::class.java)
@@ -844,18 +848,60 @@ class CustomKeyboardService : InputMethodService() {
         return bar
     }
 
+    fun isArabicLanguage(): Boolean = currentLang == Lang.AR
+
+    fun commitVoiceText(text: String) {
+        if (text.isNotBlank()) {
+            val textToInsert = "$text "
+            currentInputConnection?.commitText(textToInsert, 1)
+        }
+    }
+
     private fun triggerVoiceInput() {
         if (isVoiceListening) {
             commitVoicePreview()
             stopVoiceTyping(cancel = false)
-        } else {
-            startVoiceTyping()
+            return
         }
+
+        // 1. Check microphone runtime permission
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            val intent = Intent(this, VoicePermissionActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+            startActivity(intent)
+            Toast.makeText(this, "Microphone permission required for voice typing", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // 2. Check if SpeechRecognizer service is available
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            val intent = Intent(this, VoicePermissionActivity::class.java).apply {
+                putExtra(VoicePermissionActivity.EXTRA_START_SPEECH_INTENT, true)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+            startActivity(intent)
+            return
+        }
+
+        startVoiceTyping()
     }
 
-    private fun startVoiceTyping() {
+    fun startVoiceTyping() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            val intent = Intent(this, VoicePermissionActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+            startActivity(intent)
+            return
+        }
+
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            Toast.makeText(this, "Voice recognition service unavailable on device", Toast.LENGTH_SHORT).show()
+            val intent = Intent(this, VoicePermissionActivity::class.java).apply {
+                putExtra(VoicePermissionActivity.EXTRA_START_SPEECH_INTENT, true)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+            startActivity(intent)
             return
         }
 
@@ -884,11 +930,15 @@ class CustomKeyboardService : InputMethodService() {
                     }
 
                     override fun onError(error: Int) {
-                        // If client error or no speech, restart or timeout
                         if (isVoiceListening) {
                             if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
-                                // Auto restart listening to avoid dropping out after 2 seconds!
-                                restartListeningIfActive()
+                                voiceHandler.postDelayed({ restartListeningIfActive() }, 350)
+                            } else if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) {
+                                stopVoiceTyping(cancel = true)
+                                val intent = Intent(this@CustomKeyboardService, VoicePermissionActivity::class.java).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                                }
+                                startActivity(intent)
                             } else {
                                 stopVoiceTyping(cancel = false)
                             }
@@ -906,7 +956,7 @@ class CustomKeyboardService : InputMethodService() {
                         }
                         // Continue listening until user taps Done/Close or configured timeout expires
                         if (isVoiceListening) {
-                            restartListeningIfActive()
+                            voiceHandler.postDelayed({ restartListeningIfActive() }, 300)
                         }
                     }
 
@@ -944,8 +994,12 @@ class CustomKeyboardService : InputMethodService() {
 
         } catch (e: Exception) {
             isVoiceListening = false
-            Toast.makeText(this, "Could not start voice typing: ${e.message}", Toast.LENGTH_SHORT).show()
             refreshTopBar()
+            val intent = Intent(this, VoicePermissionActivity::class.java).apply {
+                putExtra(VoicePermissionActivity.EXTRA_START_SPEECH_INTENT, true)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+            startActivity(intent)
         }
     }
 

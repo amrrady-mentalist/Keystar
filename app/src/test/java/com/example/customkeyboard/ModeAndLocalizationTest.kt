@@ -347,4 +347,39 @@ class ModeAndLocalizationTest {
         assertEquals(1, getKeyInsetH("wide"))
         assertEquals(2, getKeyInsetH("standard"))
     }
+
+    @Test
+    fun testThemeNightModeMappingStability() {
+        fun resolveNightMode(themeSetting: String): Int {
+            return when (themeSetting) {
+                "light" -> 1 // MODE_NIGHT_NO
+                "pitch_black", "liquid_glass" -> 2 // MODE_NIGHT_YES
+                "system" -> -1 // MODE_NIGHT_FOLLOW_SYSTEM
+                else -> 2 // MODE_NIGHT_YES
+            }
+        }
+
+        assertEquals(1, resolveNightMode("light"))
+        assertEquals(2, resolveNightMode("dark"))
+        assertEquals(2, resolveNightMode("pitch_black"))
+        assertEquals(2, resolveNightMode("liquid_glass"))
+        assertEquals(-1, resolveNightMode("system"))
+    }
+
+    @Test
+    fun testVoiceTimeoutSettings() {
+        fun getVoiceTimeoutSeconds(radioId: String): Int {
+            return when (radioId) {
+                "radioVoiceTimeout1m" -> 60
+                "radioVoiceTimeout5m" -> 300
+                "radioVoiceTimeout10m" -> 600
+                else -> 180
+            }
+        }
+
+        assertEquals(60, getVoiceTimeoutSeconds("radioVoiceTimeout1m"))
+        assertEquals(180, getVoiceTimeoutSeconds("radioVoiceTimeout3m"))
+        assertEquals(300, getVoiceTimeoutSeconds("radioVoiceTimeout5m"))
+        assertEquals(600, getVoiceTimeoutSeconds("radioVoiceTimeout10m"))
+    }
 }

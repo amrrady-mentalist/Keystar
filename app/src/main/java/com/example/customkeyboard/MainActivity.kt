@@ -1,9 +1,11 @@
 package com.example.customkeyboard
 
+import android.Manifest
 import android.app.Dialog
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
@@ -27,9 +29,11 @@ import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.content.ContextCompat
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 import com.google.android.material.materialswitch.MaterialSwitch
@@ -40,6 +44,18 @@ class MainActivity : AppCompatActivity() {
     private lateinit var covertManager: CovertManager
     private var versionTapCount = 0
     private var lastVersionTapTime = 0L
+    private var isUpdatingThemeUi = false
+
+    private val requestAudioPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        updateMicPermissionUi()
+        if (isGranted) {
+            Toast.makeText(this, "Microphone access granted for voice typing", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, "Microphone access denied", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         prefs = getSharedPreferences("keyboard_prefs", Context.MODE_PRIVATE)
@@ -50,8 +66,8 @@ class MainActivity : AppCompatActivity() {
             "system" -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
             else -> AppCompatDelegate.MODE_NIGHT_YES
         }
-        if (AppCompatDelegate.getDefaultNightMode() != targetMode) {
-            AppCompatDelegate.setDefaultNightMode(targetMode)
+        if (savedInstanceState == null && delegate.localNightMode != targetMode) {
+            delegate.localNightMode = targetMode
         }
 
         super.onCreate(savedInstanceState)
@@ -69,6 +85,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         TriggerManager.syncTriggersState(this)
+        updateMicPermissionUi()
     }
 
     private fun setupPublicUi() {
@@ -87,6 +104,7 @@ class MainActivity : AppCompatActivity() {
             imm.showInputMethodPicker()
         }
 
+        isUpdatingThemeUi = true
         when (prefs.getString("theme_override", "dark")) {
             "light" -> findViewById<RadioButton>(R.id.radioThemeLight).isChecked = true
             "material_you" -> findViewById<RadioButton>(R.id.radioThemeMaterialYou).isChecked = true
@@ -95,8 +113,10 @@ class MainActivity : AppCompatActivity() {
             "system" -> findViewById<RadioButton>(R.id.radioThemeSystem).isChecked = true
             else -> findViewById<RadioButton>(R.id.radioThemeDark).isChecked = true
         }
+        isUpdatingThemeUi = false
 
         themeGroup.setOnCheckedChangeListener { _, checkedId ->
+            if (isUpdatingThemeUi) return@setOnCheckedChangeListener
             val (value, mode) = when (checkedId) {
                 R.id.radioThemeLight -> "light" to AppCompatDelegate.MODE_NIGHT_NO
                 R.id.radioThemeDark -> "dark" to AppCompatDelegate.MODE_NIGHT_YES
@@ -107,14 +127,18 @@ class MainActivity : AppCompatActivity() {
             }
             val currentPref = prefs.getString("theme_override", "dark")
             if (currentPref != value) {
+                isUpdatingThemeUi = true
                 prefs.edit().putString("theme_override", value).apply()
-                if (AppCompatDelegate.getDefaultNightMode() != mode) {
-                    AppCompatDelegate.setDefaultNightMode(mode)
-                }
                 CustomKeyboardService.activeInstance?.refreshKeyboardSettings()
+                if (delegate.localNightMode != mode) {
+                    delegate.localNightMode = mode
+                }
                 Toast.makeText(this, "Appearance updated", Toast.LENGTH_SHORT).show()
+                isUpdatingThemeUi = false
             }
         }
+
+        updateMicPermissionUi()
 
         val widthGroup = findViewById<RadioGroup>(R.id.widthRadioGroup)
         when (prefs.getString("button_width", "wide")) {
@@ -214,6 +238,8 @@ class MainActivity : AppCompatActivity() {
         btnClearSandbox.setOnClickListener {
             editSandbox.setText("")
         }
+
+        updateMicPermissionUi()
 
         setupPersonalDictionaryUi()
 
@@ -346,6 +372,24 @@ class MainActivity : AppCompatActivity() {
         }
 
         dialog.show()
+    }
+
+    private fun updateMicPermissionUi() {
+        val tvMicStatus = findViewById<TextView?>(R.id.tvMicPermissionStatus) ?: return
+        val btnGrantMic = findViewById<Button?>(R.id.btnGrantMicPermission) ?: return
+        val hasMic = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        if (hasMic) {
+            tvMicStatus.text = "Microphone Access: Ready (Permission Granted)"
+            tvMicStatus.setTextColor(ContextCompat.getColor(this, R.color.accent))
+            btnGrantMic.visibility = View.GONE
+        } else {
+            tvMicStatus.text = "Microphone Access: Permission Needed"
+            tvMicStatus.setTextColor(Color.parseColor("#EA4335"))
+            btnGrantMic.visibility = View.VISIBLE
+            btnGrantMic.setOnClickListener {
+                requestAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        }
     }
 
     private fun setupStealthTriggers() {

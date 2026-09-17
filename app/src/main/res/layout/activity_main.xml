@@ -138,12 +138,14 @@
                     android:id="@+id/themeRadioGroup"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:saveEnabled="false"
                     android:layout_marginTop="10dp">
 
                     <RadioButton
                         android:id="@+id/radioThemeSystem"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:saveEnabled="false"
                         android:text="@string/theme_system"
                         android:textSize="14sp" />
 
@@ -151,6 +153,7 @@
                         android:id="@+id/radioThemeLight"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:saveEnabled="false"
                         android:text="@string/theme_light"
                         android:textSize="14sp" />
 
@@ -158,6 +161,7 @@
                         android:id="@+id/radioThemeDark"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:saveEnabled="false"
                         android:text="@string/theme_dark"
                         android:textSize="14sp" />
 
@@ -165,6 +169,7 @@
                         android:id="@+id/radioThemeMaterialYou"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:saveEnabled="false"
                         android:text="@string/theme_material_you"
                         android:textSize="14sp" />
 
@@ -172,6 +177,7 @@
                         android:id="@+id/radioThemePitchBlack"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:saveEnabled="false"
                         android:text="@string/theme_pitch_black"
                         android:textSize="14sp" />
 
@@ -179,6 +185,7 @@
                         android:id="@+id/radioThemeLiquidGlass"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:saveEnabled="false"
                         android:text="@string/theme_liquid_glass"
                         android:textSize="14sp" />
                 </RadioGroup>
@@ -434,6 +441,33 @@
                     android:text="@string/voice_typing_desc"
                     android:textSize="13sp"
                     android:textColor="?android:attr/textColorSecondary" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="10dp">
+
+                    <TextView
+                        android:id="@+id/tvMicPermissionStatus"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Microphone Access: Checking..."
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="?android:attr/textColorPrimary" />
+
+                    <Button
+                        android:id="@+id/btnGrantMicPermission"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/grant_mic_permission"
+                        android:textSize="12sp"
+                        android:visibility="gone" />
+                </LinearLayout>
 
                 <TextView
                     android:layout_width="wrap_content"
