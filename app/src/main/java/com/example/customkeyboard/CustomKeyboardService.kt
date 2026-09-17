@@ -2,6 +2,7 @@ package com.example.customkeyboard
 
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.graphics.Canvas
@@ -14,8 +15,10 @@ import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.InsetDrawable
 import android.inputmethodservice.InputMethodService
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.InputType
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
@@ -25,6 +28,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.ExtractedTextRequest
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
@@ -50,6 +56,13 @@ class CustomKeyboardService : InputMethodService() {
     private val wordBuffer = StringBuilder()
     private var lastCommittedWord = ""
     private var selectedClipboardEffectTab = "covert"
+
+    // In-bar voice typing state
+    private var isVoiceListening = false
+    private var voicePreviewText = ""
+    private var speechRecognizer: SpeechRecognizer? = null
+    private val voiceHandler = Handler(Looper.getMainLooper())
+    private var voiceTimeoutRunnable: Runnable? = null
 
     private lateinit var rootOverlayContainer: FrameLayout
     private lateinit var rootContainer: LinearLayout
@@ -77,7 +90,7 @@ class CustomKeyboardService : InputMethodService() {
         get() = getKeyRadiusDp()
 
     private val PILL_RADIUS_DP = 24
-    private val ICON_GLYPH_DP = 26
+    private val ICON_GLYPH_DP = 30
     private val KEY_INSET_V_DP = 4
     private val baselineArabicLetters = setOf("ط", "ك", "ف", "ث", "ا", "ة", "ظ", "د", "ب", "ت", "ذ", "ه", "ء")
 
@@ -246,6 +259,7 @@ class CustomKeyboardService : InputMethodService() {
     }
 
     override fun onDestroy() {
+        stopVoiceTyping(cancel = true)
         if (activeInstance == this) activeInstance = null
         if (::prefs.isInitialized) {
             prefs.unregisterOnSharedPreferenceChangeListener(prefChangeListener)
@@ -271,12 +285,14 @@ class CustomKeyboardService : InputMethodService() {
 
     override fun onWindowHidden() {
         super.onWindowHidden()
+        stopVoiceTyping(cancel = false)
         keyPopupManager?.hidePopup(immediate = true)
         // Keep trigger session alive so triggers work even if spectator dismissed keyboard
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
         super.onFinishInputView(finishingInput)
+        stopVoiceTyping(cancel = false)
         keyPopupManager?.hidePopup(immediate = true)
         // Keep trigger session alive so triggers work even if spectator dismissed keyboard
     }
@@ -298,7 +314,14 @@ class CustomKeyboardService : InputMethodService() {
         if (TriggerManager.isDelayTriggerEnabled(this) && (TriggerManager.hasPendingPayload() || covertManager.isTextReplaceEnabled)) {
             TriggerManager.scheduleDelayTrigger(this, "Input View Started")
         }
-        currentMode = Mode.LETTERS
+        // Automatically open the keyboard to the numbers page when the field only accepts numbers
+        val inputType = info?.inputType ?: 0
+        val inputClass = inputType and InputType.TYPE_MASK_CLASS
+        val isNumericField = inputClass == InputType.TYPE_CLASS_NUMBER ||
+                inputClass == InputType.TYPE_CLASS_PHONE ||
+                inputClass == InputType.TYPE_CLASS_DATETIME
+
+        currentMode = if (isNumericField) Mode.NUMBERS else Mode.LETTERS
         shiftOn = false
         capsLock = false
         symbolsPage = 1
@@ -374,6 +397,14 @@ class CustomKeyboardService : InputMethodService() {
             "pitch_black" -> Color.parseColor("#FFFFFF")
             "light" -> Color.parseColor("#1F1F1F")
             else -> Color.parseColor("#FFFFFF") // Crisp, clear pure white as requested
+        }
+    }
+
+    private fun textSecondaryColor(): Int {
+        return when (getThemeMode()) {
+            "pitch_black" -> Color.parseColor("#9E9E9E")
+            "light" -> Color.parseColor("#757575")
+            else -> Color.parseColor("#9AA0A6")
         }
     }
 
@@ -632,6 +663,9 @@ class CustomKeyboardService : InputMethodService() {
         } else emptyList()
 
         when {
+            isVoiceListening -> {
+                bar.addView(buildVoiceTypingBar())
+            }
             currentMode == Mode.CLIPBOARD -> {
                 bar.addView(iconButton(R.drawable.ic_arrow_back, "Back") { switchMode(Mode.LETTERS) })
                 bar.addView(TextView(this).apply {
@@ -713,16 +747,262 @@ class CustomKeyboardService : InputMethodService() {
         }
     }
 
-    private fun triggerVoiceInput() {
-        try {
-            val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            startActivity(intent)
-        } catch (e: Exception) {
-            Toast.makeText(this, "Voice input not available", Toast.LENGTH_SHORT).show()
+    private fun buildVoiceTypingBar(): View {
+        val bar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(4), 0, dp(4), 0)
         }
+
+        // Animated red/accent pulsing mic icon
+        val micContainer = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(36), dp(36))
+            background = keyBackground(Color.parseColor("#33EA4335"), 18)
+        }
+        val micIcon = ImageView(this).apply {
+            setImageResource(R.drawable.ic_mic)
+            setColorFilter(Color.parseColor("#EA4335"))
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setPadding(dp(6), dp(6), dp(6), dp(6))
+            layoutParams = FrameLayout.LayoutParams(dp(32), dp(32), Gravity.CENTER)
+        }
+        micContainer.addView(micIcon)
+        bar.addView(micContainer)
+
+        // Live text preview before committing to the typing field
+        val previewTextView = TextView(this).apply {
+            text = if (voicePreviewText.isNotEmpty()) voicePreviewText else (if (currentLang == Lang.AR) "جارٍ الاستماع... تكلّم الآن" else "Listening... Speak now")
+            setTextColor(if (voicePreviewText.isNotEmpty()) textColor() else textSecondaryColor())
+            textSize = 14f
+            setTypeface(Typeface.DEFAULT, if (voicePreviewText.isNotEmpty()) Typeface.BOLD else Typeface.ITALIC)
+            setPadding(dp(10), 0, dp(10), 0)
+            isSingleLine = true
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        bar.addView(previewTextView)
+
+        // Language toggle pill (EN / AR) so user can switch voice typing language on the fly
+        val langBtn = TextView(this).apply {
+            text = if (currentLang == Lang.AR) "AR" else "EN"
+            setTextColor(accentColor())
+            textSize = 12f
+            setTypeface(Typeface.DEFAULT_BOLD)
+            gravity = Gravity.CENTER
+            setPadding(dp(10), dp(4), dp(10), dp(4))
+            background = keyBackground(specialKeyColor(), 12)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                marginEnd = dp(6)
+            }
+            setOnClickListener {
+                switchLanguage()
+                // Restart listening with the new language
+                startVoiceTyping()
+            }
+        }
+        bar.addView(langBtn)
+
+        // Commit button (send preview words to input connection)
+        val sendBtn = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(36), dp(36))
+            background = keyBackground(accentColor(), 18)
+            val sendIcon = ImageView(this@CustomKeyboardService).apply {
+                setImageResource(R.drawable.ic_check)
+                setColorFilter(Color.WHITE)
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                setPadding(dp(8), dp(8), dp(8), dp(8))
+                layoutParams = FrameLayout.LayoutParams(dp(32), dp(32), Gravity.CENTER)
+            }
+            addView(sendIcon)
+            setOnClickListener {
+                commitVoicePreview()
+                stopVoiceTyping(cancel = false)
+            }
+        }
+        bar.addView(sendBtn)
+
+        // Close / cancel button
+        val closeBtn = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(36), dp(36)).apply {
+                marginStart = dp(4)
+            }
+            val closeIcon = ImageView(this@CustomKeyboardService).apply {
+                setImageResource(R.drawable.ic_close)
+                setColorFilter(textColor())
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                setPadding(dp(8), dp(8), dp(8), dp(8))
+                layoutParams = FrameLayout.LayoutParams(dp(32), dp(32), Gravity.CENTER)
+            }
+            addView(closeIcon)
+            setOnClickListener {
+                stopVoiceTyping(cancel = true)
+            }
+        }
+        bar.addView(closeBtn)
+
+        return bar
+    }
+
+    private fun triggerVoiceInput() {
+        if (isVoiceListening) {
+            commitVoicePreview()
+            stopVoiceTyping(cancel = false)
+        } else {
+            startVoiceTyping()
+        }
+    }
+
+    private fun startVoiceTyping() {
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            Toast.makeText(this, "Voice recognition service unavailable on device", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        try {
+            stopVoiceTyping(cancel = true)
+
+            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
+                setRecognitionListener(object : RecognitionListener {
+                    override fun onReadyForSpeech(params: Bundle?) {
+                        isVoiceListening = true
+                        voicePreviewText = ""
+                        resetVoiceTimeout()
+                        refreshTopBar()
+                    }
+
+                    override fun onBeginningOfSpeech() {
+                        resetVoiceTimeout()
+                    }
+
+                    override fun onRmsChanged(rmsdB: Float) {}
+
+                    override fun onBufferReceived(buffer: ByteArray?) {}
+
+                    override fun onEndOfSpeech() {
+                        // User paused speaking. Keep listening if within user's configured timeout.
+                    }
+
+                    override fun onError(error: Int) {
+                        // If client error or no speech, restart or timeout
+                        if (isVoiceListening) {
+                            if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
+                                // Auto restart listening to avoid dropping out after 2 seconds!
+                                restartListeningIfActive()
+                            } else {
+                                stopVoiceTyping(cancel = false)
+                            }
+                        }
+                    }
+
+                    override fun onResults(results: Bundle?) {
+                        val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        if (!matches.isNullOrEmpty()) {
+                            val recognized = matches[0]
+                            if (recognized.isNotBlank()) {
+                                voicePreviewText = if (voicePreviewText.isEmpty()) recognized else "$voicePreviewText $recognized"
+                                refreshTopBar()
+                            }
+                        }
+                        // Continue listening until user taps Done/Close or configured timeout expires
+                        if (isVoiceListening) {
+                            restartListeningIfActive()
+                        }
+                    }
+
+                    override fun onPartialResults(partialResults: Bundle?) {
+                        val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        if (!matches.isNullOrEmpty()) {
+                            val partial = matches[0]
+                            if (partial.isNotBlank()) {
+                                voicePreviewText = partial
+                                refreshTopBar()
+                            }
+                        }
+                        resetVoiceTimeout()
+                    }
+
+                    override fun onEvent(eventType: Int, params: Bundle?) {}
+                })
+            }
+
+            val targetLangCode = if (currentLang == Lang.AR) "ar-SA" else "en-US"
+            val recognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, targetLangCode)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, targetLangCode)
+                putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, targetLangCode)
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+            }
+
+            speechRecognizer?.startListening(recognizerIntent)
+            isVoiceListening = true
+            voicePreviewText = ""
+            resetVoiceTimeout()
+            refreshTopBar()
+
+        } catch (e: Exception) {
+            isVoiceListening = false
+            Toast.makeText(this, "Could not start voice typing: ${e.message}", Toast.LENGTH_SHORT).show()
+            refreshTopBar()
+        }
+    }
+
+    private fun restartListeningIfActive() {
+        if (!isVoiceListening) return
+        try {
+            val targetLangCode = if (currentLang == Lang.AR) "ar-SA" else "en-US"
+            val recognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, targetLangCode)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, targetLangCode)
+                putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, targetLangCode)
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            }
+            speechRecognizer?.startListening(recognizerIntent)
+        } catch (e: Exception) {
+            // In case of error restarting, stop cleanly
+            stopVoiceTyping(cancel = false)
+        }
+    }
+
+    private fun resetVoiceTimeout() {
+        voiceTimeoutRunnable?.let { voiceHandler.removeCallbacks(it) }
+        val timeoutSeconds = prefs.getInt("voice_typing_timeout_sec", 180)
+        val runnable = Runnable {
+            if (isVoiceListening) {
+                commitVoicePreview()
+                stopVoiceTyping(cancel = false)
+            }
+        }
+        voiceTimeoutRunnable = runnable
+        voiceHandler.postDelayed(runnable, timeoutSeconds * 1000L)
+    }
+
+    private fun commitVoicePreview() {
+        if (voicePreviewText.isNotBlank()) {
+            val textToInsert = "$voicePreviewText "
+            currentInputConnection?.commitText(textToInsert, 1)
+            voicePreviewText = ""
+        }
+    }
+
+    private fun stopVoiceTyping(cancel: Boolean = false) {
+        voiceTimeoutRunnable?.let { voiceHandler.removeCallbacks(it) }
+        voiceTimeoutRunnable = null
+        if (!cancel) {
+            commitVoicePreview()
+        }
+        try {
+            speechRecognizer?.stopListening()
+            speechRecognizer?.cancel()
+            speechRecognizer?.destroy()
+        } catch (ignored: Exception) {}
+        speechRecognizer = null
+        isVoiceListening = false
+        voicePreviewText = ""
+        refreshTopBar()
     }
 
     private fun buildSuggestionsScroll(items: List<Dictionary.SuggestionItem>): View {
@@ -4093,14 +4373,14 @@ private class GlyphIconView(context: Context, var glyph: Glyph) : View(context) 
                 paint.style = Paint.Style.STROKE
                 paint.strokeCap = Paint.Cap.ROUND
                 paint.strokeJoin = Paint.Join.ROUND
-                paint.strokeWidth = h * 0.095f
+                paint.strokeWidth = h * 0.088f
 
                 if (isRtl) {
-                    val tipX = w * 0.85f
-                    val notchX = w * 0.62f
-                    val leftX = w * 0.15f
-                    val topY = h * 0.20f
-                    val bottomY = h * 0.80f
+                    val tipX = w * 0.90f
+                    val notchX = w * 0.65f
+                    val leftX = w * 0.10f
+                    val topY = h * 0.22f
+                    val bottomY = h * 0.78f
                     val midY = h * 0.50f
 
                     val path = Path().apply {
@@ -4113,17 +4393,18 @@ private class GlyphIconView(context: Context, var glyph: Glyph) : View(context) 
                     }
                     canvas.drawPath(path, paint)
 
-                    val rectCenterX = (notchX + leftX) * 0.5f
-                    val xRadius = (notchX - leftX) * 0.28f
-                    val yRadius = (bottomY - topY) * 0.24f
-                    canvas.drawLine(rectCenterX - xRadius, midY - yRadius, rectCenterX + xRadius, midY + yRadius, paint)
-                    canvas.drawLine(rectCenterX + xRadius, midY - yRadius, rectCenterX - xRadius, midY + yRadius, paint)
+                    // In Gboard, the delete X is centered inside the body part of the badge
+                    val bodyCenterX = (notchX + leftX) * 0.5f
+                    val bodyCenterY = midY
+                    val crossRadius = (notchX - leftX) * 0.28f
+                    canvas.drawLine(bodyCenterX - crossRadius, bodyCenterY - crossRadius, bodyCenterX + crossRadius, bodyCenterY + crossRadius, paint)
+                    canvas.drawLine(bodyCenterX + crossRadius, bodyCenterY - crossRadius, bodyCenterX - crossRadius, bodyCenterY + crossRadius, paint)
                 } else {
-                    val tipX = w * 0.15f
-                    val notchX = w * 0.38f
-                    val rightX = w * 0.85f
-                    val topY = h * 0.20f
-                    val bottomY = h * 0.80f
+                    val tipX = w * 0.10f
+                    val notchX = w * 0.35f
+                    val rightX = w * 0.90f
+                    val topY = h * 0.22f
+                    val bottomY = h * 0.78f
                     val midY = h * 0.50f
 
                     val path = Path().apply {
@@ -4136,11 +4417,12 @@ private class GlyphIconView(context: Context, var glyph: Glyph) : View(context) 
                     }
                     canvas.drawPath(path, paint)
 
-                    val rectCenterX = (notchX + rightX) * 0.5f
-                    val xRadius = (rightX - notchX) * 0.28f
-                    val yRadius = (bottomY - topY) * 0.24f
-                    canvas.drawLine(rectCenterX - xRadius, midY - yRadius, rectCenterX + xRadius, midY + yRadius, paint)
-                    canvas.drawLine(rectCenterX + xRadius, midY - yRadius, rectCenterX - xRadius, midY + yRadius, paint)
+                    // Centered square X inside the body portion of the key tag
+                    val bodyCenterX = (notchX + rightX) * 0.5f
+                    val bodyCenterY = midY
+                    val crossRadius = (rightX - notchX) * 0.28f
+                    canvas.drawLine(bodyCenterX - crossRadius, bodyCenterY - crossRadius, bodyCenterX + crossRadius, bodyCenterY + crossRadius, paint)
+                    canvas.drawLine(bodyCenterX + crossRadius, bodyCenterY - crossRadius, bodyCenterX - crossRadius, bodyCenterY + crossRadius, paint)
                 }
             }
             Glyph.SHIFT -> {
@@ -4148,23 +4430,24 @@ private class GlyphIconView(context: Context, var glyph: Glyph) : View(context) 
                 paint.strokeJoin = Paint.Join.ROUND
                 paint.strokeWidth = h * 0.088f
 
+                // Gboard style arrow: wider balanced proportions with clean vertical stem
                 val midX = w * 0.50f
-                val topY = h * 0.18f
-                val roofBottomY = h * 0.50f
-                val roofLeftX = w * 0.22f
-                val roofRightX = w * 0.78f
-                val stemLeftX = w * 0.37f
-                val stemRightX = w * 0.63f
-                val stemBottomY = if (locked) h * 0.70f else h * 0.78f
+                val topY = h * 0.15f
+                val arrowWingsY = h * 0.48f
+                val arrowWingLeft = w * 0.16f
+                val arrowWingRight = w * 0.84f
+                val stemLeft = w * 0.35f
+                val stemRight = w * 0.65f
+                val stemBottom = if (locked) h * 0.70f else h * 0.82f
 
                 val path = Path().apply {
                     moveTo(midX, topY)
-                    lineTo(roofLeftX, roofBottomY)
-                    lineTo(stemLeftX, roofBottomY)
-                    lineTo(stemLeftX, stemBottomY)
-                    lineTo(stemRightX, stemBottomY)
-                    lineTo(stemRightX, roofBottomY)
-                    lineTo(roofRightX, roofBottomY)
+                    lineTo(arrowWingLeft, arrowWingsY)
+                    lineTo(stemLeft, arrowWingsY)
+                    lineTo(stemLeft, stemBottom)
+                    lineTo(stemRight, stemBottom)
+                    lineTo(stemRight, arrowWingsY)
+                    lineTo(arrowWingRight, arrowWingsY)
                     close()
                 }
 
@@ -4178,9 +4461,9 @@ private class GlyphIconView(context: Context, var glyph: Glyph) : View(context) 
 
                 if (locked) {
                     paint.style = Paint.Style.STROKE
-                    paint.strokeWidth = h * 0.09f
-                    val barY = h * 0.86f
-                    canvas.drawLine(w * 0.26f, barY, w * 0.74f, barY, paint)
+                    paint.strokeWidth = h * 0.088f
+                    val barY = h * 0.85f
+                    canvas.drawLine(w * 0.24f, barY, w * 0.76f, barY, paint)
                 }
             }
         }

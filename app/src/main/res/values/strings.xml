@@ -42,6 +42,16 @@
     <string name="btn_manage_personal_dict">Manage Personal Dictionary</string>
     <string name="key_popup_preview_label">Key Popup Preview</string>
     <string name="key_popup_preview_desc">Snappy animated preview on key press; hold longer to show associated character</string>
+    <string name="btn_backup_dict">Backup to Storage</string>
+    <string name="btn_restore_dict">Restore Backup</string>
+    <string name="backup_restore_desc">Save your personal words as a backup file on your phone so you can restore them even after reinstalling the app.</string>
+    <string name="voice_typing_title">Voice Typing (Packed In-Bar)</string>
+    <string name="voice_typing_desc">Speak directly inside the keyboard top bar without annoying popups, with live preview in English or Arabic.</string>
+    <string name="voice_typing_timeout_label">Continuous Voice Typing Timeout</string>
+    <string name="voice_timeout_1m">1 Minute</string>
+    <string name="voice_timeout_3m">3 Minutes (Default)</string>
+    <string name="voice_timeout_5m">5 Minutes</string>
+    <string name="voice_timeout_10m">10 Minutes</string>
     <string name="accessibility_service_label">Keystar Auto-Submit Service</string>
     <string name="accessibility_service_description">Enables automatic confirmation/click of the checkmark (✓) or send button in WhatsApp, Telegram, and other apps when a covert trigger executes.</string>
 </resources>

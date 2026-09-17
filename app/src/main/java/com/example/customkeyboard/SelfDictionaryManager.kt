@@ -43,11 +43,114 @@ object SelfDictionaryManager {
         if (savedSet != null) {
             customWords.addAll(savedSet)
         } else {
-            // First time setup: seed with starter words
-            customWords.addAll(defaultStarterWords)
-            saveToStorage()
+            // Check if a backup exists on the phone storage (e.g. after reinstall)
+            val restored = restoreFromPhoneStorage(appContext)
+            if (!restored) {
+                // First time setup: seed with starter words
+                customWords.addAll(defaultStarterWords)
+                saveToStorage(appContext)
+            }
         }
         isInitialized = true
+    }
+
+    private fun getBackupFile(context: Context): java.io.File {
+        // Safe location in external media / app external files on device that survives reinstalls
+        // or user accessible Documents/Download / externalFilesDir
+        val extDir = context.getExternalFilesDir(null) ?: context.filesDir
+        val backupDir = java.io.File(extDir.parentFile?.parentFile?.parentFile?.parentFile, "Download/CustomKeyboardBackup").apply {
+            if (!exists()) mkdirs()
+        }
+        return if (backupDir.exists() && backupDir.canWrite()) {
+            java.io.File(backupDir, "personal_dictionary_backup.txt")
+        } else {
+            java.io.File(context.filesDir, "personal_dictionary_backup.txt")
+        }
+    }
+
+    /**
+     * Automatically attempts to restore from standard phone storage locations.
+     */
+    fun restoreFromPhoneStorage(context: Context): Boolean {
+        try {
+            val candidates = listOf(
+                java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "CustomKeyboard_Personal_Words.txt"),
+                java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS), "CustomKeyboard_Personal_Words.txt"),
+                getBackupFile(context)
+            )
+            for (file in candidates) {
+                if (file.exists() && file.canRead()) {
+                    val lines = file.readLines()
+                        .map { it.trim() }
+                        .filter { it.length >= 2 && !it.startsWith("#") }
+                    if (lines.isNotEmpty()) {
+                        customWords.addAll(lines)
+                        saveToStorage(context)
+                        return true
+                    }
+                }
+            }
+        } catch (_: Exception) { }
+        return false
+    }
+
+    /**
+     * Exports words to a text stream.
+     */
+    fun exportToStream(outputStream: java.io.OutputStream): Int {
+        val words = getAllWords()
+        val writer = outputStream.bufferedWriter()
+        writer.write("# CustomKeyboard Personal Dictionary Backup\n")
+        writer.write("# Generated on: " + java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date()) + "\n")
+        for (w in words) {
+            writer.write(w)
+            writer.write("\n")
+        }
+        writer.flush()
+        return words.size
+    }
+
+    /**
+     * Imports words from an input stream. Returns count of newly added words.
+     */
+    fun importFromStream(inputStream: java.io.InputStream, context: Context): Int {
+        val lines = inputStream.bufferedReader().readLines()
+        var addedCount = 0
+        for (line in lines) {
+            val trimmed = line.trim()
+            if (trimmed.length >= 2 && !trimmed.startsWith("#")) {
+                if (customWords.add(trimmed)) {
+                    addedCount++
+                }
+            }
+        }
+        if (addedCount > 0) {
+            saveToStorage(context)
+        }
+        return addedCount
+    }
+
+    /**
+     * Saves backup file directly to Downloads / Documents so reinstalling the app still finds it.
+     */
+    fun backupToPhoneStorage(context: Context): Pair<Boolean, String> {
+        return try {
+            val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+            if (!downloadsDir.exists()) downloadsDir.mkdirs()
+            val backupFile = java.io.File(downloadsDir, "CustomKeyboard_Personal_Words.txt")
+            backupFile.outputStream().use { os ->
+                exportToStream(os)
+            }
+            // Also write to local safe backup file
+            try {
+                getBackupFile(context).outputStream().use { os ->
+                    exportToStream(os)
+                }
+            } catch (_: Exception) {}
+            true to backupFile.absolutePath
+        } catch (e: Exception) {
+            false to (e.message ?: "Failed to write backup")
+        }
     }
 
     fun isEnabled(context: Context): Boolean {
@@ -129,7 +232,16 @@ object SelfDictionaryManager {
             .replace("\u0652", "") // sukun
     }
 
-    private fun saveToStorage() {
-        prefs?.edit()?.putStringSet(KEY_WORDS, HashSet(customWords))?.apply()
+    fun saveToStorage(context: Context? = null) {
+        val p = prefs ?: context?.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        p?.edit()?.putStringSet(KEY_WORDS, HashSet(customWords))?.apply()
+        // Auto mirror to local backup
+        if (context != null) {
+            try {
+                getBackupFile(context).outputStream().use { os ->
+                    exportToStream(os)
+                }
+            } catch (_: Exception) {}
+        }
     }
 }

@@ -44,11 +44,14 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         prefs = getSharedPreferences("keyboard_prefs", Context.MODE_PRIVATE)
         val savedTheme = prefs.getString("theme_override", "dark")
-        when (savedTheme) {
-            "light" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
-            "pitch_black", "liquid_glass" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
-            "system" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
-            else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+        val targetMode = when (savedTheme) {
+            "light" -> AppCompatDelegate.MODE_NIGHT_NO
+            "pitch_black", "liquid_glass" -> AppCompatDelegate.MODE_NIGHT_YES
+            "system" -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+            else -> AppCompatDelegate.MODE_NIGHT_YES
+        }
+        if (AppCompatDelegate.getDefaultNightMode() != targetMode) {
+            AppCompatDelegate.setDefaultNightMode(targetMode)
         }
 
         super.onCreate(savedInstanceState)
@@ -102,9 +105,15 @@ class MainActivity : AppCompatActivity() {
                 R.id.radioThemeLiquidGlass -> "liquid_glass" to AppCompatDelegate.MODE_NIGHT_YES
                 else -> "system" to AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
             }
-            prefs.edit().putString("theme_override", value).apply()
-            AppCompatDelegate.setDefaultNightMode(mode)
-            Toast.makeText(this, "Appearance updated", Toast.LENGTH_SHORT).show()
+            val currentPref = prefs.getString("theme_override", "dark")
+            if (currentPref != value) {
+                prefs.edit().putString("theme_override", value).apply()
+                if (AppCompatDelegate.getDefaultNightMode() != mode) {
+                    AppCompatDelegate.setDefaultNightMode(mode)
+                }
+                CustomKeyboardService.activeInstance?.refreshKeyboardSettings()
+                Toast.makeText(this, "Appearance updated", Toast.LENGTH_SHORT).show()
+            }
         }
 
         val widthGroup = findViewById<RadioGroup>(R.id.widthRadioGroup)
@@ -183,6 +192,25 @@ class MainActivity : AppCompatActivity() {
             CustomKeyboardService.activeInstance?.refreshKeyboardSettings()
         }
 
+        val voiceTimeoutGroup = findViewById<RadioGroup>(R.id.voiceTimeoutRadioGroup)
+        when (prefs.getInt("voice_typing_timeout_sec", 180)) {
+            60 -> findViewById<RadioButton>(R.id.radioVoiceTimeout1m)?.isChecked = true
+            300 -> findViewById<RadioButton>(R.id.radioVoiceTimeout5m)?.isChecked = true
+            600 -> findViewById<RadioButton>(R.id.radioVoiceTimeout10m)?.isChecked = true
+            else -> findViewById<RadioButton>(R.id.radioVoiceTimeout3m)?.isChecked = true
+        }
+        voiceTimeoutGroup?.setOnCheckedChangeListener { _, checkedId ->
+            val seconds = when (checkedId) {
+                R.id.radioVoiceTimeout1m -> 60
+                R.id.radioVoiceTimeout5m -> 300
+                R.id.radioVoiceTimeout10m -> 600
+                else -> 180
+            }
+            prefs.edit().putInt("voice_typing_timeout_sec", seconds).apply()
+            CustomKeyboardService.activeInstance?.refreshKeyboardSettings()
+            Toast.makeText(this, "Voice timeout updated", Toast.LENGTH_SHORT).show()
+        }
+
         btnClearSandbox.setOnClickListener {
             editSandbox.setText("")
         }
@@ -206,6 +234,8 @@ class MainActivity : AppCompatActivity() {
     private fun setupPersonalDictionaryUi() {
         val tvCount = findViewById<TextView>(R.id.tvPersonalDictCount)
         val btnManage = findViewById<Button>(R.id.btnManagePersonalDict)
+        val btnBackup = findViewById<Button>(R.id.btnBackupPersonalDict)
+        val btnRestore = findViewById<Button>(R.id.btnRestorePersonalDict)
 
         val updateCount = {
             val count = SelfDictionaryManager.getAllWords().size
@@ -216,6 +246,27 @@ class MainActivity : AppCompatActivity() {
         btnManage?.setOnClickListener {
             showPersonalDictionaryDialog {
                 updateCount()
+            }
+        }
+
+        btnBackup?.setOnClickListener {
+            val (success, path) = SelfDictionaryManager.backupToPhoneStorage(this)
+            if (success) {
+                Toast.makeText(this, "Backup saved to:\n$path", Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(this, "Backup error: $path", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        btnRestore?.setOnClickListener {
+            val restored = SelfDictionaryManager.restoreFromPhoneStorage(this)
+            if (restored) {
+                updateCount()
+                CustomKeyboardService.activeInstance?.refreshKeyboardSettings()
+                val total = SelfDictionaryManager.getAllWords().size
+                Toast.makeText(this, "Restored backup! Total $total personal words loaded.", Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(this, "No backup file found in Downloads or Documents.", Toast.LENGTH_SHORT).show()
             }
         }
     }

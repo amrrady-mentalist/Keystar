@@ -403,6 +403,85 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- Voice Typing Settings Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="?attr/colorOutline">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/voice_typing_title"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:textColor="?android:attr/textColorPrimary" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/voice_typing_desc"
+                    android:textSize="13sp"
+                    android:textColor="?android:attr/textColorSecondary" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="@string/voice_typing_timeout_label"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="?android:attr/textColorPrimary" />
+
+                <RadioGroup
+                    android:id="@+id/voiceTimeoutRadioGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp">
+
+                    <RadioButton
+                        android:id="@+id/radioVoiceTimeout1m"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/voice_timeout_1m"
+                        android:textSize="13sp" />
+
+                    <RadioButton
+                        android:id="@+id/radioVoiceTimeout3m"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/voice_timeout_3m"
+                        android:textSize="13sp" />
+
+                    <RadioButton
+                        android:id="@+id/radioVoiceTimeout5m"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/voice_timeout_5m"
+                        android:textSize="13sp" />
+
+                    <RadioButton
+                        android:id="@+id/radioVoiceTimeout10m"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/voice_timeout_10m"
+                        android:textSize="13sp" />
+                </RadioGroup>
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- Personal Dictionary Card -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
@@ -452,6 +531,39 @@
                     android:layout_marginTop="12dp"
                     style="@style/Widget.Material3.Button.TonalButton"
                     android:text="@string/btn_manage_personal_dict" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="@string/backup_restore_desc"
+                    android:textSize="12sp"
+                    android:textColor="?android:attr/textColorSecondary" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="8dp">
+
+                    <Button
+                        android:id="@+id/btnBackupPersonalDict"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="4dp"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:text="@string/btn_backup_dict" />
+
+                    <Button
+                        android:id="@+id/btnRestorePersonalDict"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="4dp"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:text="@string/btn_restore_dict" />
+                </LinearLayout>
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
