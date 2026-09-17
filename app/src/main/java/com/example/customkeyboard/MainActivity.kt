@@ -66,7 +66,7 @@ class MainActivity : AppCompatActivity() {
             "system" -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
             else -> AppCompatDelegate.MODE_NIGHT_YES
         }
-        if (savedInstanceState == null && delegate.localNightMode != targetMode) {
+        if (delegate.localNightMode != targetMode) {
             delegate.localNightMode = targetMode
         }
 
@@ -105,14 +105,15 @@ class MainActivity : AppCompatActivity() {
         }
 
         isUpdatingThemeUi = true
-        when (prefs.getString("theme_override", "dark")) {
-            "light" -> findViewById<RadioButton>(R.id.radioThemeLight).isChecked = true
-            "material_you" -> findViewById<RadioButton>(R.id.radioThemeMaterialYou).isChecked = true
-            "pitch_black" -> findViewById<RadioButton>(R.id.radioThemePitchBlack).isChecked = true
-            "liquid_glass" -> findViewById<RadioButton>(R.id.radioThemeLiquidGlass).isChecked = true
-            "system" -> findViewById<RadioButton>(R.id.radioThemeSystem).isChecked = true
-            else -> findViewById<RadioButton>(R.id.radioThemeDark).isChecked = true
+        val targetRadioId = when (prefs.getString("theme_override", "dark")) {
+            "light" -> R.id.radioThemeLight
+            "material_you" -> R.id.radioThemeMaterialYou
+            "pitch_black" -> R.id.radioThemePitchBlack
+            "liquid_glass" -> R.id.radioThemeLiquidGlass
+            "system" -> R.id.radioThemeSystem
+            else -> R.id.radioThemeDark
         }
+        themeGroup.check(targetRadioId)
         isUpdatingThemeUi = false
 
         themeGroup.setOnCheckedChangeListener { _, checkedId ->

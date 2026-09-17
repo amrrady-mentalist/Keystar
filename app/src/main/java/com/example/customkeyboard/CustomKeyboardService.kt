@@ -773,6 +773,7 @@ class CustomKeyboardService : InputMethodService() {
         val micContainer = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(dp(36), dp(36))
             background = keyBackground(Color.parseColor("#33EA4335"), 18)
+            isClickable = true
         }
         val micIcon = ImageView(this).apply {
             setImageResource(R.drawable.ic_mic)
@@ -782,6 +783,13 @@ class CustomKeyboardService : InputMethodService() {
             layoutParams = FrameLayout.LayoutParams(dp(32), dp(32), Gravity.CENTER)
         }
         micContainer.addView(micIcon)
+        micContainer.setOnClickListener {
+            if (isVoiceListening) {
+                restartListeningIfActive()
+            } else {
+                startVoiceTyping()
+            }
+        }
         bar.addView(micContainer)
 
         // Live text preview before committing to the typing field
@@ -862,8 +870,10 @@ class CustomKeyboardService : InputMethodService() {
 
     fun commitVoiceText(text: String) {
         if (text.isNotBlank()) {
-            val textToInsert = "$text "
+            val textToInsert = "${text.trim()} "
             currentInputConnection?.commitText(textToInsert, 1)
+            voicePreviewText = text.trim()
+            refreshTopBar()
         }
     }
 
@@ -915,16 +925,26 @@ class CustomKeyboardService : InputMethodService() {
             return
         }
 
-        try {
-            stopVoiceTyping(cancel = true)
+        isVoiceListening = true
+        voicePreviewText = ""
+        resetVoiceTimeout()
+        refreshTopBar()
+        startListeningInternal()
+    }
 
+    private fun startListeningInternal() {
+        if (!isVoiceListening) return
+        try {
+            speechRecognizer?.cancel()
+            speechRecognizer?.destroy()
+        } catch (ignored: Exception) {}
+        speechRecognizer = null
+
+        try {
             speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
                 setRecognitionListener(object : RecognitionListener {
                     override fun onReadyForSpeech(params: Bundle?) {
-                        isVoiceListening = true
-                        voicePreviewText = ""
                         resetVoiceTimeout()
-                        refreshTopBar()
                     }
 
                     override fun onBeginningOfSpeech() {
@@ -932,25 +952,37 @@ class CustomKeyboardService : InputMethodService() {
                     }
 
                     override fun onRmsChanged(rmsdB: Float) {}
-
                     override fun onBufferReceived(buffer: ByteArray?) {}
-
                     override fun onEndOfSpeech() {
-                        // User paused speaking. Keep listening if within user's configured timeout.
+                        // User paused speaking. Keep listening session alive.
                     }
 
                     override fun onError(error: Int) {
-                        if (isVoiceListening) {
-                            if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
-                                voiceHandler.postDelayed({ restartListeningIfActive() }, 350)
-                            } else if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) {
+                        if (!isVoiceListening) return
+                        when (error) {
+                            SpeechRecognizer.ERROR_NO_MATCH,
+                            SpeechRecognizer.ERROR_SPEECH_TIMEOUT,
+                            SpeechRecognizer.ERROR_CLIENT,
+                            SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> {
+                                // Keep voice bar visible and continuously listen
+                                voicePreviewText = if (currentLang == Lang.AR) "تكلّم الآن..." else "Listening..."
+                                refreshTopBar()
+                                voiceHandler.postDelayed({
+                                    if (isVoiceListening) {
+                                        restartListeningIfActive()
+                                    }
+                                }, 350)
+                            }
+                            SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> {
                                 stopVoiceTyping(cancel = true)
                                 val intent = Intent(this@CustomKeyboardService, VoicePermissionActivity::class.java).apply {
                                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                                 }
                                 startActivity(intent)
-                            } else {
-                                stopVoiceTyping(cancel = false)
+                            }
+                            else -> {
+                                voicePreviewText = if (currentLang == Lang.AR) "اضغط على الميكروفون للتحدث" else "Tap mic to speak"
+                                refreshTopBar()
                             }
                         }
                     }
@@ -958,23 +990,23 @@ class CustomKeyboardService : InputMethodService() {
                     override fun onResults(results: Bundle?) {
                         val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         if (!matches.isNullOrEmpty()) {
-                            val recognized = matches[0]
-                            if (recognized.isNotBlank()) {
-                                voicePreviewText = if (voicePreviewText.isEmpty()) recognized else "$voicePreviewText $recognized"
+                            val recognized = matches[0].trim()
+                            if (recognized.isNotEmpty()) {
+                                currentInputConnection?.commitText("$recognized ", 1)
+                                voicePreviewText = recognized
                                 refreshTopBar()
                             }
                         }
-                        // Continue listening until user taps Done/Close or configured timeout expires
                         if (isVoiceListening) {
-                            voiceHandler.postDelayed({ restartListeningIfActive() }, 300)
+                            voiceHandler.postDelayed({ restartListeningIfActive() }, 250)
                         }
                     }
 
                     override fun onPartialResults(partialResults: Bundle?) {
                         val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         if (!matches.isNullOrEmpty()) {
-                            val partial = matches[0]
-                            if (partial.isNotBlank()) {
+                            val partial = matches[0].trim()
+                            if (partial.isNotEmpty()) {
                                 voicePreviewText = partial
                                 refreshTopBar()
                             }
@@ -997,38 +1029,15 @@ class CustomKeyboardService : InputMethodService() {
             }
 
             speechRecognizer?.startListening(recognizerIntent)
-            isVoiceListening = true
-            voicePreviewText = ""
-            resetVoiceTimeout()
-            refreshTopBar()
-
         } catch (e: Exception) {
-            isVoiceListening = false
+            voicePreviewText = if (currentLang == Lang.AR) "اضغط على الميكروفون للتحدث" else "Tap mic to speak"
             refreshTopBar()
-            val intent = Intent(this, VoicePermissionActivity::class.java).apply {
-                putExtra(VoicePermissionActivity.EXTRA_START_SPEECH_INTENT, true)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            }
-            startActivity(intent)
         }
     }
 
     private fun restartListeningIfActive() {
         if (!isVoiceListening) return
-        try {
-            val targetLangCode = if (currentLang == Lang.AR) "ar-SA" else "en-US"
-            val recognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, targetLangCode)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, targetLangCode)
-                putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, targetLangCode)
-                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            }
-            speechRecognizer?.startListening(recognizerIntent)
-        } catch (e: Exception) {
-            // In case of error restarting, stop cleanly
-            stopVoiceTyping(cancel = false)
-        }
+        startListeningInternal()
     }
 
     private fun resetVoiceTimeout() {
@@ -2849,6 +2858,11 @@ class CustomKeyboardService : InputMethodService() {
         onClick: () -> Unit
     ): View {
         val resting = keyBackground(keyColor(), KEY_RADIUS_DP)
+        val rawVariations = KeyboardLayoutData.characterVariations[label]
+        val twoRowSplit = KeyboardLayoutData.twoRowVariations[label]
+        val variations = rawVariations ?: (hint?.let { listOf(it) } ?: emptyList())
+        val defaultSelected = hint ?: rawVariations?.firstOrNull()
+
         if (hint == null) {
             val isArabic = currentLang == Lang.AR
             return TextView(this).apply {
@@ -2880,6 +2894,9 @@ class CustomKeyboardService : InputMethodService() {
                     KEY_RADIUS_DP,
                     popupLabel = label,
                     popupHint = null,
+                    variations = variations,
+                    defaultSelected = defaultSelected,
+                    twoRowSplit = twoRowSplit,
                     onLongClick = onLongClick
                 ) { onClick() }
             }
@@ -2961,6 +2978,9 @@ class CustomKeyboardService : InputMethodService() {
             KEY_RADIUS_DP,
             popupLabel = label,
             popupHint = hint,
+            variations = variations,
+            defaultSelected = defaultSelected,
+            twoRowSplit = twoRowSplit,
             onLongClick = effectiveLongClick
         ) { onClick() }
 
@@ -3703,6 +3723,9 @@ class CustomKeyboardService : InputMethodService() {
         radiusDp: Int,
         popupLabel: String? = null,
         popupHint: String? = null,
+        variations: List<String> = emptyList(),
+        defaultSelected: String? = null,
+        twoRowSplit: Pair<List<String>, List<String>>? = null,
         onLongClick: (() -> Unit)? = null,
         onTap: () -> Unit
     ) {
@@ -3715,8 +3738,10 @@ class CustomKeyboardService : InputMethodService() {
             if (pressed) {
                 isLongPressed = true
                 view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
-                if (popupHint != null) {
-                    keyPopupManager?.transitionToLongPress(popupHint)
+                if (variations.isNotEmpty()) {
+                    keyPopupManager?.transitionToVariations(view, variations, defaultSelected ?: popupHint, twoRowSplit)
+                } else if (popupHint != null) {
+                    keyPopupManager?.transitionToVariations(view, listOf(popupHint), popupHint, null)
                 } else {
                     onLongClick?.invoke()
                 }
@@ -3727,53 +3752,59 @@ class CustomKeyboardService : InputMethodService() {
                 MotionEvent.ACTION_DOWN -> {
                     pressed = true
                     isLongPressed = false
-                    if (onLongClick != null || popupHint != null) {
-                        longPressHandler.postDelayed(longPressRunnable, 300)
+                    val hasLongPress = variations.isNotEmpty() || popupHint != null || onLongClick != null
+                    if (hasLongPress) {
+                        longPressHandler.postDelayed(longPressRunnable, 280)
                     }
                     v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
                     v.background = keyBackground(pressColor, radiusDp)
                     if (popupLabel != null) {
-                        keyPopupManager?.showPopup(v, popupLabel, popupHint)
+                        keyPopupManager?.showPopup(v, popupLabel, popupHint, hasAlternates = variations.isNotEmpty())
                     }
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    val margin = dp(14)
-                    val within = event.x >= -margin && event.x <= v.width + margin &&
-                        event.y >= -margin && event.y <= v.height + margin
-                    if (!within && pressed) {
-                        pressed = false
-                        if (onLongClick != null || popupHint != null) {
+                    if (isLongPressed) {
+                        keyPopupManager?.updateSelectionFromTouch(event.rawX, event.rawY)
+                    } else {
+                        val margin = dp(14)
+                        val within = event.x >= -margin && event.x <= v.width + margin &&
+                            event.y >= -margin && event.y <= v.height + margin
+                        if (!within && pressed) {
+                            pressed = false
                             longPressHandler.removeCallbacks(longPressRunnable)
+                            v.background = restingBackground
+                            keyPopupManager?.hidePopup(immediate = true)
                         }
-                        v.background = restingBackground
-                        keyPopupManager?.hidePopup(immediate = true)
                     }
                     true
                 }
                 MotionEvent.ACTION_UP -> {
-                    if (onLongClick != null || popupHint != null) {
-                        longPressHandler.removeCallbacks(longPressRunnable)
-                    }
+                    longPressHandler.removeCallbacks(longPressRunnable)
                     v.background = restingBackground
-                    keyPopupManager?.hidePopup(immediate = false)
                     if (pressed) {
                         pressed = false
                         if (isLongPressed) {
-                            if (popupHint != null) {
-                                commitSymbol(popupHint)
+                            val chosen = keyPopupManager?.getSelectedVariation() ?: defaultSelected ?: popupHint
+                            keyPopupManager?.hidePopup(immediate = false)
+                            if (chosen != null) {
+                                commitSymbol(chosen)
+                            } else {
+                                onLongClick?.invoke()
                             }
                         } else {
+                            keyPopupManager?.hidePopup(immediate = false)
                             onTap()
                         }
+                    } else {
+                        keyPopupManager?.hidePopup(immediate = true)
                     }
                     true
                 }
                 MotionEvent.ACTION_CANCEL -> {
-                    if (onLongClick != null || popupHint != null) {
-                        longPressHandler.removeCallbacks(longPressRunnable)
-                    }
+                    longPressHandler.removeCallbacks(longPressRunnable)
                     pressed = false
+                    isLongPressed = false
                     v.background = restingBackground
                     keyPopupManager?.hidePopup(immediate = true)
                     true

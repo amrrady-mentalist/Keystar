@@ -7,7 +7,9 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.View
+import android.view.ViewGroup
 import android.view.ViewOutlineProvider
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
@@ -16,12 +18,14 @@ import android.widget.LinearLayout
 import android.widget.TextView
 
 /**
- * Manages the high-performance key popup preview.
+ * Manages key popup previews and Arabic/character variations bubble.
  *
- * Displays a snappy, circular preview bubble above pressed keys.
- * On quick tap: shows the pressed key label and optional three-dots indicator for alternates.
- * On hold (long-press): transitions with a snappy pop animation into an accented Material 3
- * inner badge displaying the associated alternate character.
+ * 1. Quick tap: displays a crisp, circular preview bubble above the pressed key.
+ * 2. Hold (long-press): transitions into a Material 3 floating pill showing all
+ *    character variations (e.g. ك -> ک, گ, / or 2-row layout for ا -> إ, أ, ٱ, ء, -, آ).
+ * 3. Drag / slide: tracks finger movement across variations and dynamically updates
+ *    the highlighted item with smooth haptic feedback ticks.
+ * 4. Release: commits the currently selected variation.
  */
 class KeyPopupPreviewManager(
     private val context: Context,
@@ -34,20 +38,35 @@ class KeyPopupPreviewManager(
     private fun dpF(v: Float): Float = v * density
 
     val popupDiameterDp = 52
-    val innerBadgeDiameterDp = 38
+    val itemWidthDp = 42
+    val itemHeightDp = 46
 
+    // Single key tap preview view
     private val popupView: FrameLayout
     private val normalContainer: LinearLayout
     private val tvLabel: TextView
     private val tvDots: TextView
 
-    private val longPressContainer: FrameLayout
-    private val tvHint: TextView
+    // Variations bubble view
+    private val variationsView: FrameLayout
+    private val variationsContainer: FrameLayout
+    private var currentVariations: List<String> = emptyList()
+    private var twoRowSplit: Pair<List<String>, List<String>>? = null
+    private var selectedVariation: String? = null
+    private val itemViews = mutableListOf<VariationCell>()
 
     private var currentAnchor: View? = null
     var isLongPressActive = false
         private set
     var isEnabled: Boolean = true
+
+    private data class VariationCell(
+        val character: String,
+        val row: Int,
+        val col: Int,
+        val container: FrameLayout,
+        val textView: TextView
+    )
 
     init {
         val popupDiameter = dp(popupDiameterDp)
@@ -61,7 +80,6 @@ class KeyPopupPreviewManager(
             isFocusable = false
         }
 
-        // 1. Normal state container (letter + optional dots)
         normalContainer = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -102,98 +120,110 @@ class KeyPopupPreviewManager(
         normalContainer.addView(tvDots)
         popupView.addView(normalContainer)
 
-        // 2. Long-press accented container (inner circle with associated character)
-        val innerSize = dp(innerBadgeDiameterDp)
-        longPressContainer = FrameLayout(context).apply {
-            layoutParams = FrameLayout.LayoutParams(innerSize, innerSize, Gravity.CENTER)
+        // Floating variations pill/card
+        variationsView = FrameLayout(context).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
             visibility = View.GONE
+            elevation = dpF(12f)
+            outlineProvider = ViewOutlineProvider.BACKGROUND
             clipToOutline = true
+            isClickable = false
+            isFocusable = false
         }
 
-        tvHint = TextView(context).apply {
-            gravity = Gravity.CENTER
-            textSize = 22f
-            typeface = Typeface.DEFAULT_BOLD
-            includeFontPadding = true
+        variationsContainer = FrameLayout(context).apply {
             layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                Gravity.CENTER
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
             )
         }
-        longPressContainer.addView(tvHint)
-        popupView.addView(longPressContainer)
+        variationsView.addView(variationsContainer)
 
         overlayContainer.addView(popupView)
+        overlayContainer.addView(variationsView)
         applyTheme()
     }
 
-    fun applyTheme() {
+    private fun getColors(): PopupColors {
         val theme = getThemeMode()
-        val isLight = theme == "light"
-        val isPitchBlack = theme == "pitch_black"
-
-        val bubbleBgColor = when {
-            isPitchBlack -> Color.parseColor("#262626")
-            isLight -> Color.parseColor("#FFFFFF")
-            else -> Color.parseColor("#32353A") // Charcoal elevated bubble matching screenshot
+        return when (theme) {
+            "light" -> PopupColors(
+                bubbleBg = Color.parseColor("#FFFFFF"),
+                bubbleStroke = Color.parseColor("#E0E0E0"),
+                textColor = Color.parseColor("#1F1F1F"),
+                accentBadge = Color.parseColor("#D3E3FD"),
+                accentText = Color.parseColor("#041E49"),
+                dotsColor = Color.parseColor("#757575")
+            )
+            "pitch_black" -> PopupColors(
+                bubbleBg = Color.parseColor("#262626"),
+                bubbleStroke = null,
+                textColor = Color.parseColor("#FFFFFF"),
+                accentBadge = Color.parseColor("#5A95FF"),
+                accentText = Color.parseColor("#FFFFFF"),
+                dotsColor = Color.parseColor("#9E9E9E")
+            )
+            else -> PopupColors(
+                bubbleBg = Color.parseColor("#32353A"),
+                bubbleStroke = null,
+                textColor = Color.parseColor("#FFFFFF"),
+                accentBadge = Color.parseColor("#A8C7FA"),
+                accentText = Color.parseColor("#041E49"),
+                dotsColor = Color.parseColor("#B0B0B0")
+            )
         }
+    }
 
-        val textColor = when {
-            isLight -> Color.parseColor("#1F1F1F")
-            else -> Color.parseColor("#FFFFFF")
-        }
+    private data class PopupColors(
+        val bubbleBg: Int,
+        val bubbleStroke: Int?,
+        val textColor: Int,
+        val accentBadge: Int,
+        val accentText: Int,
+        val dotsColor: Int
+    )
 
-        val dotsColor = when {
-            isLight -> Color.parseColor("#80000000")
-            else -> Color.parseColor("#80FFFFFF")
-        }
+    fun applyTheme() {
+        val colors = getColors()
 
-        val accentBadgeColor = when {
-            isPitchBlack -> Color.parseColor("#5A95FF")
-            isLight -> Color.parseColor("#D3E3FD")
-            else -> Color.parseColor("#A8C7FA") // Soft blue matching screenshot
-        }
-
-        val accentTextColor = when {
-            isLight -> Color.parseColor("#041E49")
-            else -> Color.parseColor("#041E49") // Deep navy text for contrast on accent
-        }
-
+        val popupRadius = dp(popupDiameterDp / 2).toFloat()
         popupView.background = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            setColor(bubbleBgColor)
-            if (isLight) {
-                setStroke(dp(1), Color.parseColor("#E0E0E0"))
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = popupRadius
+            setColor(colors.bubbleBg)
+            if (colors.bubbleStroke != null) {
+                setStroke(dp(1), colors.bubbleStroke)
             }
         }
 
-        longPressContainer.background = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            setColor(accentBadgeColor)
-        }
-
-        tvLabel.setTextColor(textColor)
+        tvLabel.setTextColor(colors.textColor)
         tvLabel.typeface = getKeyTypeface()
+        tvDots.setTextColor(colors.dotsColor)
 
-        tvDots.setTextColor(dotsColor)
-
-        tvHint.setTextColor(accentTextColor)
+        updateVariationsVisuals()
     }
 
-    fun showPopup(anchor: View, label: String, hint: String?) {
+    fun showPopup(
+        anchor: View,
+        label: String,
+        hint: String?,
+        hasAlternates: Boolean = false
+    ) {
         if (!isEnabled) return
         currentAnchor = anchor
         isLongPressActive = false
+        selectedVariation = null
 
         applyTheme()
 
         tvLabel.text = label
-        tvHint.text = hint ?: ""
-        tvDots.visibility = if (hint != null) View.VISIBLE else View.GONE
+        tvDots.visibility = if (hasAlternates || hint != null) View.VISIBLE else View.GONE
 
         normalContainer.visibility = View.VISIBLE
-        longPressContainer.visibility = View.GONE
+        variationsView.visibility = View.GONE
 
         updatePosition(anchor)
 
@@ -214,53 +244,257 @@ class KeyPopupPreviewManager(
             .start()
     }
 
-    fun transitionToLongPress(hint: String) {
-        if (!isEnabled || popupView.visibility != View.VISIBLE) return
+    fun transitionToVariations(
+        anchor: View,
+        variations: List<String>,
+        defaultSelected: String?,
+        twoRow: Pair<List<String>, List<String>>? = null
+    ) {
+        if (!isEnabled || variations.isEmpty()) return
+        currentAnchor = anchor
         isLongPressActive = true
+        currentVariations = variations
+        twoRowSplit = twoRow
+        selectedVariation = defaultSelected ?: variations.firstOrNull()
 
-        tvHint.text = hint
-        normalContainer.visibility = View.GONE
+        applyTheme()
+        buildVariationsLayout()
+        positionVariationsBubble(anchor)
 
-        longPressContainer.visibility = View.VISIBLE
-        longPressContainer.scaleX = 0.65f
-        longPressContainer.scaleY = 0.65f
-        longPressContainer.alpha = 0.8f
+        variationsView.animate().cancel()
+        variationsView.visibility = View.VISIBLE
+        variationsView.scaleX = 0.75f
+        variationsView.scaleY = 0.75f
+        variationsView.alpha = 0.7f
 
-        longPressContainer.animate().cancel()
-        longPressContainer.animate()
+        variationsView.animate()
             .scaleX(1.0f)
             .scaleY(1.0f)
             .alpha(1.0f)
-            .setDuration(75)
-            .setInterpolator(OvershootInterpolator(1.25f))
+            .setDuration(85)
+            .setInterpolator(OvershootInterpolator(1.2f))
             .start()
     }
 
+    private fun buildVariationsLayout() {
+        variationsContainer.removeAllViews()
+        itemViews.clear()
+
+        val colors = getColors()
+        val itemW = dp(itemWidthDp)
+        val itemH = dp(itemHeightDp)
+        val cellPad = dp(4)
+
+        if (twoRowSplit != null) {
+            // Two-row grid (e.g., Alef with Hamza variations from Screenshot 7)
+            val (topRow, bottomRow) = twoRowSplit!!
+            val colCount = maxOf(topRow.size, bottomRow.size)
+            val bubbleW = colCount * itemW + dp(12)
+            val bubbleH = itemH * 2 + dp(12)
+
+            val rootLinear = LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(dp(6), dp(6), dp(6), dp(6))
+                layoutParams = FrameLayout.LayoutParams(bubbleW, bubbleH)
+            }
+
+            fun addRowLayout(rowItems: List<String>, rowIndex: Int) {
+                val rowLayout = LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        itemH
+                    )
+                }
+                rowItems.forEachIndexed { colIndex, char ->
+                    val cell = createVariationCell(char, rowIndex, colIndex, itemW, itemH, cellPad)
+                    rowLayout.addView(cell.container)
+                    itemViews.add(cell)
+                }
+                rootLinear.addView(rowLayout)
+            }
+
+            addRowLayout(topRow, 0)
+            addRowLayout(bottomRow, 1)
+
+            variationsView.background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpF(20f)
+                setColor(colors.bubbleBg)
+                if (colors.bubbleStroke != null) setStroke(dp(1), colors.bubbleStroke)
+            }
+            variationsContainer.addView(rootLinear)
+        } else {
+            // Single-row pill (e.g. Kaf, Jeem, Feh, Qaf, Sheen, Yeh from Screenshots 1-6)
+            val itemCount = currentVariations.size
+            val bubbleW = itemCount * itemW + dp(8)
+            val bubbleH = itemH + dp(8)
+
+            val rowLinear = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+                setPadding(dp(4), dp(4), dp(4), dp(4))
+                layoutParams = FrameLayout.LayoutParams(bubbleW, bubbleH)
+            }
+
+            currentVariations.forEachIndexed { colIndex, char ->
+                val cell = createVariationCell(char, 0, colIndex, itemW, itemH, cellPad)
+                rowLinear.addView(cell.container)
+                itemViews.add(cell)
+            }
+
+            variationsView.background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpF(26f)
+                setColor(colors.bubbleBg)
+                if (colors.bubbleStroke != null) setStroke(dp(1), colors.bubbleStroke)
+            }
+            variationsContainer.addView(rowLinear)
+        }
+
+        updateVariationsVisuals()
+    }
+
+    private fun createVariationCell(
+        char: String,
+        rowIndex: Int,
+        colIndex: Int,
+        width: Int,
+        height: Int,
+        pad: Int
+    ): VariationCell {
+        val cellFrame = FrameLayout(context).apply {
+            layoutParams = LinearLayout.LayoutParams(width, height)
+            setPadding(pad, pad, pad, pad)
+        }
+
+        val tv = TextView(context).apply {
+            text = char
+            gravity = Gravity.CENTER
+            textSize = 20f
+            includeFontPadding = true
+            typeface = getKeyTypeface()
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                Gravity.CENTER
+            )
+        }
+        cellFrame.addView(tv)
+
+        return VariationCell(char, rowIndex, colIndex, cellFrame, tv)
+    }
+
+    private fun updateVariationsVisuals() {
+        val colors = getColors()
+        val pillRadius = dpF(22f)
+
+        itemViews.forEach { cell ->
+            val isSelected = cell.character == selectedVariation
+            if (isSelected) {
+                cell.container.background = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = pillRadius
+                    setColor(colors.accentBadge)
+                }
+                cell.textView.setTextColor(colors.accentText)
+                cell.textView.typeface = Typeface.DEFAULT_BOLD
+            } else {
+                cell.container.background = null
+                cell.textView.setTextColor(colors.textColor)
+                cell.textView.typeface = getKeyTypeface()
+            }
+        }
+    }
+
+    fun updateSelectionFromTouch(rawX: Float, rawY: Float) {
+        if (!isLongPressActive || itemViews.isEmpty() || variationsView.visibility != View.VISIBLE) return
+
+        val bubbleLoc = IntArray(2)
+        variationsView.getLocationInWindow(bubbleLoc)
+        val relX = rawX - bubbleLoc[0]
+        val relY = rawY - bubbleLoc[1]
+
+        val targetRow: Int
+        if (twoRowSplit != null) {
+            val halfH = variationsView.height / 2f
+            targetRow = if (relY < halfH) 0 else 1
+        } else {
+            targetRow = 0
+        }
+
+        val rowCells = itemViews.filter { it.row == targetRow }
+        if (rowCells.isEmpty()) return
+
+        // Find closest cell horizontally
+        var bestCell: VariationCell = rowCells.first()
+        var minDistance = Float.MAX_VALUE
+
+        rowCells.forEach { cell ->
+            val cellLoc = IntArray(2)
+            cell.container.getLocationInWindow(cellLoc)
+            val cellCenterX = (cellLoc[0] - bubbleLoc[0]) + cell.container.width / 2f
+            val dist = kotlin.math.abs(relX - cellCenterX)
+            if (dist < minDistance) {
+                minDistance = dist
+                bestCell = cell
+            }
+        }
+
+        if (bestCell.character != selectedVariation) {
+            selectedVariation = bestCell.character
+            updateVariationsVisuals()
+            variationsView.performHapticFeedback(
+                HapticFeedbackConstants.CLOCK_TICK,
+                HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING
+            )
+        }
+    }
+
+    fun getSelectedVariation(): String? = selectedVariation
+
     fun hidePopup(immediate: Boolean = false) {
-        if (popupView.visibility != View.VISIBLE) return
         popupView.animate().cancel()
-        longPressContainer.animate().cancel()
+        variationsView.animate().cancel()
 
         if (immediate) {
             popupView.visibility = View.GONE
+            variationsView.visibility = View.GONE
             isLongPressActive = false
             currentAnchor = null
+            selectedVariation = null
         } else {
+            val listener = object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    popupView.visibility = View.GONE
+                    variationsView.visibility = View.GONE
+                    popupView.scaleX = 1f
+                    popupView.scaleY = 1f
+                    popupView.alpha = 1f
+                    variationsView.scaleX = 1f
+                    variationsView.scaleY = 1f
+                    variationsView.alpha = 1f
+                    isLongPressActive = false
+                    currentAnchor = null
+                    selectedVariation = null
+                }
+            }
+
             popupView.animate()
                 .scaleX(0.75f)
                 .scaleY(0.75f)
                 .alpha(0f)
-                .setDuration(45)
-                .setListener(object : AnimatorListenerAdapter() {
-                    override fun onAnimationEnd(animation: Animator) {
-                        popupView.visibility = View.GONE
-                        popupView.scaleX = 1f
-                        popupView.scaleY = 1f
-                        popupView.alpha = 1f
-                        isLongPressActive = false
-                        currentAnchor = null
-                    }
-                })
+                .setDuration(50)
+                .start()
+
+            variationsView.animate()
+                .scaleX(0.75f)
+                .scaleY(0.75f)
+                .alpha(0f)
+                .setDuration(50)
+                .setListener(listener)
                 .start()
         }
     }
@@ -283,12 +517,49 @@ class KeyPopupPreviewManager(
         val rootWidth = overlayContainer.width.takeIf { it > 0 } ?: context.resources.displayMetrics.widthPixels
         popupLeft = popupLeft.coerceIn(margin, rootWidth - popupDiameter - margin)
 
-        // Position directly above the key (overlapping the top border by 2dp)
+        // Position directly above the key
         val popupBottom = keyY + dp(2)
         var popupTop = popupBottom - popupDiameter
         popupTop = maxOf(dp(2), popupTop)
 
         popupView.x = popupLeft.toFloat()
         popupView.y = popupTop.toFloat()
+    }
+
+    private fun positionVariationsBubble(anchor: View) {
+        val anchorLoc = IntArray(2)
+        anchor.getLocationInWindow(anchorLoc)
+        val rootLoc = IntArray(2)
+        overlayContainer.getLocationInWindow(rootLoc)
+
+        val keyX = anchorLoc[0] - rootLoc[0]
+        val keyY = anchorLoc[1] - rootLoc[1]
+        val keyWidth = anchor.width
+
+        val rootWidth = overlayContainer.width.takeIf { it > 0 } ?: context.resources.displayMetrics.widthPixels
+        val margin = dp(4)
+
+        // Force measure if needed
+        variationsView.measure(
+            View.MeasureSpec.makeMeasureSpec(rootWidth, View.MeasureSpec.AT_MOST),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        val bubbleW = variationsView.measuredWidth
+        val bubbleH = variationsView.measuredHeight
+
+        val keyCenterX = keyX + keyWidth / 2
+
+        // Find index of default selected variation to center that specific cell over the key
+        val defaultIdx = currentVariations.indexOf(selectedVariation).coerceAtLeast(0)
+        val itemW = dp(itemWidthDp)
+        val defaultCenterRel = dp(4) + defaultIdx * itemW + itemW / 2
+        var bubbleLeft = keyCenterX - defaultCenterRel
+        bubbleLeft = bubbleLeft.coerceIn(margin, rootWidth - bubbleW - margin)
+
+        // Position floating above the key
+        val bubbleTop = maxOf(dp(2), keyY - bubbleH - dp(6))
+
+        variationsView.x = bubbleLeft.toFloat()
+        variationsView.y = bubbleTop.toFloat()
     }
 }

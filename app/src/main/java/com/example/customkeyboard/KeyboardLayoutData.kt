@@ -32,6 +32,78 @@ object KeyboardLayoutData {
         listOf("`", "*", "\"", "'", ":", "؛", "!", "؟", "\\", "%")
     )
 
+    // Letter and symbol variations matching Gboard screenshots
+    val twoRowVariations: Map<String, Pair<List<String>, List<String>>> = mapOf(
+        "ا" to Pair(listOf("إ", "أ", "ٱ"), listOf("ء", "-", "آ"))
+    )
+
+    val characterVariations: Map<String, List<String>> = mapOf(
+        // Arabic letters and variations (from screenshots 1-7)
+        "ك" to listOf("ک", "گ", "/"),
+        "ج" to listOf("چ", "°"),
+        "ف" to listOf("ب", "[", "ڤ", "پ"),
+        "ق" to listOf("=", "ڨ"),
+        "ش" to listOf("@", "ښ", "ڜ"),
+        "ي" to listOf("$", "ئ", "ى"),
+        "ا" to listOf("إ", "أ", "ٱ", "ء", "-", "آ"),
+        "ب" to listOf("_", "پ"),
+        "ت" to listOf("+", "ة", "ٹ"),
+        "ث" to listOf("|"),
+        "ح" to listOf("{", "ځ"),
+        "خ" to listOf("}"),
+        "د" to listOf("%", "ڈ", "ذ"),
+        "ذ" to listOf("`"),
+        "ر" to listOf("'", "ڑ"),
+        "ز" to listOf("؟", "ژ"),
+        "س" to listOf("#", "س"),
+        "ص" to listOf("\\"),
+        "ض" to listOf("%"),
+        "ط" to listOf("~"),
+        "ظ" to listOf("\\"),
+        "ع" to listOf(">"),
+        "غ" to listOf("]", "ڠ"),
+        "ل" to listOf("&", "لا", "لآ", "لأ", "لإ"),
+        "م" to listOf(")"),
+        "ن" to listOf("(", "ں", "ڻ"),
+        "ه" to listOf("<", "ة", "ھ"),
+        "و" to listOf("!", "ؤ"),
+        "ء" to listOf("*", "ئ", "ء", "ؤ"),
+        "ؤ" to listOf("\""),
+        "ى" to listOf(":", "ي", "ئ"),
+        "ة" to listOf("؛", "ت", "ه"),
+
+        // English letters and accents
+        "a" to listOf("%", "à", "á", "â", "ä", "æ", "ã", "å", "ā"),
+        "c" to listOf("]", "ç", "ć", "č"),
+        "e" to listOf("_", "è", "é", "ê", "ë", "ē", "ė", "ę"),
+        "i" to listOf(">", "ì", "í", "î", "ï", "ī", "į"),
+        "l" to listOf("/", "ł"),
+        "n" to listOf("(", "ñ", "ń"),
+        "o" to listOf("}", "ò", "ó", "ô", "ö", "õ", "œ", "ō", "ø"),
+        "s" to listOf("#", "ß", "ś", "š", "$"),
+        "u" to listOf("<", "ù", "ú", "û", "ü", "ū"),
+        "y" to listOf("=", "ÿ"),
+        "z" to listOf("*", "ž", "ź", "ż"),
+
+        // Digits & punctuation
+        "1" to listOf("1", "¹", "½", "⅓", "¼"),
+        "١" to listOf("١", "1", "¹", "½", "⅓", "¼"),
+        "2" to listOf("2", "²", "⅔"),
+        "٢" to listOf("٢", "2", "²", "⅔"),
+        "3" to listOf("3", "³", "¾"),
+        "٣" to listOf("٣", "3", "³", "¾"),
+        "4" to listOf("4", "⁴"),
+        "٤" to listOf("٤", "4", "⁴"),
+        "5" to listOf("5", "⁵"),
+        "٥" to listOf("٥", "5", "⁵"),
+        "0" to listOf("0", "⁰", "∅"),
+        "٠" to listOf("٠", "0", "⁰", "∅"),
+        "?" to listOf("?", "؟", "¿"),
+        "؟" to listOf("؟", "?", "¿"),
+        "!" to listOf("!", "¡"),
+        "." to listOf(".", "…", "·")
+    )
+
     // Page 1 of punctuation/symbols (the default "?123" screen).
     val symbolsPage1Rows = listOf(
         listOf("@", "#", "$", "_", "&", "-", "+", "(", ")", "/"),
