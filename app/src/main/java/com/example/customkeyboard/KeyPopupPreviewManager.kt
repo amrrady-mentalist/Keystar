@@ -54,6 +54,9 @@ class KeyPopupPreviewManager(
     private var twoRowSplit: Pair<List<String>, List<String>>? = null
     private var selectedVariation: String? = null
     private val itemViews = mutableListOf<VariationCell>()
+    private var initialTouchX: Float = 0f
+    private var initialTouchY: Float = 0f
+    private var activeRow: Int = 0
 
     private var currentAnchor: View? = null
     var isLongPressActive = false
@@ -251,18 +254,29 @@ class KeyPopupPreviewManager(
         anchor: View,
         variations: List<String>,
         defaultSelected: String?,
-        twoRow: Pair<List<String>, List<String>>? = null
+        twoRow: Pair<List<String>, List<String>>? = null,
+        initialTouchX: Float = 0f,
+        initialTouchY: Float = 0f
     ) {
         if (!isEnabled || (variations.isEmpty() && twoRow == null)) return
         currentAnchor = anchor
         isLongPressActive = true
         twoRowSplit = twoRow
+        this.initialTouchX = initialTouchX
+        this.initialTouchY = initialTouchY
         currentVariations = if (twoRow != null) {
             twoRow.first + twoRow.second
         } else {
             variations
         }
         selectedVariation = defaultSelected ?: currentVariations.firstOrNull()
+
+        if (twoRow != null) {
+            val topIdx = twoRow.first.indexOf(selectedVariation)
+            activeRow = if (topIdx >= 0) 0 else 1
+        } else {
+            activeRow = 0
+        }
 
         // Cancel and detach any lingering animators
         popupView.animate().setListener(null).cancel()
@@ -431,31 +445,51 @@ class KeyPopupPreviewManager(
         if (!isLongPressActive || itemViews.isEmpty() || variationsView.visibility != View.VISIBLE) return
 
         val bubbleLoc = IntArray(2)
-        variationsView.getLocationInWindow(bubbleLoc)
-        val relX = rawX - bubbleLoc[0]
-        val relY = rawY - bubbleLoc[1]
+        variationsView.getLocationOnScreen(bubbleLoc)
+        val bubbleTop = bubbleLoc[1].toFloat()
+        val bubbleH = variationsView.height.toFloat().takeIf { it > 0f } ?: dpF(itemHeightDp.toFloat() * 2)
+        val bubbleBottom = bubbleTop + bubbleH
+        val bubbleCenterY = bubbleTop + bubbleH / 2f
 
         val targetRow: Int
         if (twoRowSplit != null) {
-            val halfH = if (variationsView.height > 0) variationsView.height / 2f else dpF(itemHeightDp.toFloat())
-            targetRow = if (relY < halfH) 0 else 1
+            targetRow = when {
+                // If finger is inside or above the popup bubble area
+                rawY <= bubbleBottom -> {
+                    if (rawY < bubbleCenterY) 0 else 1
+                }
+                // Finger is below the bubble (near the key)
+                initialTouchY > 0f -> {
+                    val deltaY = rawY - initialTouchY
+                    val threshold = dpF(8f)
+                    when {
+                        deltaY < -threshold -> 0 // Dragged UP
+                        deltaY > threshold -> 1  // Dragged DOWN
+                        else -> activeRow       // Stay in current active row
+                    }
+                }
+                else -> {
+                    if (rawY < bubbleCenterY) 0 else 1
+                }
+            }
+            activeRow = targetRow
         } else {
             targetRow = 0
+            activeRow = 0
         }
 
         val rowCells = itemViews.filter { it.row == targetRow }.ifEmpty { itemViews }
         if (rowCells.isEmpty()) return
 
-        // Find closest cell horizontally
         var bestCell: VariationCell = rowCells.first()
         var minDistance = Float.MAX_VALUE
 
+        val cellLoc = IntArray(2)
         rowCells.forEach { cell ->
-            val cellLoc = IntArray(2)
-            cell.container.getLocationInWindow(cellLoc)
+            cell.container.getLocationOnScreen(cellLoc)
             val cellW = if (cell.container.width > 0) cell.container.width else dp(itemWidthDp)
-            val cellCenterX = (cellLoc[0] - bubbleLoc[0]) + cellW / 2f
-            val dist = kotlin.math.abs(relX - cellCenterX)
+            val cellCenterX = cellLoc[0] + cellW / 2f
+            val dist = kotlin.math.abs(rawX - cellCenterX)
             if (dist < minDistance) {
                 minDistance = dist
                 bestCell = cell
@@ -491,6 +525,9 @@ class KeyPopupPreviewManager(
             isLongPressActive = false
             currentAnchor = null
             selectedVariation = null
+            initialTouchX = 0f
+            initialTouchY = 0f
+            activeRow = 0
         }
 
         if (immediate || (!popupView.isShown && !variationsView.isShown)) {

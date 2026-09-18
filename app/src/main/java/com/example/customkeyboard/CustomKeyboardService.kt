@@ -3780,15 +3780,31 @@ class CustomKeyboardService : InputMethodService() {
         view.isHapticFeedbackEnabled = true
         var pressed = false
         var isLongPressed = false
+        var downRawX = 0f
+        var downRawY = 0f
         val longPressHandler = Handler(Looper.getMainLooper())
         val longPressRunnable = Runnable {
             if (pressed) {
                 isLongPressed = true
                 view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
                 if (variations.isNotEmpty() || twoRowSplit != null) {
-                    keyPopupManager?.transitionToVariations(view, variations, defaultSelected ?: popupHint, twoRowSplit)
+                    keyPopupManager?.transitionToVariations(
+                        anchor = view,
+                        variations = variations,
+                        defaultSelected = defaultSelected ?: popupHint,
+                        twoRow = twoRowSplit,
+                        initialTouchX = downRawX,
+                        initialTouchY = downRawY
+                    )
                 } else if (popupHint != null) {
-                    keyPopupManager?.transitionToVariations(view, listOf(popupHint), popupHint, null)
+                    keyPopupManager?.transitionToVariations(
+                        anchor = view,
+                        variations = listOf(popupHint),
+                        defaultSelected = popupHint,
+                        twoRow = null,
+                        initialTouchX = downRawX,
+                        initialTouchY = downRawY
+                    )
                 } else {
                     onLongClick?.invoke()
                 }
@@ -3800,6 +3816,8 @@ class CustomKeyboardService : InputMethodService() {
                     v.parent?.requestDisallowInterceptTouchEvent(true)
                     pressed = true
                     isLongPressed = false
+                    downRawX = event.rawX
+                    downRawY = event.rawY
                     val hasLongPress = variations.isNotEmpty() || twoRowSplit != null || popupHint != null || onLongClick != null
                     if (hasLongPress) {
                         longPressHandler.postDelayed(longPressRunnable, 280)
