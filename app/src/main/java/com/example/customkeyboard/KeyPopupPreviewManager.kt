@@ -217,17 +217,19 @@ class KeyPopupPreviewManager(
         isLongPressActive = false
         selectedVariation = null
 
+        popupView.animate().setListener(null).cancel()
+        variationsView.animate().setListener(null).cancel()
+        variationsView.visibility = View.GONE
+
         applyTheme()
 
         tvLabel.text = label
         tvDots.visibility = if (hasAlternates || hint != null) View.VISIBLE else View.GONE
 
         normalContainer.visibility = View.VISIBLE
-        variationsView.visibility = View.GONE
 
         updatePosition(anchor)
 
-        popupView.animate().cancel()
         popupView.visibility = View.VISIBLE
         popupView.scaleX = 0.72f
         popupView.scaleY = 0.72f
@@ -235,6 +237,7 @@ class KeyPopupPreviewManager(
         popupView.translationY = dpF(6f)
 
         popupView.animate()
+            .setListener(null)
             .scaleX(1.0f)
             .scaleY(1.0f)
             .alpha(1.0f)
@@ -250,24 +253,34 @@ class KeyPopupPreviewManager(
         defaultSelected: String?,
         twoRow: Pair<List<String>, List<String>>? = null
     ) {
-        if (!isEnabled || variations.isEmpty()) return
+        if (!isEnabled || (variations.isEmpty() && twoRow == null)) return
         currentAnchor = anchor
         isLongPressActive = true
-        currentVariations = variations
         twoRowSplit = twoRow
-        selectedVariation = defaultSelected ?: variations.firstOrNull()
+        currentVariations = if (twoRow != null) {
+            twoRow.first + twoRow.second
+        } else {
+            variations
+        }
+        selectedVariation = defaultSelected ?: currentVariations.firstOrNull()
+
+        // Cancel and detach any lingering animators
+        popupView.animate().setListener(null).cancel()
+        popupView.visibility = View.GONE
+
+        variationsView.animate().setListener(null).cancel()
 
         applyTheme()
         buildVariationsLayout()
         positionVariationsBubble(anchor)
 
-        variationsView.animate().cancel()
         variationsView.visibility = View.VISIBLE
         variationsView.scaleX = 0.75f
         variationsView.scaleY = 0.75f
         variationsView.alpha = 0.7f
 
         variationsView.animate()
+            .setListener(null)
             .scaleX(1.0f)
             .scaleY(1.0f)
             .alpha(1.0f)
@@ -281,7 +294,8 @@ class KeyPopupPreviewManager(
         itemViews.clear()
 
         val colors = getColors()
-        val itemW = dp(itemWidthDp)
+        val rootWidth = overlayContainer.width.takeIf { it > 0 } ?: context.resources.displayMetrics.widthPixels
+        val maxAvailableW = (rootWidth - dp(16)).coerceAtLeast(dp(100))
         val itemH = dp(itemHeightDp)
         val cellPad = dp(4)
 
@@ -289,6 +303,8 @@ class KeyPopupPreviewManager(
             // Two-row grid (e.g., Alef with Hamza variations from Screenshot 7)
             val (topRow, bottomRow) = twoRowSplit!!
             val colCount = maxOf(topRow.size, bottomRow.size)
+            val calculatedItemW = minOf(dp(itemWidthDp), (maxAvailableW - dp(12)) / maxOf(1, colCount))
+            val itemW = maxOf(dp(28), calculatedItemW)
             val bubbleW = colCount * itemW + dp(12)
             val bubbleH = itemH * 2 + dp(12)
 
@@ -329,6 +345,8 @@ class KeyPopupPreviewManager(
         } else {
             // Single-row pill (e.g. Kaf, Jeem, Feh, Qaf, Sheen, Yeh from Screenshots 1-6)
             val itemCount = currentVariations.size
+            val calculatedItemW = minOf(dp(itemWidthDp), (maxAvailableW - dp(8)) / maxOf(1, itemCount))
+            val itemW = maxOf(dp(28), calculatedItemW)
             val bubbleW = itemCount * itemW + dp(8)
             val bubbleH = itemH + dp(8)
 
@@ -419,13 +437,13 @@ class KeyPopupPreviewManager(
 
         val targetRow: Int
         if (twoRowSplit != null) {
-            val halfH = variationsView.height / 2f
+            val halfH = if (variationsView.height > 0) variationsView.height / 2f else dpF(itemHeightDp.toFloat())
             targetRow = if (relY < halfH) 0 else 1
         } else {
             targetRow = 0
         }
 
-        val rowCells = itemViews.filter { it.row == targetRow }
+        val rowCells = itemViews.filter { it.row == targetRow }.ifEmpty { itemViews }
         if (rowCells.isEmpty()) return
 
         // Find closest cell horizontally
@@ -435,7 +453,8 @@ class KeyPopupPreviewManager(
         rowCells.forEach { cell ->
             val cellLoc = IntArray(2)
             cell.container.getLocationInWindow(cellLoc)
-            val cellCenterX = (cellLoc[0] - bubbleLoc[0]) + cell.container.width / 2f
+            val cellW = if (cell.container.width > 0) cell.container.width else dp(itemWidthDp)
+            val cellCenterX = (cellLoc[0] - bubbleLoc[0]) + cellW / 2f
             val dist = kotlin.math.abs(relX - cellCenterX)
             if (dist < minDistance) {
                 minDistance = dist
@@ -456,33 +475,29 @@ class KeyPopupPreviewManager(
     fun getSelectedVariation(): String? = selectedVariation
 
     fun hidePopup(immediate: Boolean = false) {
-        popupView.animate().cancel()
-        variationsView.animate().cancel()
+        popupView.animate().setListener(null).cancel()
+        variationsView.animate().setListener(null).cancel()
 
-        if (immediate) {
+        fun cleanup() {
             popupView.visibility = View.GONE
             variationsView.visibility = View.GONE
+            popupView.scaleX = 1f
+            popupView.scaleY = 1f
+            popupView.alpha = 1f
+            popupView.translationY = 0f
+            variationsView.scaleX = 1f
+            variationsView.scaleY = 1f
+            variationsView.alpha = 1f
             isLongPressActive = false
             currentAnchor = null
             selectedVariation = null
-        } else {
-            val listener = object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    popupView.visibility = View.GONE
-                    variationsView.visibility = View.GONE
-                    popupView.scaleX = 1f
-                    popupView.scaleY = 1f
-                    popupView.alpha = 1f
-                    variationsView.scaleX = 1f
-                    variationsView.scaleY = 1f
-                    variationsView.alpha = 1f
-                    isLongPressActive = false
-                    currentAnchor = null
-                    selectedVariation = null
-                }
-            }
+        }
 
+        if (immediate || (!popupView.isShown && !variationsView.isShown)) {
+            cleanup()
+        } else {
             popupView.animate()
+                .setListener(null)
                 .scaleX(0.75f)
                 .scaleY(0.75f)
                 .alpha(0f)
@@ -490,11 +505,16 @@ class KeyPopupPreviewManager(
                 .start()
 
             variationsView.animate()
+                .setListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        variationsView.animate().setListener(null)
+                        cleanup()
+                    }
+                })
                 .scaleX(0.75f)
                 .scaleY(0.75f)
                 .alpha(0f)
                 .setDuration(50)
-                .setListener(listener)
                 .start()
         }
     }
@@ -515,7 +535,8 @@ class KeyPopupPreviewManager(
 
         val margin = dp(4)
         val rootWidth = overlayContainer.width.takeIf { it > 0 } ?: context.resources.displayMetrics.widthPixels
-        popupLeft = popupLeft.coerceIn(margin, rootWidth - popupDiameter - margin)
+        val maxPopupLeft = maxOf(margin, rootWidth - popupDiameter - margin)
+        popupLeft = popupLeft.coerceIn(margin, maxPopupLeft)
 
         // Position directly above the key
         val popupBottom = keyY + dp(2)
@@ -549,12 +570,27 @@ class KeyPopupPreviewManager(
 
         val keyCenterX = keyX + keyWidth / 2
 
-        // Find index of default selected variation to center that specific cell over the key
-        val defaultIdx = currentVariations.indexOf(selectedVariation).coerceAtLeast(0)
-        val itemW = dp(itemWidthDp)
-        val defaultCenterRel = dp(4) + defaultIdx * itemW + itemW / 2
+        // Accurately center on default selected item
+        val actualItemW = if (itemViews.isNotEmpty()) {
+            itemViews[0].container.measuredWidth.takeIf { it > 0 } ?: dp(itemWidthDp)
+        } else {
+            dp(itemWidthDp)
+        }
+
+        val colIndex = if (twoRowSplit != null) {
+            val topIdx = twoRowSplit!!.first.indexOf(selectedVariation)
+            if (topIdx >= 0) topIdx else {
+                val botIdx = twoRowSplit!!.second.indexOf(selectedVariation)
+                if (botIdx >= 0) botIdx else 0
+            }
+        } else {
+            currentVariations.indexOf(selectedVariation).coerceAtLeast(0)
+        }
+
+        val defaultCenterRel = dp(6) + colIndex * actualItemW + actualItemW / 2
         var bubbleLeft = keyCenterX - defaultCenterRel
-        bubbleLeft = bubbleLeft.coerceIn(margin, rootWidth - bubbleW - margin)
+        val maxLeft = maxOf(margin, rootWidth - bubbleW - margin)
+        bubbleLeft = bubbleLeft.coerceIn(margin, maxLeft)
 
         // Position floating above the key
         val bubbleTop = maxOf(dp(2), keyY - bubbleH - dp(6))

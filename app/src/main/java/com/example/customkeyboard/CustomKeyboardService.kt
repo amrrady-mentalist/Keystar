@@ -992,13 +992,16 @@ class CustomKeyboardService : InputMethodService() {
                         if (!matches.isNullOrEmpty()) {
                             val recognized = matches[0].trim()
                             if (recognized.isNotEmpty()) {
-                                currentInputConnection?.commitText("$recognized ", 1)
+                                val ic = currentInputConnection
+                                if (ic != null) {
+                                    ic.commitText("$recognized ", 1)
+                                }
                                 voicePreviewText = recognized
                                 refreshTopBar()
                             }
                         }
                         if (isVoiceListening) {
-                            voiceHandler.postDelayed({ restartListeningIfActive() }, 250)
+                            voiceHandler.postDelayed({ restartListeningIfActive() }, 400)
                         }
                     }
 
@@ -1025,7 +1028,9 @@ class CustomKeyboardService : InputMethodService() {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, targetLangCode)
                 putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, targetLangCode)
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L)
             }
 
             speechRecognizer?.startListening(recognizerIntent)
@@ -2858,10 +2863,46 @@ class CustomKeyboardService : InputMethodService() {
         onClick: () -> Unit
     ): View {
         val resting = keyBackground(keyColor(), KEY_RADIUS_DP)
-        val rawVariations = KeyboardLayoutData.characterVariations[label]
-        val twoRowSplit = KeyboardLayoutData.twoRowVariations[label]
-        val variations = rawVariations ?: (hint?.let { listOf(it) } ?: emptyList())
-        val defaultSelected = hint ?: rawVariations?.firstOrNull()
+        val lookupKey = if (label.length == 1) label.lowercase() else label
+        val rawVariations = KeyboardLayoutData.characterVariations[label] ?: KeyboardLayoutData.characterVariations[lookupKey]
+        val twoRowSplit = KeyboardLayoutData.twoRowVariations[label] ?: KeyboardLayoutData.twoRowVariations[lookupKey]
+
+        val isShiftActive = shiftOn || capsLock
+        val variations: List<String> = when {
+            twoRowSplit != null -> {
+                val combined = twoRowSplit.first + twoRowSplit.second
+                val list = if (hint != null && !combined.contains(hint)) combined + hint else combined
+                if (isShiftActive) list.map { if (it.length == 1 && Character.isLetter(it[0])) it.uppercase() else it } else list
+            }
+            rawVariations != null -> {
+                val hasRealAlts = rawVariations.any { it != label && it != lookupKey }
+                val list = if (hasRealAlts) {
+                    if (hint != null && !rawVariations.contains(hint)) rawVariations + hint else rawVariations
+                } else if (hint != null) {
+                    listOf(hint)
+                } else {
+                    emptyList()
+                }
+                if (isShiftActive) list.map { if (it.length == 1 && Character.isLetter(it[0])) it.uppercase() else it } else list
+            }
+            hint != null -> listOf(hint)
+            else -> emptyList()
+        }
+
+        val defaultSelected: String? = when {
+            twoRowSplit != null -> {
+                val candidate = twoRowSplit.first.getOrNull(1) ?: twoRowSplit.first.firstOrNull()
+                if (candidate != null && isShiftActive && candidate.length == 1 && Character.isLetter(candidate[0])) candidate.uppercase() else candidate
+            }
+            variations.isNotEmpty() -> {
+                if (hint != null && (rawVariations == null || rawVariations.none { it != label && it != lookupKey })) {
+                    hint
+                } else {
+                    variations.firstOrNull { it != label && it != lookupKey && it != hint } ?: hint ?: variations.firstOrNull()
+                }
+            }
+            else -> hint
+        }
 
         if (hint == null) {
             val isArabic = currentLang == Lang.AR
@@ -3188,14 +3229,20 @@ class CustomKeyboardService : InputMethodService() {
         }
         container.addView(tvTashkeel)
 
+        val dotVariations = listOf("َ", "ُ", "ِ", "ً", "ٌ", "ٍ", "ّ", "ْ", "ـ", ".")
+        val dotTwoRow = Pair(listOf("َ", "ُ", "ِ", "ً", "ٌ"), listOf("ٍ", "ّ", "ْ", "ـ", "."))
+
         applyKeyTouchBehavior(
             container,
             pressHighlightColor(),
             resting,
             KEY_RADIUS_DP,
-            onLongClick = {
-                showTashkeelPopup(container)
-            }
+            popupLabel = ".",
+            popupHint = "◌ً",
+            variations = dotVariations,
+            defaultSelected = "َ",
+            twoRowSplit = dotTwoRow,
+            onLongClick = null
         ) {
             commitPunctuationOrSpace(".")
         }
@@ -3738,7 +3785,7 @@ class CustomKeyboardService : InputMethodService() {
             if (pressed) {
                 isLongPressed = true
                 view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
-                if (variations.isNotEmpty()) {
+                if (variations.isNotEmpty() || twoRowSplit != null) {
                     keyPopupManager?.transitionToVariations(view, variations, defaultSelected ?: popupHint, twoRowSplit)
                 } else if (popupHint != null) {
                     keyPopupManager?.transitionToVariations(view, listOf(popupHint), popupHint, null)
@@ -3750,16 +3797,17 @@ class CustomKeyboardService : InputMethodService() {
         view.setOnTouchListener { v, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
+                    v.parent?.requestDisallowInterceptTouchEvent(true)
                     pressed = true
                     isLongPressed = false
-                    val hasLongPress = variations.isNotEmpty() || popupHint != null || onLongClick != null
+                    val hasLongPress = variations.isNotEmpty() || twoRowSplit != null || popupHint != null || onLongClick != null
                     if (hasLongPress) {
                         longPressHandler.postDelayed(longPressRunnable, 280)
                     }
                     v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
                     v.background = keyBackground(pressColor, radiusDp)
                     if (popupLabel != null) {
-                        keyPopupManager?.showPopup(v, popupLabel, popupHint, hasAlternates = variations.isNotEmpty())
+                        keyPopupManager?.showPopup(v, popupLabel, popupHint, hasAlternates = variations.isNotEmpty() || twoRowSplit != null)
                     }
                     true
                 }
@@ -3767,9 +3815,13 @@ class CustomKeyboardService : InputMethodService() {
                     if (isLongPressed) {
                         keyPopupManager?.updateSelectionFromTouch(event.rawX, event.rawY)
                     } else {
-                        val margin = dp(14)
-                        val within = event.x >= -margin && event.x <= v.width + margin &&
-                            event.y >= -margin && event.y <= v.height + margin
+                        // Allow larger drift upward toward popup without cancelling long-press
+                        val hasAlternates = variations.isNotEmpty() || twoRowSplit != null || popupHint != null
+                        val marginX = dp(36)
+                        val marginYBottom = dp(36)
+                        val marginYTop = if (hasAlternates) dp(80) else dp(36)
+                        val within = event.x >= -marginX && event.x <= v.width + marginX &&
+                            event.y >= -marginYTop && event.y <= v.height + marginYBottom
                         if (!within && pressed) {
                             pressed = false
                             longPressHandler.removeCallbacks(longPressRunnable)
@@ -3788,7 +3840,11 @@ class CustomKeyboardService : InputMethodService() {
                             val chosen = keyPopupManager?.getSelectedVariation() ?: defaultSelected ?: popupHint
                             keyPopupManager?.hidePopup(immediate = false)
                             if (chosen != null) {
-                                commitSymbol(chosen)
+                                if (chosen.length == 1 && Character.isLetter(chosen[0])) {
+                                    commitLetter(chosen)
+                                } else {
+                                    commitSymbol(chosen)
+                                }
                             } else {
                                 onLongClick?.invoke()
                             }
