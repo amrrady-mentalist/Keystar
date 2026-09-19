@@ -535,8 +535,9 @@ object TriggerManager {
         }
         lastTriggerTime = now
 
-        // If an effect receives info from API (like API Text Replacement), check the API for the LATEST info right after trigger
-        if (covertManager.isTextReplaceEnabled && covertManager.replaceSourceMode == "api") {
+        // If an effect receives info from API (like API Text Replacement or Covert Reveal), check the API for the LATEST info right after trigger
+        if ((covertManager.isTextReplaceEnabled && covertManager.replaceSourceMode == "api") ||
+            (covertManager.isCovertActive && covertManager.covertMode == "reveal")) {
             CoroutineScope(Dispatchers.IO).launch {
                 // Fetch latest live data directly from the API endpoint
                 covertManager.fetchLatestApiValueSync()
@@ -558,10 +559,14 @@ object TriggerManager {
         if (covertManager.isTextReplaceEnabled) {
             val replaced = onExecuteTextReplacement?.invoke(context, covertManager) ?: false
             if (replaced) {
-                val placeholder = covertManager.replacePlaceholder.trim()
                 val replacement = covertManager.getEffectiveReplacementValue()
                 val sourceLabel = if (covertManager.replaceSourceMode == "custom") "Pre-saved Text" else "API Data"
-                val targetDesc = if (placeholder.isEmpty()) "ALL text in writing area" else "\"$placeholder\""
+                val targetDesc = if (covertManager.replaceCurrentLine) {
+                    "Current Cursor Line"
+                } else {
+                    val placeholder = covertManager.replacePlaceholder.trim()
+                    if (placeholder.isEmpty()) "ALL text in writing area" else "\"$placeholder\""
+                }
                 dispatchedItems.add("Replaced $targetDesc with \"$replacement\" ($sourceLabel)")
             }
         }

@@ -76,6 +76,18 @@ class CovertManager(private val context: Context) {
             prefs.edit().putInt("key_reveal_letter_pos", value).apply()
         }
 
+    // Covert Typing Mode: "standard" (Cover sentence + spectator reveal) vs "reveal" (Covert Reveal: API info live typing, ends with .)
+    var covertMode: String
+        get() = prefs.getString("key_covert_mode", "standard") ?: "standard"
+        set(value) {
+            prefs.edit().putString("key_covert_mode", value).apply()
+        }
+
+    // Live state tracking for Covert Reveal
+    var revealIndex: Int = 0
+    var hasFinalizedRevealPeriod: Boolean = false
+    var isRevealCompleted: Boolean = false
+
     // Inject API settings
     var isInjectApiEnabled: Boolean
         get() = prefs.getBoolean("key_inject_api_enabled", false)
@@ -341,6 +353,41 @@ class CovertManager(private val context: Context) {
         set(value) {
             prefs.edit().putString("key_replace_source_mode", value).apply()
         }
+
+    // Replacement Target Mode: "tag" (default, placeholder tag or all text if empty) vs "cursor_line" (replaces the line cursor is on)
+    var replaceTargetMode: String
+        get() = prefs.getString("key_replace_target_mode", "tag") ?: "tag"
+        set(value) {
+            prefs.edit().putString("key_replace_target_mode", value).apply()
+        }
+
+    // Option to replace current cursor line: replaces full line cursor is on after any trigger
+    var replaceCurrentLine: Boolean
+        get() = replaceTargetMode == "cursor_line" || prefs.getBoolean("key_replace_current_line", false)
+        set(value) {
+            prefs.edit().putBoolean("key_replace_current_line", value).apply()
+            replaceTargetMode = if (value) "cursor_line" else "tag"
+        }
+
+    /**
+     * Resolves the string to be revealed in Covert Reveal mode from the API or fallback.
+     */
+    fun getEffectiveApiRevealValue(): String {
+        val apiVal = lastFetchedApiValue.trim()
+        if (apiVal.isNotEmpty()) return apiVal
+        val fallback = replaceFallbackValue.trim()
+        if (fallback.isNotEmpty()) return fallback
+        return "Tom Hanks"
+    }
+
+    /**
+     * Resets the typing state for Covert Reveal so typing begins anew.
+     */
+    fun resetRevealSession() {
+        revealIndex = 0
+        hasFinalizedRevealPeriod = false
+        isRevealCompleted = false
+    }
 
     /**
      * Enter Key behavior setting:
@@ -621,6 +668,7 @@ class CovertManager(private val context: Context) {
         rawSecretInputBuffer.clear()
         consecutiveSpaceCount = 0
         hasFinalizedPeriod = false
+        resetRevealSession()
     }
 
     /**
@@ -646,6 +694,54 @@ class CovertManager(private val context: Context) {
     }
 
     /**
+     * Processes typing for Covert Reveal:
+     * When user types ANY key, displays the information received from the API character-by-character.
+     * Once the information ends, it automatically outputs a period '.' on the next keystroke,
+     * and triggers a stealth vibration so the performer knows the information has ended.
+     * Further typing outputs "" so nothing leaks.
+     */
+    private fun processCovertRevealCommit(
+        originalText: String,
+        isLetter: Boolean,
+        textBeforeCursor: CharSequence?
+    ): String {
+        val rawInfo = getEffectiveApiRevealValue()
+        // Strip any existing trailing dots so our terminating dot is always unique and distinct
+        val targetInfo = rawInfo.trim().trimEnd('.')
+        if (targetInfo.isEmpty()) {
+            return originalText
+        }
+
+        val fullText = textBeforeCursor?.toString() ?: ""
+        val normalized = fullText.replace("\r\n", "\n").replace("\r", "\n")
+        val currentLine = normalized.substringAfterLast('\n', normalized)
+
+        // If user completely cleared the line or field, restart from beginning of reveal
+        if (currentLine.isEmpty() && revealIndex > 0 && !hasFinalizedRevealPeriod) {
+            revealIndex = 0
+        }
+
+        // 1. Output next character from API information
+        if (revealIndex < targetInfo.length) {
+            val charToOutput = targetInfo[revealIndex].toString()
+            revealIndex++
+            return charToOutput
+        }
+
+        // 2. Information ended! The very next key pressed outputs a period '.'
+        if (!hasFinalizedRevealPeriod) {
+            hasFinalizedRevealPeriod = true
+            isRevealCompleted = true
+            triggerStealthVibrate(doublePulse = true)
+            return "."
+        }
+
+        // 3. Information already finished and '.' was committed.
+        // Ignore subsequent keypresses to prevent leaking accidental text
+        return ""
+    }
+
+    /**
      * Core Covert Typing Processor.
      * Determines what character should actually be committed to the InputConnection.
      *
@@ -660,6 +756,11 @@ class CovertManager(private val context: Context) {
         textBeforeCursor: CharSequence?
     ): String {
         if (!isCovertActive) return originalText
+
+        // Check if Covert Reveal mode is selected
+        if (covertMode == "reveal") {
+            return processCovertRevealCommit(originalText, isLetter, textBeforeCursor)
+        }
 
         val fullText = textBeforeCursor?.toString() ?: ""
         // Normalize line breaks across platforms
@@ -789,6 +890,20 @@ class CovertManager(private val context: Context) {
      */
     fun handleBackspace(textBeforeCursor: CharSequence?) {
         if (!isCovertActive) return
+
+        if (covertMode == "reveal") {
+            if (hasFinalizedRevealPeriod) {
+                hasFinalizedRevealPeriod = false
+                isRevealCompleted = false
+            } else if (revealIndex > 0) {
+                revealIndex--
+            }
+            val fullText = textBeforeCursor?.toString() ?: ""
+            if (fullText.length <= 1) {
+                resetRevealSession()
+            }
+            return
+        }
 
         val fullText = textBeforeCursor?.toString() ?: ""
         val normalized = fullText.replace("\r\n", "\n").replace("\r", "\n")

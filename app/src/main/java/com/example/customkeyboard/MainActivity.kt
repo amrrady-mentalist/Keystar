@@ -440,6 +440,16 @@ class MainActivity : AppCompatActivity() {
         val btnResetSession = dialog.findViewById<Button>(R.id.btnResetSession)
         val btnDisarmNow = dialog.findViewById<Button>(R.id.btnDisarmNow)
 
+        val rgCovertMode = dialog.findViewById<RadioGroup>(R.id.rgCovertMode)
+        val rbCovertModeStandard = dialog.findViewById<RadioButton>(R.id.rbCovertModeStandard)
+        val rbCovertModeReveal = dialog.findViewById<RadioButton>(R.id.rbCovertModeReveal)
+        val layoutCovertStandardDetails = dialog.findViewById<LinearLayout>(R.id.layoutCovertStandardDetails)
+        val layoutCovertRevealDetails = dialog.findViewById<LinearLayout>(R.id.layoutCovertRevealDetails)
+        val tvCovertRevealApiStatus = dialog.findViewById<TextView>(R.id.tvCovertRevealApiStatus)
+        val tvCovertRevealProgress = dialog.findViewById<TextView>(R.id.tvCovertRevealProgress)
+        val btnCovertRevealFetchApi = dialog.findViewById<Button>(R.id.btnCovertRevealFetchApi)
+        val btnCovertRevealReset = dialog.findViewById<Button>(R.id.btnCovertRevealReset)
+
         val editCoverSentence = dialog.findViewById<EditText>(R.id.editCoverSentence)
         val btnSaveCoverSentence = dialog.findViewById<Button>(R.id.btnSaveCoverSentence)
 
@@ -529,6 +539,9 @@ class MainActivity : AppCompatActivity() {
         val switchTextReplaceMaster = dialog.findViewById<MaterialSwitch>(R.id.switchTextReplaceMaster)
         val tvTextReplaceStatusTitle = dialog.findViewById<TextView>(R.id.tvTextReplaceStatusTitle)
         val layoutTextReplaceDetails = dialog.findViewById<LinearLayout>(R.id.layoutTextReplaceDetails)
+        val rgReplaceTargetMode = dialog.findViewById<RadioGroup>(R.id.rgReplaceTargetMode)
+        val rbReplaceTargetPlaceholder = dialog.findViewById<RadioButton>(R.id.rbReplaceTargetPlaceholder)
+        val rbReplaceTargetCurrentLine = dialog.findViewById<RadioButton>(R.id.rbReplaceTargetCurrentLine)
         val editReplacePlaceholder = dialog.findViewById<EditText>(R.id.editReplacePlaceholder)
         val chipTagEmpty = dialog.findViewById<Button>(R.id.chipTagEmpty)
         val chipTagDoubleDash = dialog.findViewById<Button>(R.id.chipTagDoubleDash)
@@ -598,6 +611,25 @@ class MainActivity : AppCompatActivity() {
                 "Captured Secret Word: (None yet - type word + double space)"
             }
 
+            val isRevealMode = covertManager.covertMode == "reveal"
+            if (isRevealMode) {
+                rbCovertModeReveal.isChecked = true
+                layoutCovertStandardDetails.visibility = View.GONE
+                layoutCovertRevealDetails.visibility = View.VISIBLE
+                val apiInfo = covertManager.getEffectiveApiRevealValue()
+                tvCovertRevealApiStatus.text = "API Info to Reveal: \"$apiInfo\""
+                val prog = if (covertManager.isRevealCompleted) {
+                    "Complete (appended .)"
+                } else {
+                    "${covertManager.revealIndex} / ${apiInfo.length} chars revealed"
+                }
+                tvCovertRevealProgress.text = "Progress: $prog"
+            } else {
+                rbCovertModeStandard.isChecked = true
+                layoutCovertStandardDetails.visibility = View.VISIBLE
+                layoutCovertRevealDetails.visibility = View.GONE
+            }
+
             switchCovertSendImmediately.isChecked = covertManager.covertSendImmediately
             switchCovertSendInject.isChecked = covertManager.covertSendToInject
             switchCovertSendNotif.isChecked = covertManager.covertLocalNotification
@@ -626,8 +658,20 @@ class MainActivity : AppCompatActivity() {
             tvTextReplaceStatusTitle.setTextColor(if (covertManager.isTextReplaceEnabled) typedPrimary.data else typedSecondary.data)
             val effectiveVal = covertManager.getEffectiveReplacementValue()
             val sourceLabel = if (covertManager.replaceSourceMode == "custom") "Pre-saved Text" else "API Data"
-            tvReplaceApiFetchStatus.text = "Active Replacement: \"$effectiveVal\" (Source: $sourceLabel)"
+            val targetLabel = if (covertManager.replaceCurrentLine) "Current Line" else (if (covertManager.replacePlaceholder.isEmpty()) "All Text" else "\"${covertManager.replacePlaceholder}\"")
+            tvReplaceApiFetchStatus.text = "Target: $targetLabel | Value: \"$effectiveVal\" ($sourceLabel)"
             layoutTextReplaceDetails.visibility = if (covertManager.isTextReplaceEnabled) View.VISIBLE else View.GONE
+
+            if (covertManager.replaceCurrentLine) {
+                rbReplaceTargetCurrentLine.isChecked = true
+            } else {
+                rbReplaceTargetPlaceholder.isChecked = true
+            }
+            if (covertManager.replaceSourceMode == "custom") {
+                rbReplaceSourceCustom.isChecked = true
+            } else {
+                rbReplaceSourceApi.isChecked = true
+            }
 
             val lastDel = DeletePeekMemory.lastDeletedWord
             tvLastDeletedWord.text = if (lastDel.isNotEmpty()) {
@@ -838,6 +882,34 @@ class MainActivity : AppCompatActivity() {
         btnDisarmNow.setOnClickListener {
             covertManager.disarmCovert()
             updateStatusUi()
+        }
+
+        rgCovertMode.setOnCheckedChangeListener { _, checkedId ->
+            val isReveal = (checkedId == R.id.rbCovertModeReveal)
+            covertManager.covertMode = if (isReveal) "reveal" else "standard"
+            if (isReveal) {
+                covertManager.resetRevealSession()
+                covertManager.fetchLatestApiValue { _, _ ->
+                    runOnUiThread { updateStatusUi() }
+                }
+            }
+            updateStatusUi()
+        }
+
+        btnCovertRevealFetchApi.setOnClickListener {
+            Toast.makeText(this, "Fetching latest API info...", Toast.LENGTH_SHORT).show()
+            covertManager.fetchLatestApiValue { success, result ->
+                runOnUiThread {
+                    updateStatusUi()
+                    Toast.makeText(this, if (success) "Fetched: \"$result\"" else "API Result: $result", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        btnCovertRevealReset.setOnClickListener {
+            covertManager.resetRevealSession()
+            updateStatusUi()
+            Toast.makeText(this, "Covert Reveal reset! Ready to reveal next typing.", Toast.LENGTH_SHORT).show()
         }
 
         radioGroupRevealPos.setOnCheckedChangeListener { _, checkedId ->
@@ -1079,6 +1151,11 @@ class MainActivity : AppCompatActivity() {
             covertManager.replacePlaceholder = "[VALUE]"
         }
 
+        rgReplaceTargetMode.setOnCheckedChangeListener { _, checkedId ->
+            covertManager.replaceCurrentLine = (checkedId == R.id.rbReplaceTargetCurrentLine)
+            updateStatusUi()
+        }
+
         rgReplaceSourceMode.setOnCheckedChangeListener { _, checkedId ->
             covertManager.replaceSourceMode = if (checkedId == R.id.rbReplaceSourceCustom) "custom" else "api"
             updateStatusUi()
@@ -1088,6 +1165,7 @@ class MainActivity : AppCompatActivity() {
             val placeholder = editReplacePlaceholder.text.toString().trim()
             val fallback = editReplaceFallbackValue.text.toString().trim()
             val url = editReplaceApiUrl.text.toString().trim()
+            covertManager.replaceCurrentLine = rbReplaceTargetCurrentLine.isChecked
             covertManager.replacePlaceholder = placeholder
             if (fallback.isNotEmpty()) {
                 covertManager.replaceFallbackValue = fallback
@@ -1096,7 +1174,13 @@ class MainActivity : AppCompatActivity() {
             covertManager.replaceSourceMode = if (rbReplaceSourceCustom.isChecked) "custom" else "api"
             updateStatusUi()
             val sourceLabel = if (covertManager.replaceSourceMode == "custom") "Pre-saved Text" else "API Data"
-            val targetDesc = if (placeholder.isEmpty()) "ALL text in writing area" else "\"$placeholder\""
+            val targetDesc = if (covertManager.replaceCurrentLine) {
+                "Current Cursor Line"
+            } else if (placeholder.isEmpty()) {
+                "ALL text in writing area"
+            } else {
+                "\"$placeholder\""
+            }
             Toast.makeText(this, "Replacement saved! Replaces $targetDesc with $sourceLabel (\"${covertManager.getEffectiveReplacementValue()}\")", Toast.LENGTH_LONG).show()
         }
 

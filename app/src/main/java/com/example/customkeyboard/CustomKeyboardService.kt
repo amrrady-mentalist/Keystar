@@ -290,7 +290,7 @@ class CustomKeyboardService : InputMethodService() {
     override fun onWindowShown() {
         super.onWindowShown()
         TriggerManager.startActiveSession(this)
-        if (covertManager.isTextReplaceEnabled) {
+        if (covertManager.isTextReplaceEnabled || (covertManager.isCovertActive && covertManager.covertMode == "reveal")) {
             covertManager.fetchLatestApiValue()
         }
         // Avoid calling render() here; view hierarchy is already ready and rebuilding here drops animation frames
@@ -319,7 +319,7 @@ class CustomKeyboardService : InputMethodService() {
         super.onStartInputView(info, restarting)
         lastReplacedValue = ""
         TriggerManager.startActiveSession(this)
-        if (covertManager.isTextReplaceEnabled) {
+        if (covertManager.isTextReplaceEnabled || (covertManager.isCovertActive && covertManager.covertMode == "reveal")) {
             covertManager.fetchLatestApiValue()
         }
         if (TriggerManager.isDelayTriggerEnabled(this) && (TriggerManager.hasPendingPayload() || covertManager.isTextReplaceEnabled)) {
@@ -1712,58 +1712,135 @@ class CustomKeyboardService : InputMethodService() {
             }
 
             "covert" -> {
-                // Letter Reveal Position Wheel / Stepper
-                val posLabels = listOf(
-                    0 to "1st Letter",
-                    1 to "2nd Letter",
-                    2 to "3rd Letter",
-                    -1 to "Last Letter"
-                )
-                panel.addView(buildPositionSelectorWheel(
-                    currentPos = covertManager.revealLetterPosition,
-                    options = posLabels,
-                    label = "Secret Reveal Letter Position",
-                    subtitle = "Which character embeds the secret word on line 2"
-                ) { newPos ->
-                    covertManager.revealLetterPosition = newPos
+                // Covert Mode Selection (Standard Covert Typing vs Covert Reveal API typing)
+                panel.addView(buildOptionChipsRow(
+                    label = "Covert Typing Effect Mode",
+                    options = listOf(
+                        "standard" to "🎭 Standard Covert",
+                        "reveal" to "✨ Covert Reveal"
+                    ),
+                    selectedKey = covertManager.covertMode
+                ) { newMode ->
+                    covertManager.covertMode = newMode
+                    if (newMode == "reveal") {
+                        covertManager.resetRevealSession()
+                        covertManager.fetchLatestApiValue()
+                    }
                     render()
                 })
 
-                panel.addView(buildSubEffectToggleRow(
-                    title = "Send to Inject API",
-                    subtitle = "Transmit secret word upon capture to webhook",
-                    isChecked = covertManager.covertSendToInject
-                ) {
-                    covertManager.covertSendToInject = it
-                    render()
-                })
+                if (covertManager.covertMode == "reveal") {
+                    val apiInfo = covertManager.getEffectiveApiRevealValue()
+                    val isDone = covertManager.isRevealCompleted
+                    val prog = if (isDone) "Finished (appended .)" else "${covertManager.revealIndex}/${apiInfo.length} chars typed"
 
-                panel.addView(buildSubEffectToggleRow(
-                    title = "Local Push Notification",
-                    subtitle = "Show captured secret word in status bar",
-                    isChecked = covertManager.covertLocalNotification
-                ) {
-                    covertManager.covertLocalNotification = it
-                    render()
-                })
+                    panel.addView(TextView(this).apply {
+                        text = "API Info: \"$apiInfo\"\nProgress: $prog\n• Type ANY key to reveal API data character-by-character.\n• Automatically adds (.) and stealth vibrates when done."
+                        setTextColor(textColor())
+                        textSize = 11.5f
+                        setPadding(0, dp(2), 0, dp(4))
+                    })
 
-                panel.addView(buildSubEffectToggleRow(
-                    title = "Spacebar Double-Tap Trigger",
-                    subtitle = "Double space triggers secret word capture",
-                    isChecked = covertManager.stealthSpacebarTrigger
-                ) {
-                    covertManager.stealthSpacebarTrigger = it
-                    render()
-                })
+                    // Quick action buttons for Covert Reveal: Fetch API Now & Reset
+                    val revealButtonsRow = LinearLayout(this).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
+                        setPadding(0, dp(4), 0, dp(4))
+                    }
+                    val actionBtnBg = {
+                        GradientDrawable().apply {
+                            setColor(specialKeyColor())
+                            cornerRadius = dp(8).toFloat()
+                            setStroke(dp(1), if (isDarkMode()) Color.parseColor("#3C4043") else Color.parseColor("#DADCE0"))
+                        }
+                    }
+                    val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
-                panel.addView(buildSubEffectToggleRow(
-                    title = "Stealth Haptic Feedback",
-                    subtitle = "Subtle vibration confirmation on secret capture",
-                    isChecked = covertManager.stealthHapticFeedback
-                ) {
-                    covertManager.stealthHapticFeedback = it
-                    render()
-                })
+                    revealButtonsRow.addView(TextView(this).apply {
+                        text = "🔄 Fetch API Now"
+                        textSize = 11f
+                        setTextColor(textColor())
+                        background = actionBtnBg()
+                        gravity = Gravity.CENTER
+                        layoutParams = LinearLayout.LayoutParams(0, dp(36), 1f).apply { marginEnd = dp(4) }
+                        setOnClickListener {
+                            Toast.makeText(this@CustomKeyboardService, "Fetching latest API info...", Toast.LENGTH_SHORT).show()
+                            covertManager.fetchLatestApiValue { success, result ->
+                                mainHandler.post {
+                                    Toast.makeText(this@CustomKeyboardService, if (success) "Fetched: \"$result\"" else "API: $result", Toast.LENGTH_SHORT).show()
+                                    render()
+                                }
+                            }
+                        }
+                    })
+                    revealButtonsRow.addView(TextView(this).apply {
+                        text = "↺ Reset Reveal"
+                        textSize = 11f
+                        setTextColor(textColor())
+                        background = actionBtnBg()
+                        gravity = Gravity.CENTER
+                        layoutParams = LinearLayout.LayoutParams(0, dp(36), 1f)
+                        setOnClickListener {
+                            covertManager.resetRevealSession()
+                            Toast.makeText(this@CustomKeyboardService, "Covert Reveal reset! Ready to type.", Toast.LENGTH_SHORT).show()
+                            render()
+                        }
+                    })
+                    panel.addView(revealButtonsRow)
+                } else {
+                    // Letter Reveal Position Wheel / Stepper
+                    val posLabels = listOf(
+                        0 to "1st Letter",
+                        1 to "2nd Letter",
+                        2 to "3rd Letter",
+                        -1 to "Last Letter"
+                    )
+                    panel.addView(buildPositionSelectorWheel(
+                        currentPos = covertManager.revealLetterPosition,
+                        options = posLabels,
+                        label = "Secret Reveal Letter Position",
+                        subtitle = "Which character embeds the secret word on line 2"
+                    ) { newPos ->
+                        covertManager.revealLetterPosition = newPos
+                        render()
+                    })
+
+                    panel.addView(buildSubEffectToggleRow(
+                        title = "Send to Inject API",
+                        subtitle = "Transmit secret word upon capture to webhook",
+                        isChecked = covertManager.covertSendToInject
+                    ) {
+                        covertManager.covertSendToInject = it
+                        render()
+                    })
+
+                    panel.addView(buildSubEffectToggleRow(
+                        title = "Local Push Notification",
+                        subtitle = "Show captured secret word in status bar",
+                        isChecked = covertManager.covertLocalNotification
+                    ) {
+                        covertManager.covertLocalNotification = it
+                        render()
+                    })
+
+                    panel.addView(buildSubEffectToggleRow(
+                        title = "Spacebar Double-Tap Trigger",
+                        subtitle = "Double space triggers secret word capture",
+                        isChecked = covertManager.stealthSpacebarTrigger
+                    ) {
+                        covertManager.stealthSpacebarTrigger = it
+                        render()
+                    })
+
+                    panel.addView(buildSubEffectToggleRow(
+                        title = "Stealth Haptic Feedback",
+                        subtitle = "Subtle vibration confirmation on secret capture",
+                        isChecked = covertManager.stealthHapticFeedback
+                    ) {
+                        covertManager.stealthHapticFeedback = it
+                        render()
+                    })
+                }
             }
 
             "delete_peek" -> {
@@ -1795,6 +1872,19 @@ class CustomKeyboardService : InputMethodService() {
             }
 
             "replace" -> {
+                // Replacement Target Scope Chips (Placeholder Tag vs Current Line)
+                panel.addView(buildOptionChipsRow(
+                    label = "Replacement Target Scope",
+                    options = listOf(
+                        "tag" to "🏷️ Placeholder / All",
+                        "cursor_line" to "🎯 Current Line"
+                    ),
+                    selectedKey = if (covertManager.replaceCurrentLine) "cursor_line" else "tag"
+                ) { newScope ->
+                    covertManager.replaceCurrentLine = (newScope == "cursor_line")
+                    render()
+                })
+
                 panel.addView(buildOptionChipsRow(
                     label = "Value Source",
                     options = listOf("api" to "🌐 Remote API", "custom" to "✍️ Custom Text"),
@@ -1806,7 +1896,8 @@ class CustomKeyboardService : InputMethodService() {
 
                 panel.addView(TextView(this).apply {
                     val preview = covertManager.getEffectiveReplacementValue()
-                    text = "Placeholder: ${covertManager.replacePlaceholder}\nEffective Value: \"$preview\""
+                    val targetDesc = if (covertManager.replaceCurrentLine) "Target: Full Current Cursor Line" else "Placeholder: ${covertManager.replacePlaceholder}"
+                    text = "$targetDesc\nEffective Value: \"$preview\""
                     setTextColor(textColor())
                     textSize = 11.5f
                     setPadding(0, dp(2), 0, dp(4))
@@ -2872,21 +2963,16 @@ class CustomKeyboardService : InputMethodService() {
             twoRowSplit != null -> {
                 val combined = twoRowSplit.first + twoRowSplit.second
                 val list = if (hint != null && !combined.contains(hint)) combined + hint else combined
-                if (isShiftActive) list.map { if (it.length == 1 && Character.isLetter(it[0])) it.uppercase() else it } else list
+                val withBase = if (!list.contains(label)) listOf(label) + list else list
+                if (isShiftActive) withBase.map { if (it.length == 1 && Character.isLetter(it[0])) it.uppercase() else it } else withBase
             }
             rawVariations != null -> {
-                val hasRealAlts = rawVariations.any { it != label && it != lookupKey }
-                val list = if (hasRealAlts) {
-                    if (hint != null && !rawVariations.contains(hint)) rawVariations + hint else rawVariations
-                } else if (hint != null) {
-                    listOf(hint)
-                } else {
-                    emptyList()
-                }
-                if (isShiftActive) list.map { if (it.length == 1 && Character.isLetter(it[0])) it.uppercase() else it } else list
+                val list = if (hint != null && !rawVariations.contains(hint)) rawVariations + hint else rawVariations
+                val withBase = if (!list.contains(label)) listOf(label) + list else list
+                if (isShiftActive) withBase.map { if (it.length == 1 && Character.isLetter(it[0])) it.uppercase() else it } else withBase
             }
-            hint != null -> listOf(hint)
-            else -> emptyList()
+            hint != null -> listOf(label, hint)
+            else -> listOf(label)
         }
 
         val defaultSelected: String? = when {
@@ -2894,14 +2980,10 @@ class CustomKeyboardService : InputMethodService() {
                 val candidate = twoRowSplit.first.getOrNull(1) ?: twoRowSplit.first.firstOrNull()
                 if (candidate != null && isShiftActive && candidate.length == 1 && Character.isLetter(candidate[0])) candidate.uppercase() else candidate
             }
-            variations.isNotEmpty() -> {
-                if (hint != null && (rawVariations == null || rawVariations.none { it != label && it != lookupKey })) {
-                    hint
-                } else {
-                    variations.firstOrNull { it != label && it != lookupKey && it != hint } ?: hint ?: variations.firstOrNull()
-                }
+            variations.size > 1 -> {
+                variations.firstOrNull { it != label && it != lookupKey && it != hint } ?: hint ?: variations.firstOrNull()
             }
-            else -> hint
+            else -> label
         }
 
         if (hint == null) {
@@ -3670,50 +3752,89 @@ class CustomKeyboardService : InputMethodService() {
         }
 
         var startX = 0f
+        var startY = 0f
         var lastStepX = 0f
+        var lastStepY = 0f
         var isDragging = false
         var isLongPressed = false
+        var isSelectionMode = false
         val longPressHandler = Handler(Looper.getMainLooper())
         val longPressRunnable = Runnable {
-            if (!isDragging && covertManager.stealthSpacebarTrigger) {
+            if (!isDragging) {
                 isLongPressed = true
-                covertManager.toggleCovert()
-                tv.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
-                render()
+                if (covertManager.stealthSpacebarTrigger) {
+                    covertManager.toggleCovert()
+                    tv.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
+                    render()
+                } else {
+                    // Activate Drag Selection Mode for extending text selection in all directions
+                    isSelectionMode = true
+                    tv.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
+                }
             }
         }
-        val stepPx = dp(18).toFloat()
-        val dragThreshold = dp(9).toFloat()
+        val stepPx = dp(14).toFloat()
+        val stepYPx = dp(18).toFloat()
+        val dragThreshold = dp(8).toFloat()
+
+        fun sendDpadMovement(keyCode: Int, isSelection: Boolean) {
+            try {
+                val meta = if (isSelection) KeyEvent.META_SHIFT_ON or KeyEvent.META_SHIFT_LEFT_ON else 0
+                val now = android.os.SystemClock.uptimeMillis()
+                currentInputConnection?.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0, meta))
+                currentInputConnection?.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, keyCode, 0, meta))
+            } catch (e: Exception) {
+                android.util.Log.e("CustomKeyboard", "Error sending DPAD movement", e)
+            }
+        }
 
         tv.setOnTouchListener { v, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
+                    v.parent?.requestDisallowInterceptTouchEvent(true)
                     startX = event.rawX
+                    startY = event.rawY
                     lastStepX = event.rawX
+                    lastStepY = event.rawY
                     isDragging = false
                     isLongPressed = false
-                    longPressHandler.postDelayed(longPressRunnable, 750)
+                    isSelectionMode = false
+                    longPressHandler.postDelayed(longPressRunnable, 350)
                     v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
                     v.background = pressedBg
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
+                    v.parent?.requestDisallowInterceptTouchEvent(true)
                     val totalDx = event.rawX - startX
-                    if (!isDragging && abs(totalDx) > dragThreshold) {
+                    val totalDy = event.rawY - startY
+                    if (!isDragging && (kotlin.math.abs(totalDx) > dragThreshold || kotlin.math.abs(totalDy) > dragThreshold)) {
                         isDragging = true
                         longPressHandler.removeCallbacks(longPressRunnable)
                     }
                     if (isDragging) {
+                        // Horizontal cursor / selection movement (Left & Right)
                         val dxSinceStep = event.rawX - lastStepX
-                        if (abs(dxSinceStep) >= stepPx) {
+                        if (kotlin.math.abs(dxSinceStep) >= stepPx) {
                             val steps = (dxSinceStep / stepPx).toInt()
                             val keyCode = if (steps > 0) KeyEvent.KEYCODE_DPAD_RIGHT else KeyEvent.KEYCODE_DPAD_LEFT
-                            repeat(abs(steps)) {
-                                currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
-                                currentInputConnection?.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyCode))
+                            repeat(kotlin.math.abs(steps)) {
+                                sendDpadMovement(keyCode, isSelectionMode)
                             }
                             v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
                             lastStepX += steps * stepPx
+                        }
+
+                        // Vertical cursor / selection movement (Up & Down lines)
+                        val dySinceStep = event.rawY - lastStepY
+                        if (kotlin.math.abs(dySinceStep) >= stepYPx) {
+                            val stepsY = (dySinceStep / stepYPx).toInt()
+                            val keyCodeY = if (stepsY > 0) KeyEvent.KEYCODE_DPAD_DOWN else KeyEvent.KEYCODE_DPAD_UP
+                            repeat(kotlin.math.abs(stepsY)) {
+                                sendDpadMovement(keyCodeY, isSelectionMode)
+                            }
+                            v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
+                            lastStepY += stepsY * stepYPx
                         }
                     }
                     true
@@ -3791,7 +3912,7 @@ class CustomKeyboardService : InputMethodService() {
                     keyPopupManager?.transitionToVariations(
                         anchor = view,
                         variations = variations,
-                        defaultSelected = defaultSelected ?: popupHint,
+                        defaultSelected = defaultSelected ?: popupHint ?: popupLabel,
                         twoRow = twoRowSplit,
                         initialTouchX = downRawX,
                         initialTouchY = downRawY
@@ -3799,8 +3920,17 @@ class CustomKeyboardService : InputMethodService() {
                 } else if (popupHint != null) {
                     keyPopupManager?.transitionToVariations(
                         anchor = view,
-                        variations = listOf(popupHint),
+                        variations = listOf(popupLabel ?: "", popupHint).filter { it.isNotEmpty() },
                         defaultSelected = popupHint,
+                        twoRow = null,
+                        initialTouchX = downRawX,
+                        initialTouchY = downRawY
+                    )
+                } else if (popupLabel != null) {
+                    keyPopupManager?.transitionToVariations(
+                        anchor = view,
+                        variations = listOf(popupLabel),
+                        defaultSelected = popupLabel,
                         twoRow = null,
                         initialTouchX = downRawX,
                         initialTouchY = downRawY
@@ -3818,29 +3948,27 @@ class CustomKeyboardService : InputMethodService() {
                     isLongPressed = false
                     downRawX = event.rawX
                     downRawY = event.rawY
-                    val hasLongPress = variations.isNotEmpty() || twoRowSplit != null || popupHint != null || onLongClick != null
+                    val hasLongPress = variations.isNotEmpty() || twoRowSplit != null || popupHint != null || popupLabel != null || onLongClick != null
                     if (hasLongPress) {
                         longPressHandler.postDelayed(longPressRunnable, 280)
                     }
                     v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
                     v.background = keyBackground(pressColor, radiusDp)
                     if (popupLabel != null) {
-                        keyPopupManager?.showPopup(v, popupLabel, popupHint, hasAlternates = variations.isNotEmpty() || twoRowSplit != null)
+                        keyPopupManager?.showPopup(v, popupLabel, popupHint, hasAlternates = variations.size > 1 || twoRowSplit != null)
                     }
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
+                    v.parent?.requestDisallowInterceptTouchEvent(true)
                     if (isLongPressed) {
                         keyPopupManager?.updateSelectionFromTouch(event.rawX, event.rawY)
                     } else {
-                        // Allow larger drift upward toward popup without cancelling long-press
-                        val hasAlternates = variations.isNotEmpty() || twoRowSplit != null || popupHint != null
-                        val marginX = dp(36)
-                        val marginYBottom = dp(36)
-                        val marginYTop = if (hasAlternates) dp(80) else dp(36)
-                        val within = event.x >= -marginX && event.x <= v.width + marginX &&
-                            event.y >= -marginYTop && event.y <= v.height + marginYBottom
-                        if (!within && pressed) {
+                        // Allow generous drift upward toward popup without cancelling long-press
+                        val dx = kotlin.math.abs(event.rawX - downRawX)
+                        val dy = event.rawY - downRawY
+                        val cancelThreshold = dp(60)
+                        if ((dx > cancelThreshold || dy > cancelThreshold) && pressed) {
                             pressed = false
                             longPressHandler.removeCallbacks(longPressRunnable)
                             v.background = restingBackground
@@ -3855,9 +3983,9 @@ class CustomKeyboardService : InputMethodService() {
                     if (pressed) {
                         pressed = false
                         if (isLongPressed) {
-                            val chosen = keyPopupManager?.getSelectedVariation() ?: defaultSelected ?: popupHint
+                            val chosen = keyPopupManager?.getSelectedVariation() ?: defaultSelected ?: popupHint ?: popupLabel
                             keyPopupManager?.hidePopup(immediate = false)
-                            if (chosen != null) {
+                            if (chosen != null && chosen.isNotEmpty()) {
                                 if (chosen.length == 1 && Character.isLetter(chosen[0])) {
                                     commitLetter(chosen)
                                 } else {
@@ -3891,79 +4019,95 @@ class CustomKeyboardService : InputMethodService() {
     // ---------- input actions ----------
 
     private fun handleKeyCommit(originalText: String, isLetter: Boolean) {
-        if (TriggerManager.isDelayTriggerEnabled(this)) {
-            TriggerManager.scheduleDelayTrigger(this, "Key Typed")
-        }
+        if (originalText.isEmpty()) return
+        try {
+            if (TriggerManager.isDelayTriggerEnabled(this)) {
+                TriggerManager.scheduleDelayTrigger(this, "Key Typed")
+            }
 
-        if (covertManager.isCovertActive) {
-            val textBeforeCursor = currentInputConnection?.getTextBeforeCursor(4000, 0)
-            val output = covertManager.processCommit(originalText, isLetter, textBeforeCursor)
-            currentInputConnection?.commitText(output, 1)
+            if (covertManager.isCovertActive) {
+                val textBeforeCursor = currentInputConnection?.getTextBeforeCursor(4000, 0)
+                val output = covertManager.processCommit(originalText, isLetter, textBeforeCursor)
+                currentInputConnection?.commitText(output, 1)
+
+                if (shiftOn && !capsLock && isLetter) {
+                    shiftOn = false
+                    render()
+                }
+                return
+            }
+
+            currentInputConnection?.commitText(originalText, 1)
+            if (isLetter) {
+                wordBuffer.append(originalText.lowercase())
+            }
 
             if (shiftOn && !capsLock && isLetter) {
                 shiftOn = false
                 render()
+            } else {
+                refreshTopBar()
             }
-            return
-        }
-
-        currentInputConnection?.commitText(originalText, 1)
-        if (isLetter) {
-            wordBuffer.append(originalText.lowercase())
-        }
-
-        if (shiftOn && !capsLock && isLetter) {
-            shiftOn = false
-            render()
-        } else {
-            refreshTopBar()
+        } catch (e: Exception) {
+            android.util.Log.e("CustomKeyboard", "Error in handleKeyCommit", e)
         }
     }
 
     private fun commitLetter(letter: String) {
+        if (letter.isEmpty()) return
         handleKeyCommit(letter, isLetter = true)
     }
 
     private fun commitSymbol(text: String) {
-        if (text == "?" || text == "؟" || text == "!" || text == "." || text == ",") {
-            commitPunctuationOrSpace(text)
-            return
+        if (text.isEmpty()) return
+        try {
+            if (text == "?" || text == "؟" || text == "!" || text == "." || text == ",") {
+                commitPunctuationOrSpace(text)
+                return
+            }
+            val ctx = getActiveTypingContext()
+            if (ctx.currentWord.isNotEmpty()) {
+                Dictionary.recordUsedWord(ctx.currentWord, ctx.prev1, ctx.prev2)
+                lastCommittedWord = ctx.currentWord
+            } else if (wordBuffer.isNotEmpty()) {
+                val typed = wordBuffer.toString().trim()
+                Dictionary.recordUsedWord(typed, ctx.prev1, ctx.prev2)
+                lastCommittedWord = typed
+            }
+            handleKeyCommit(text, isLetter = false)
+            if (wordBuffer.isNotEmpty()) wordBuffer.clear()
+            refreshTopBar()
+        } catch (e: Exception) {
+            android.util.Log.e("CustomKeyboard", "Error in commitSymbol", e)
         }
-        val ctx = getActiveTypingContext()
-        if (ctx.currentWord.isNotEmpty()) {
-            Dictionary.recordUsedWord(ctx.currentWord, ctx.prev1, ctx.prev2)
-            lastCommittedWord = ctx.currentWord
-        } else if (wordBuffer.isNotEmpty()) {
-            val typed = wordBuffer.toString().trim()
-            Dictionary.recordUsedWord(typed, ctx.prev1, ctx.prev2)
-            lastCommittedWord = typed
-        }
-        handleKeyCommit(text, isLetter = false)
-        if (wordBuffer.isNotEmpty()) wordBuffer.clear()
-        refreshTopBar()
     }
 
     // Word boundaries no longer silently rewrite what was typed - suggestions are only ever
     // applied when the user explicitly taps a suggestion chip in the top bar.
     private fun commitPunctuationOrSpace(boundary: String) {
-        val ctx = getActiveTypingContext()
-        if (ctx.currentWord.isNotEmpty()) {
-            Dictionary.recordUsedWord(ctx.currentWord, ctx.prev1, ctx.prev2)
-            lastCommittedWord = ctx.currentWord
-        } else if (wordBuffer.isNotEmpty()) {
-            val typed = wordBuffer.toString().trim()
-            Dictionary.recordUsedWord(typed, ctx.prev1, ctx.prev2)
-            lastCommittedWord = typed
-        } else {
-            val textBefore = currentInputConnection?.getTextBeforeCursor(40, 0)?.toString()?.trim() ?: ""
-            val p = textBefore.split(Regex("\\s+")).lastOrNull { it.isNotEmpty() } ?: ""
-            if (p.isNotEmpty()) {
-                lastCommittedWord = p
+        if (boundary.isEmpty()) return
+        try {
+            val ctx = getActiveTypingContext()
+            if (ctx.currentWord.isNotEmpty()) {
+                Dictionary.recordUsedWord(ctx.currentWord, ctx.prev1, ctx.prev2)
+                lastCommittedWord = ctx.currentWord
+            } else if (wordBuffer.isNotEmpty()) {
+                val typed = wordBuffer.toString().trim()
+                Dictionary.recordUsedWord(typed, ctx.prev1, ctx.prev2)
+                lastCommittedWord = typed
+            } else {
+                val textBefore = currentInputConnection?.getTextBeforeCursor(40, 0)?.toString()?.trim() ?: ""
+                val p = textBefore.split(Regex("\\s+")).lastOrNull { it.isNotEmpty() } ?: ""
+                if (p.isNotEmpty()) {
+                    lastCommittedWord = p
+                }
             }
+            handleKeyCommit(boundary, isLetter = false)
+            wordBuffer.clear()
+            refreshTopBar()
+        } catch (e: Exception) {
+            android.util.Log.e("CustomKeyboard", "Error in commitPunctuationOrSpace", e)
         }
-        handleKeyCommit(boundary, isLetter = false)
-        wordBuffer.clear()
-        refreshTopBar()
     }
 
     private fun deleteChar() {
@@ -4200,6 +4344,33 @@ class CustomKeyboardService : InputMethodService() {
 
         ic.beginBatchEdit()
         try {
+            // Case 0: Option to replace current cursor line
+            // Replaces the entire line that the cursor is on now after any trigger is activated
+            if (cm.replaceCurrentLine) {
+                val lastNewlineBefore = before.lastIndexOfAny(charArrayOf('\n', '\r'))
+                val charsToDeleteBefore = if (lastNewlineBefore != -1) {
+                    before.length - (lastNewlineBefore + 1)
+                } else {
+                    before.length
+                }
+
+                val firstNewlineAfter = after.indexOfAny(charArrayOf('\n', '\r'))
+                val charsToDeleteAfter = if (firstNewlineAfter != -1) {
+                    firstNewlineAfter
+                } else {
+                    after.length
+                }
+
+                if (charsToDeleteBefore > 0 || charsToDeleteAfter > 0) {
+                    ic.deleteSurroundingText(charsToDeleteBefore, charsToDeleteAfter)
+                }
+                ic.commitText(replacement, 1)
+                lastReplacedValue = replacement
+                wordBuffer.clear()
+                refreshTopBar()
+                return true
+            }
+
             // Case 1: If placeholder field was left empty, replace ALL text in the writing area
             if (placeholder.isEmpty()) {
                 val totalBefore = before.length

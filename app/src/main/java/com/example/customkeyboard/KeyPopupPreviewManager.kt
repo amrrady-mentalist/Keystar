@@ -209,6 +209,8 @@ class KeyPopupPreviewManager(
         updateVariationsVisuals()
     }
 
+    private var currentSessionId = 0
+
     fun showPopup(
         anchor: View,
         label: String,
@@ -216,6 +218,7 @@ class KeyPopupPreviewManager(
         hasAlternates: Boolean = false
     ) {
         if (!isEnabled) return
+        val sessionId = ++currentSessionId
         currentAnchor = anchor
         isLongPressActive = false
         selectedVariation = null
@@ -259,6 +262,7 @@ class KeyPopupPreviewManager(
         initialTouchY: Float = 0f
     ) {
         if (!isEnabled || (variations.isEmpty() && twoRow == null)) return
+        val sessionId = ++currentSessionId
         currentAnchor = anchor
         isLongPressActive = true
         twoRowSplit = twoRow
@@ -446,6 +450,7 @@ class KeyPopupPreviewManager(
 
         val bubbleLoc = IntArray(2)
         variationsView.getLocationOnScreen(bubbleLoc)
+        val bubbleLeft = bubbleLoc[0].toFloat()
         val bubbleTop = bubbleLoc[1].toFloat()
         val bubbleH = variationsView.height.toFloat().takeIf { it > 0f } ?: dpF(itemHeightDp.toFloat() * 2)
         val bubbleBottom = bubbleTop + bubbleH
@@ -485,10 +490,28 @@ class KeyPopupPreviewManager(
         var minDistance = Float.MAX_VALUE
 
         val cellLoc = IntArray(2)
-        rowCells.forEach { cell ->
+        val itemW = if (twoRowSplit != null) {
+            val (topRow, bottomRow) = twoRowSplit ?: Pair(emptyList(), emptyList())
+            val colCount = maxOf(1, maxOf(topRow.size, bottomRow.size))
+            val rootWidth = overlayContainer.width.takeIf { it > 0 } ?: context.resources.displayMetrics.widthPixels
+            val calculatedItemW = minOf(dp(itemWidthDp), (rootWidth - dp(28)) / colCount)
+            maxOf(dp(28), calculatedItemW)
+        } else {
+            val itemCount = maxOf(1, currentVariations.size)
+            val rootWidth = overlayContainer.width.takeIf { it > 0 } ?: context.resources.displayMetrics.widthPixels
+            val calculatedItemW = minOf(dp(itemWidthDp), (rootWidth - dp(24)) / itemCount)
+            maxOf(dp(28), calculatedItemW)
+        }
+        val pad = if (twoRowSplit != null) dp(6) else dp(4)
+
+        rowCells.forEachIndexed { colIdx, cell ->
             cell.container.getLocationOnScreen(cellLoc)
-            val cellW = if (cell.container.width > 0) cell.container.width else dp(itemWidthDp)
-            val cellCenterX = cellLoc[0] + cellW / 2f
+            val cellCenterX = if (cellLoc[0] > 0) {
+                val cellW = if (cell.container.width > 0) cell.container.width else itemW
+                cellLoc[0] + cellW / 2f
+            } else {
+                bubbleLeft + pad + colIdx * itemW + itemW / 2f
+            }
             val dist = kotlin.math.abs(rawX - cellCenterX)
             if (dist < minDistance) {
                 minDistance = dist
@@ -509,10 +532,12 @@ class KeyPopupPreviewManager(
     fun getSelectedVariation(): String? = selectedVariation
 
     fun hidePopup(immediate: Boolean = false) {
+        val sessionToHide = currentSessionId
         popupView.animate().setListener(null).cancel()
         variationsView.animate().setListener(null).cancel()
 
         fun cleanup() {
+            if (sessionToHide != currentSessionId && !immediate) return
             popupView.visibility = View.GONE
             variationsView.visibility = View.GONE
             popupView.scaleX = 1f
@@ -615,9 +640,9 @@ class KeyPopupPreviewManager(
         }
 
         val colIndex = if (twoRowSplit != null) {
-            val topIdx = twoRowSplit!!.first.indexOf(selectedVariation)
+            val topIdx = twoRowSplit?.first?.indexOf(selectedVariation) ?: -1
             if (topIdx >= 0) topIdx else {
-                val botIdx = twoRowSplit!!.second.indexOf(selectedVariation)
+                val botIdx = twoRowSplit?.second?.indexOf(selectedVariation) ?: -1
                 if (botIdx >= 0) botIdx else 0
             }
         } else {
@@ -634,5 +659,6 @@ class KeyPopupPreviewManager(
 
         variationsView.x = bubbleLeft.toFloat()
         variationsView.y = bubbleTop.toFloat()
+        variationsView.layout(bubbleLeft, bubbleTop, bubbleLeft + bubbleW, bubbleTop + bubbleH)
     }
 }

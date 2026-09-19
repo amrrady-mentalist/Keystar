@@ -968,6 +968,44 @@
                         android:layout_marginTop="12dp"
                         android:orientation="vertical">
 
+                        <!-- Covert Engine Mode Selection -->
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Covert Effect Mode:"
+                            android:textStyle="bold"
+                            android:textSize="13sp" />
+
+                        <RadioGroup
+                            android:id="@+id/rgCovertMode"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:orientation="vertical">
+
+                            <RadioButton
+                                android:id="@+id/rbCovertModeStandard"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="1. Standard Covert Typing (Cover Sentence + Spectator Reveal)"
+                                android:textSize="13sp" />
+
+                            <RadioButton
+                                android:id="@+id/rbCovertModeReveal"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="2. Covert Reveal (API Live Typing: Type anything to reveal API info, ends with .)"
+                                android:textSize="13sp" />
+                        </RadioGroup>
+
+                        <!-- Standard Covert Mode Sub-layout -->
+                        <LinearLayout
+                            android:id="@+id/layoutCovertStandardDetails"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:orientation="vertical">
+
                         <TextView
                             android:id="@+id/tvCapturedWordStatus"
                             android:layout_width="match_parent"
@@ -1136,6 +1174,73 @@
                             android:text="Send to Local Notification after 2 spaces"
                             android:textSize="13sp" />
 
+                        </LinearLayout>
+
+                        <!-- Covert Reveal Mode Sub-layout -->
+                        <LinearLayout
+                            android:id="@+id/layoutCovertRevealDetails"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:visibility="gone"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:padding="10dp"
+                                android:background="@drawable/bg_edit_text"
+                                android:text="Covert Reveal: Gets information from the API. When you start typing anything, it displays the information received from the API character-by-character. Once the information ends, it automatically outputs a period (.) so you know the information has ended and you do not have to act as typing."
+                                android:textSize="12sp"
+                                android:alpha="0.85" />
+
+                            <TextView
+                                android:id="@+id/tvCovertRevealApiStatus"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                android:padding="10dp"
+                                android:background="@drawable/bg_edit_text"
+                                android:text="API Information to Reveal: &quot;Tom Hanks&quot;"
+                                android:textSize="13sp"
+                                android:textStyle="bold"
+                                android:textColor="?attr/colorPrimary" />
+
+                            <TextView
+                                android:id="@+id/tvCovertRevealProgress"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="Progress: 0 characters revealed"
+                                android:textSize="12sp"
+                                android:alpha="0.75" />
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                android:orientation="horizontal">
+
+                                <Button
+                                    android:id="@+id/btnCovertRevealFetchApi"
+                                    style="@style/Widget.Material3.Button.TonalButton"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginEnd="4dp"
+                                    android:text="Fetch API Now" />
+
+                                <Button
+                                    android:id="@+id/btnCovertRevealReset"
+                                    style="@style/Widget.Material3.Button.OutlinedButton"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginStart="4dp"
+                                    android:text="Reset Reveal" />
+                            </LinearLayout>
+                        </LinearLayout>
+
                     </LinearLayout>
 
                 </LinearLayout>
@@ -1247,9 +1352,40 @@
                         android:layout_marginTop="12dp"
                         android:orientation="vertical">
 
+                        <!-- Replacement Target Mode: Placeholder vs Current Line -->
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:text="Replacement Target Scope:"
+                            android:textStyle="bold"
+                            android:textSize="13sp" />
+
+                        <RadioGroup
+                            android:id="@+id/rgReplaceTargetMode"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:orientation="vertical">
+
+                            <RadioButton
+                                android:id="@+id/rbReplaceTargetPlaceholder"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="1. Target Placeholder Tag (or ALL text if empty)"
+                                android:textSize="13sp" />
+
+                            <RadioButton
+                                android:id="@+id/rbReplaceTargetCurrentLine"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="2. Current Cursor Line (replaces full line cursor is on now)"
+                                android:textSize="13sp" />
+                        </RadioGroup>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
                             android:text="Placeholder Tag in Writing Area (leave blank to replace ALL text):"
                             android:textStyle="bold"
                             android:textSize="13sp" />
