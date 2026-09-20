@@ -1,12 +1,21 @@
 package com.example.customkeyboard
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipDescription
 import android.content.ClipboardManager
+import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.database.ContentObserver
+import android.net.Uri
+import android.provider.MediaStore
+import androidx.core.view.inputmethod.EditorInfoCompat
+import androidx.core.view.inputmethod.InputConnectionCompat
+import androidx.core.view.inputmethod.InputContentInfoCompat
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -77,6 +86,15 @@ class CustomKeyboardService : InputMethodService() {
     private lateinit var clipboardManager: ClipboardManager
     private lateinit var clipHistory: ClipboardHistory
     private lateinit var covertManager: CovertManager
+
+    // Clipboard & Screenshot suggestion state
+    private var pendingClipText: String? = null
+    private var pendingClipTime: Long = 0L
+    private var lastPastedClipText: String? = null
+    private var pendingScreenshotUri: Uri? = null
+    private var pendingScreenshotTime: Long = 0L
+    private var userStartedTyping: Boolean = false
+    private var screenshotObserver: ContentObserver? = null
 
     // Track active selection bounds
     private var currentSelStart = 0
@@ -192,8 +210,123 @@ class CustomKeyboardService : InputMethodService() {
     private val systemClipListener = ClipboardManager.OnPrimaryClipChangedListener {
         val clip = clipboardManager.primaryClip
         if (clip != null && clip.itemCount > 0) {
-            val text = clip.getItemAt(0).coerceToText(this).toString()
-            if (text.isNotBlank()) clipHistory.add(text)
+            val item = clip.getItemAt(0)
+            val uri = item.uri
+            if (uri != null && (clip.description?.hasMimeType("image/*") == true || uri.toString().contains("image", ignoreCase = true))) {
+                pendingScreenshotUri = uri
+                pendingScreenshotTime = System.currentTimeMillis()
+                userStartedTyping = false
+                refreshTopBar()
+            } else {
+                val text = item.coerceToText(this).toString()
+                if (text.isNotBlank()) {
+                    clipHistory.add(text)
+                    pendingClipText = text
+                    pendingClipTime = System.currentTimeMillis()
+                    userStartedTyping = false
+                    refreshTopBar()
+                }
+            }
+        }
+    }
+
+    private fun registerScreenshotObserver() {
+        try {
+            screenshotObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+                override fun onChange(selfChange: Boolean, uri: Uri?) {
+                    super.onChange(selfChange, uri)
+                    checkRecentScreenshot()
+                }
+            }
+            contentResolver.registerContentObserver(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                true,
+                screenshotObserver!!
+            )
+        } catch (e: Exception) {
+            // Ignore observer failure
+        }
+    }
+
+    private fun checkRecentScreenshot() {
+        try {
+            val projection = arrayOf(
+                MediaStore.Images.Media._ID,
+                MediaStore.Images.Media.DATE_ADDED,
+                MediaStore.Images.Media.DISPLAY_NAME
+            )
+            val sortOrder = "${MediaStore.Images.Media.DATE_ADDED} DESC"
+            val cursor = contentResolver.query(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                projection,
+                null,
+                null,
+                sortOrder
+            )
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    val idCol = it.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
+                    val dateCol = it.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_ADDED)
+                    val nameCol = it.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
+
+                    val id = it.getLong(idCol)
+                    val dateAddedSec = it.getLong(dateCol)
+                    val name = it.getString(nameCol) ?: ""
+                    val nowSec = System.currentTimeMillis() / 1000
+
+                    if ((nowSec - dateAddedSec) in 0..300) {
+                        val isScreenshot = name.contains("screenshot", ignoreCase = true) ||
+                                           name.contains("capture", ignoreCase = true) ||
+                                           name.startsWith("Screenshot", ignoreCase = true)
+                        if (isScreenshot) {
+                            val uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
+                            if (uri != pendingScreenshotUri) {
+                                pendingScreenshotUri = uri
+                                pendingScreenshotTime = dateAddedSec * 1000
+                                if (!userStartedTyping) {
+                                    refreshTopBar()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e: Throwable) {
+            // Permission not granted or query error
+        }
+    }
+
+    private fun checkPrimaryClipOnInputStart() {
+        try {
+            val clip = clipboardManager.primaryClip
+            if (clip != null && clip.itemCount > 0) {
+                val item = clip.getItemAt(0)
+                val uri = item.uri
+                if (uri != null && (clip.description?.hasMimeType("image/*") == true || uri.toString().contains("image", ignoreCase = true))) {
+                    pendingScreenshotUri = uri
+                    pendingScreenshotTime = System.currentTimeMillis()
+                } else {
+                    val text = item.coerceToText(this)?.toString()
+                    if (!text.isNullOrBlank() && text != lastPastedClipText) {
+                        pendingClipText = text
+                        pendingClipTime = System.currentTimeMillis()
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // ignore
+        }
+    }
+
+    private fun notifyUserTypingAction() {
+        if (!userStartedTyping) {
+            userStartedTyping = true
+            val hadPending = pendingClipText != null || pendingScreenshotUri != null
+            pendingClipText = null
+            pendingScreenshotUri = null
+            if (hadPending) {
+                refreshTopBar()
+            }
         }
     }
 
@@ -261,6 +394,8 @@ class CustomKeyboardService : InputMethodService() {
             success
         }
         Dictionary.init(this)
+        registerScreenshotObserver()
+        checkRecentScreenshot()
     }
 
     override fun onDestroy() {
@@ -270,6 +405,11 @@ class CustomKeyboardService : InputMethodService() {
             prefs.unregisterOnSharedPreferenceChangeListener(prefChangeListener)
         }
         clipboardManager.removePrimaryClipChangedListener(systemClipListener)
+        screenshotObserver?.let {
+            try {
+                contentResolver.unregisterContentObserver(it)
+            } catch (e: Exception) {}
+        }
         TriggerManager.stopActiveSession(this)
         TriggerManager.onCaptureLiveCursorContext = null
         TriggerManager.onCaptureLiveText = null
@@ -319,6 +459,9 @@ class CustomKeyboardService : InputMethodService() {
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
+        userStartedTyping = false
+        checkPrimaryClipOnInputStart()
+        checkRecentScreenshot()
         lastReplacedValue = ""
         TriggerManager.startActiveSession(this)
         if (covertManager.isTextReplaceEnabled || (covertManager.isCovertActive && covertManager.covertMode == "reveal")) {
@@ -670,6 +813,8 @@ class CustomKeyboardService : InputMethodService() {
             Dictionary.getContextualSuggestions(typingContext.currentWord, typingContext.previousWords, isArabic, limit = 6)
         } else emptyList()
 
+        val hasPendingMedia = !userStartedTyping && wordBuffer.isEmpty() && (pendingClipText != null || pendingScreenshotUri != null)
+
         return when {
             isVoiceListening -> {
                 LinearLayout(this).apply {
@@ -698,7 +843,7 @@ class CustomKeyboardService : InputMethodService() {
                     addView(iconButtonText("⌫") { deleteChar() })
                 }
             }
-            contextualSuggestions.isNotEmpty() -> {
+            contextualSuggestions.isNotEmpty() || hasPendingMedia -> {
                 buildSuggestionsTopBar(contextualSuggestions)
             }
             else -> {
@@ -725,8 +870,11 @@ class CustomKeyboardService : InputMethodService() {
         val suggestionsView = buildSuggestionsScroll(items)
         root.addView(suggestionsView)
 
-        // 2. Fixed action icons (Mic, Clipboard, Settings) pinned to the right edge with gradient fade
-        val iconsContainer = LinearLayout(this).apply {
+        // 2. Right action group:
+        //    - Fade view: strictly to the left of the mic button, smoothly fading from transparent to solid bg
+        //    - Icons container: 100% solid, fully opaque background so NO words ever overlap under the mic
+        val bg = bgColor()
+        val rightGroup = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             layoutParams = FrameLayout.LayoutParams(
@@ -734,12 +882,26 @@ class CustomKeyboardService : InputMethodService() {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 Gravity.CENTER_VERTICAL or Gravity.RIGHT
             )
-            val bg = bgColor()
+        }
+
+        val fadeView = View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(26), ViewGroup.LayoutParams.MATCH_PARENT)
             background = GradientDrawable(
                 GradientDrawable.Orientation.LEFT_RIGHT,
-                intArrayOf(Color.TRANSPARENT, bg, bg)
+                intArrayOf(Color.TRANSPARENT, bg)
             )
-            setPadding(dp(22), 0, dp(6), 0)
+        }
+        rightGroup.addView(fadeView)
+
+        val iconsContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            setBackgroundColor(bg)
+            setPadding(dp(2), 0, dp(6), 0)
         }
 
         iconsContainer.addView(iconButton(R.drawable.ic_mic, "Voice Typing") { triggerVoiceInput() })
@@ -751,7 +913,8 @@ class CustomKeyboardService : InputMethodService() {
             startActivity(intent)
         })
 
-        root.addView(iconsContainer)
+        rightGroup.addView(iconsContainer)
+        root.addView(rightGroup)
         return root
     }
 
@@ -1148,20 +1311,217 @@ class CustomKeyboardService : InputMethodService() {
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
-            // Start margin for the first word, and end padding (135dp) so the last suggestion
+            // Start margin for the first word, and end padding (145dp) so the last suggestion
             // can be scrolled fully clear of the mic, clipboard, and settings icons!
-            setPadding(dp(6), 0, dp(135), 0)
+            setPadding(dp(6), 0, dp(145), 0)
             clipToPadding = false
         }
+
+        var hasLeadingChip = false
+
+        // 1. Show copied text or screenshot 1st if user hasn't started typing yet
+        if (!userStartedTyping && wordBuffer.isEmpty()) {
+            val clipText = pendingClipText
+            val shotUri = pendingScreenshotUri
+
+            if (shotUri != null && pendingScreenshotTime > pendingClipTime) {
+                container.addView(buildScreenshotChip(shotUri))
+                hasLeadingChip = true
+                if (!clipText.isNullOrBlank()) {
+                    container.addView(createSuggestionDivider())
+                    container.addView(buildCopiedTextChip(clipText))
+                }
+            } else if (!clipText.isNullOrBlank()) {
+                container.addView(buildCopiedTextChip(clipText))
+                hasLeadingChip = true
+                if (shotUri != null) {
+                    container.addView(createSuggestionDivider())
+                    container.addView(buildScreenshotChip(shotUri))
+                }
+            }
+        }
+
+        // 2. Regular contextual suggestions
         val topWords = items.filter { !it.isEmoji }.take(6)
         topWords.forEachIndexed { index, item ->
-            if (index > 0) {
+            if (index > 0 || hasLeadingChip) {
                 container.addView(createSuggestionDivider())
             }
             container.addView(suggestionChip(item))
         }
         scroll.addView(container)
         return scroll
+    }
+
+    private fun buildCopiedTextChip(text: String): View {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(10), dp(4), dp(10), dp(4))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            ).apply {
+                topMargin = dp(4)
+                bottomMargin = dp(4)
+                marginStart = dp(4)
+                marginEnd = dp(4)
+            }
+            val normalBg = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
+            val pressedBg = roundedDrawable(pressHighlightColor(), KEY_RADIUS_DP)
+            val sld = StateListDrawable().apply {
+                addState(intArrayOf(android.R.attr.state_pressed), pressedBg)
+                addState(intArrayOf(), normalBg)
+            }
+            background = sld
+            isClickable = true
+            isFocusable = true
+        }
+
+        val icon = ImageView(this).apply {
+            setImageResource(R.drawable.ic_clipboard)
+            setColorFilter(textColor())
+            val iconSize = dp(15)
+            layoutParams = LinearLayout.LayoutParams(iconSize, iconSize).apply {
+                marginEnd = dp(6)
+            }
+        }
+        container.addView(icon)
+
+        val cleanText = text.replace(Regex("\\s+"), " ").trim()
+        val display = if (cleanText.length > 32) cleanText.take(30) + "…" else cleanText
+        val tv = TextView(this).apply {
+            this.text = display
+            setTextColor(textColor())
+            setTypeface(getKeyTypeface())
+            textSize = 13f
+            isSingleLine = true
+            maxLines = 1
+            includeFontPadding = false
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        container.addView(tv)
+
+        container.setOnClickListener {
+            container.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
+            currentInputConnection?.commitText(text, 1)
+            lastPastedClipText = text
+            pendingClipText = null
+            userStartedTyping = true
+            refreshTopBar()
+        }
+
+        return container
+    }
+
+    private fun buildScreenshotChip(uri: Uri): View {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(8), dp(3), dp(10), dp(3))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            ).apply {
+                topMargin = dp(4)
+                bottomMargin = dp(4)
+                marginStart = dp(4)
+                marginEnd = dp(4)
+            }
+            val normalBg = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
+            val pressedBg = roundedDrawable(pressHighlightColor(), KEY_RADIUS_DP)
+            val sld = StateListDrawable().apply {
+                addState(intArrayOf(android.R.attr.state_pressed), pressedBg)
+                addState(intArrayOf(), normalBg)
+            }
+            background = sld
+            isClickable = true
+            isFocusable = true
+        }
+
+        var thumbnailLoaded = false
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val thumb = contentResolver.loadThumbnail(uri, android.util.Size(dp(26), dp(26)), null)
+                if (thumb != null) {
+                    val iv = ImageView(this).apply {
+                        setImageBitmap(thumb)
+                        scaleType = ImageView.ScaleType.CENTER_CROP
+                        layoutParams = LinearLayout.LayoutParams(dp(24), dp(24)).apply {
+                            marginEnd = dp(6)
+                        }
+                        clipToOutline = true
+                    }
+                    container.addView(iv)
+                    thumbnailLoaded = true
+                }
+            }
+        } catch (e: Throwable) {
+            // fallback
+        }
+
+        if (!thumbnailLoaded) {
+            val iv = ImageView(this).apply {
+                setImageResource(R.drawable.ic_grid)
+                setColorFilter(textColor())
+                layoutParams = LinearLayout.LayoutParams(dp(16), dp(16)).apply {
+                    marginEnd = dp(6)
+                }
+            }
+            container.addView(iv)
+        }
+
+        val tv = TextView(this).apply {
+            this.text = "Send Screenshot"
+            setTextColor(textColor())
+            setTypeface(getKeyTypeface(), Typeface.BOLD)
+            textSize = 12.5f
+            isSingleLine = true
+            includeFontPadding = false
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        container.addView(tv)
+
+        container.setOnClickListener {
+            container.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
+            sendScreenshotToChat(uri)
+            pendingScreenshotUri = null
+            userStartedTyping = true
+            refreshTopBar()
+        }
+
+        return container
+    }
+
+    private fun sendScreenshotToChat(uri: Uri): Boolean {
+        val ic = currentInputConnection
+        val info = currentInputEditorInfo
+        if (ic != null && info != null) {
+            try {
+                val mimeType = contentResolver.getType(uri) ?: "image/png"
+                val description = ClipDescription("Screenshot", arrayOf(mimeType, "image/png", "image/jpeg"))
+                val contentInfo = InputContentInfoCompat(uri, description, null)
+                val flags = InputConnectionCompat.INPUT_CONTENT_GRANT_READ_URI_PERMISSION
+
+                val success = InputConnectionCompat.commitContent(ic, info, contentInfo, flags, null)
+                if (success) {
+                    return true
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("CustomKeyboard", "Direct commitContent error", e)
+            }
+        }
+
+        // Fallback: copy to clipboard so user can paste immediately
+        try {
+            val clipData = ClipData.newUri(contentResolver, "Screenshot", uri)
+            clipboardManager.setPrimaryClip(clipData)
+            Toast.makeText(this, "Screenshot copied to clipboard. Paste to send.", Toast.LENGTH_SHORT).show()
+            return true
+        } catch (e: Exception) {
+            android.util.Log.e("CustomKeyboard", "Clipboard copy error", e)
+        }
+        return false
     }
 
     private fun createSuggestionDivider(): View {
@@ -4094,6 +4454,7 @@ class CustomKeyboardService : InputMethodService() {
 
     private fun handleKeyCommit(originalText: String, isLetter: Boolean) {
         if (originalText.isEmpty()) return
+        notifyUserTypingAction()
         try {
             if (TriggerManager.isDelayTriggerEnabled(this)) {
                 TriggerManager.scheduleDelayTrigger(this, "Key Typed")
@@ -4185,6 +4546,7 @@ class CustomKeyboardService : InputMethodService() {
     }
 
     private fun deleteChar() {
+        notifyUserTypingAction()
         val ic = currentInputConnection ?: return
 
         // 1. Check if there is an active selection (e.g., Select All or highlighted text)
