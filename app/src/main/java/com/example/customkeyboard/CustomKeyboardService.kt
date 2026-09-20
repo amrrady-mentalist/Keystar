@@ -12,9 +12,11 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.InsetDrawable
+import android.graphics.drawable.StateListDrawable
 import android.inputmethodservice.InputMethodService
 import android.os.Build
 import android.os.Bundle
@@ -69,7 +71,7 @@ class CustomKeyboardService : InputMethodService() {
 
     private lateinit var rootOverlayContainer: FrameLayout
     private lateinit var rootContainer: LinearLayout
-    private lateinit var topBarContainer: LinearLayout
+    private lateinit var topBarContainer: ViewGroup
     private var keyPopupManager: KeyPopupPreviewManager? = null
     private lateinit var prefs: SharedPreferences
     private lateinit var clipboardManager: ClipboardManager
@@ -661,51 +663,96 @@ class CustomKeyboardService : InputMethodService() {
 
     // ---------- top bar: suggestions / common emojis / clipboard / settings ----------
 
-    private fun buildTopBar(): LinearLayout {
-        val bar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getTopBarHeightDp()))
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(6), 0, dp(6), dp(2))
-        }
-
+    private fun buildTopBar(): ViewGroup {
         val isArabic = currentLang == Lang.AR
         val typingContext = getActiveTypingContext()
         val contextualSuggestions = if (currentMode == Mode.LETTERS) {
-            Dictionary.getContextualSuggestions(typingContext.currentWord, typingContext.previousWords, isArabic, limit = 3)
+            Dictionary.getContextualSuggestions(typingContext.currentWord, typingContext.previousWords, isArabic, limit = 6)
         } else emptyList()
 
-        when {
+        return when {
             isVoiceListening -> {
-                bar.addView(buildVoiceTypingBar())
+                LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getTopBarHeightDp()))
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(6), 0, dp(6), dp(2))
+                    addView(buildVoiceTypingBar())
+                }
             }
             currentMode == Mode.CLIPBOARD -> {
-                bar.addView(iconButton(R.drawable.ic_arrow_back, "Back") { switchMode(Mode.LETTERS) })
-                bar.addView(TextView(this).apply {
-                    text = "Clipboard History"
-                    setTextColor(textColor())
-                    setTypeface(Typeface.DEFAULT_BOLD)
-                    textSize = 14f
-                    setPadding(dp(8), 0, dp(8), 0)
-                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                })
-                bar.addView(iconButtonText("⌫") { deleteChar() })
+                LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getTopBarHeightDp()))
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(6), 0, dp(6), dp(2))
+                    addView(iconButton(R.drawable.ic_arrow_back, "Back") { switchMode(Mode.LETTERS) })
+                    addView(TextView(this@CustomKeyboardService).apply {
+                        text = "Clipboard History"
+                        setTextColor(textColor())
+                        setTypeface(Typeface.DEFAULT_BOLD)
+                        textSize = 14f
+                        setPadding(dp(8), 0, dp(8), 0)
+                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                    })
+                    addView(iconButtonText("⌫") { deleteChar() })
+                }
             }
             contextualSuggestions.isNotEmpty() -> {
-                bar.addView(buildSuggestionsScroll(contextualSuggestions))
-                bar.addView(iconButton(R.drawable.ic_mic, "Voice Typing") { triggerVoiceInput() })
-                bar.addView(iconButton(R.drawable.ic_clipboard, "Clipboard") { switchMode(Mode.CLIPBOARD) })
-                bar.addView(iconButton(R.drawable.ic_settings, "Settings") {
-                    val intent = android.content.Intent(this, MainActivity::class.java)
-                    intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                    startActivity(intent)
-                })
+                buildSuggestionsTopBar(contextualSuggestions)
             }
             else -> {
-                bar.addView(buildStandardToolbar())
+                LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getTopBarHeightDp()))
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(6), 0, dp(6), dp(2))
+                    addView(buildStandardToolbar())
+                }
             }
         }
-        return bar
+    }
+
+    private fun buildSuggestionsTopBar(items: List<Dictionary.SuggestionItem>): FrameLayout {
+        val root = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getTopBarHeightDp()))
+            setPadding(0, 0, 0, dp(2))
+            clipChildren = true
+            layoutDirection = View.LAYOUT_DIRECTION_LTR
+        }
+
+        // 1. Full-width scrollable suggestions bar (extends behind the right-side icons)
+        val suggestionsView = buildSuggestionsScroll(items)
+        root.addView(suggestionsView)
+
+        // 2. Fixed action icons (Mic, Clipboard, Settings) pinned to the right edge with gradient fade
+        val iconsContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                Gravity.CENTER_VERTICAL or Gravity.RIGHT
+            )
+            val bg = bgColor()
+            background = GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                intArrayOf(Color.TRANSPARENT, bg, bg)
+            )
+            setPadding(dp(22), 0, dp(6), 0)
+        }
+
+        iconsContainer.addView(iconButton(R.drawable.ic_mic, "Voice Typing") { triggerVoiceInput() })
+        iconsContainer.addView(iconButton(R.drawable.ic_clipboard, "Clipboard") { switchMode(Mode.CLIPBOARD) })
+        iconsContainer.addView(iconButton(R.drawable.ic_settings, "Settings") {
+            val intent = android.content.Intent(this, MainActivity::class.java).apply {
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+        })
+
+        root.addView(iconsContainer)
+        return root
     }
 
     private fun buildStandardToolbar(): View {
@@ -1085,20 +1132,28 @@ class CustomKeyboardService : InputMethodService() {
 
     private fun buildSuggestionsScroll(items: List<Dictionary.SuggestionItem>): View {
         val scroll = HorizontalScrollView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
             isHorizontalScrollBarEnabled = false
-            isFillViewport = true
+            isFillViewport = false
             overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+            clipToPadding = false
         }
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             layoutParams = FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
+            // Start margin for the first word, and end padding (135dp) so the last suggestion
+            // can be scrolled fully clear of the mic, clipboard, and settings icons!
+            setPadding(dp(6), 0, dp(135), 0)
+            clipToPadding = false
         }
-        val topWords = items.filter { !it.isEmoji }.take(3)
+        val topWords = items.filter { !it.isEmoji }.take(6)
         topWords.forEachIndexed { index, item ->
             if (index > 0) {
                 container.addView(createSuggestionDivider())
@@ -1177,31 +1232,50 @@ class CustomKeyboardService : InputMethodService() {
         }
     }
 
-    private fun suggestionChip(item: Dictionary.SuggestionItem): TextView {
-        return TextView(this).apply {
+    private fun suggestionChip(item: Dictionary.SuggestionItem): View {
+        val tv = TextView(this).apply {
             text = item.text
             setTextColor(textColor())
             setTypeface(getKeyTypeface())
             textSize = getSuggestionFontSize()
             includeFontPadding = false
+            isSingleLine = true
             maxLines = 1
-            ellipsize = android.text.TextUtils.TruncateAt.END
+            ellipsize = null // Show the full word, never truncate!
             gravity = Gravity.CENTER
-            setPadding(dp(4), 0, dp(4), 0)
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
-            applyKeyTouchBehavior(this, pressHighlightColor(), null, KEY_RADIUS_DP) {
-                val ctx = getActiveTypingContext()
-                Dictionary.recordUsedWord(item.text, ctx.prev1, ctx.prev2)
-                lastCommittedWord = item.text
-                val lengthToDelete = if (ctx.currentWord.isNotEmpty()) ctx.currentWord.length else wordBuffer.length
-                if (lengthToDelete > 0) {
-                    currentInputConnection?.deleteSurroundingText(lengthToDelete, 0)
-                }
-                wordBuffer.clear()
-                currentInputConnection?.commitText("${item.text} ", 1)
-                refreshTopBar()
-            }
+            setPadding(dp(14), 0, dp(14), 0)
+            minimumWidth = dp(48)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
         }
+
+        // Use StateListDrawable for press highlight without blocking HorizontalScrollView scroll gestures
+        val normal = ColorDrawable(Color.TRANSPARENT)
+        val pressed = roundedDrawable(pressHighlightColor(), KEY_RADIUS_DP)
+        val sld = StateListDrawable().apply {
+            addState(intArrayOf(android.R.attr.state_pressed), pressed)
+            addState(intArrayOf(), normal)
+        }
+        tv.background = sld
+        tv.isClickable = true
+        tv.isFocusable = true
+
+        tv.setOnClickListener {
+            tv.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING)
+            val ctx = getActiveTypingContext()
+            Dictionary.recordUsedWord(item.text, ctx.prev1, ctx.prev2)
+            lastCommittedWord = item.text
+            val lengthToDelete = if (ctx.currentWord.isNotEmpty()) ctx.currentWord.length else wordBuffer.length
+            if (lengthToDelete > 0) {
+                currentInputConnection?.deleteSurroundingText(lengthToDelete, 0)
+            }
+            wordBuffer.clear()
+            currentInputConnection?.commitText("${item.text} ", 1)
+            refreshTopBar()
+        }
+        return tv
     }
 
     private fun iconButton(drawableResId: Int, contentDesc: String, onClick: () -> Unit): View {
