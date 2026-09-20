@@ -73,7 +73,9 @@ class CustomKeyboardService : InputMethodService() {
 
     // In-bar voice typing state
     private var isVoiceListening = false
-    private var voicePreviewText = ""
+    private var voiceDisplayText = ""
+    private var voiceIsStatusPrompt = true
+    private var uncommittedVoiceText = ""
     private var speechRecognizer: SpeechRecognizer? = null
     private val voiceHandler = Handler(Looper.getMainLooper())
     private var voiceTimeoutRunnable: Runnable? = null
@@ -1004,10 +1006,14 @@ class CustomKeyboardService : InputMethodService() {
 
         // Live text preview before committing to the typing field
         val previewTextView = TextView(this).apply {
-            text = if (voicePreviewText.isNotEmpty()) voicePreviewText else (if (currentLang == Lang.AR) "جارٍ الاستماع... تكلّم الآن" else "Listening... Speak now")
-            setTextColor(if (voicePreviewText.isNotEmpty()) textColor() else textSecondaryColor())
+            text = if (voiceDisplayText.isNotEmpty()) {
+                voiceDisplayText
+            } else {
+                if (currentLang == Lang.AR) "جارٍ الاستماع... تكلّم الآن" else "Listening... Speak now"
+            }
+            setTextColor(if (!voiceIsStatusPrompt && voiceDisplayText.isNotEmpty()) textColor() else textSecondaryColor())
             textSize = 14f
-            setTypeface(Typeface.DEFAULT, if (voicePreviewText.isNotEmpty()) Typeface.BOLD else Typeface.ITALIC)
+            setTypeface(Typeface.DEFAULT, if (!voiceIsStatusPrompt && voiceDisplayText.isNotEmpty()) Typeface.BOLD else Typeface.ITALIC)
             setPadding(dp(10), 0, dp(10), 0)
             isSingleLine = true
             ellipsize = android.text.TextUtils.TruncateAt.END
@@ -1048,7 +1054,6 @@ class CustomKeyboardService : InputMethodService() {
             }
             addView(sendIcon)
             setOnClickListener {
-                commitVoicePreview()
                 stopVoiceTyping(cancel = false)
             }
         }
@@ -1082,14 +1087,15 @@ class CustomKeyboardService : InputMethodService() {
         if (text.isNotBlank()) {
             val textToInsert = "${text.trim()} "
             currentInputConnection?.commitText(textToInsert, 1)
-            voicePreviewText = text.trim()
+            voiceIsStatusPrompt = false
+            voiceDisplayText = text.trim()
+            uncommittedVoiceText = ""
             refreshTopBar()
         }
     }
 
     private fun triggerVoiceInput() {
         if (isVoiceListening) {
-            commitVoicePreview()
             stopVoiceTyping(cancel = false)
             return
         }
@@ -1136,7 +1142,9 @@ class CustomKeyboardService : InputMethodService() {
         }
 
         isVoiceListening = true
-        voicePreviewText = ""
+        voiceDisplayText = ""
+        voiceIsStatusPrompt = true
+        uncommittedVoiceText = ""
         resetVoiceTimeout()
         refreshTopBar()
         startListeningInternal()
@@ -1174,8 +1182,10 @@ class CustomKeyboardService : InputMethodService() {
                             SpeechRecognizer.ERROR_SPEECH_TIMEOUT,
                             SpeechRecognizer.ERROR_CLIENT,
                             SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> {
-                                // Keep voice bar visible and continuously listen
-                                voicePreviewText = if (currentLang == Lang.AR) "تكلّم الآن..." else "Listening..."
+                                // Keep voice bar visible and continuously listen with status prompt
+                                voiceIsStatusPrompt = true
+                                voiceDisplayText = if (currentLang == Lang.AR) "تكلّم الآن..." else "Listening..."
+                                uncommittedVoiceText = ""
                                 refreshTopBar()
                                 voiceHandler.postDelayed({
                                     if (isVoiceListening) {
@@ -1191,7 +1201,9 @@ class CustomKeyboardService : InputMethodService() {
                                 startActivity(intent)
                             }
                             else -> {
-                                voicePreviewText = if (currentLang == Lang.AR) "اضغط على الميكروفون للتحدث" else "Tap mic to speak"
+                                voiceIsStatusPrompt = true
+                                voiceDisplayText = if (currentLang == Lang.AR) "اضغط على الميكروفون للتحدث" else "Tap mic to speak"
+                                uncommittedVoiceText = ""
                                 refreshTopBar()
                             }
                         }
@@ -1206,7 +1218,9 @@ class CustomKeyboardService : InputMethodService() {
                                 if (ic != null) {
                                     ic.commitText("$recognized ", 1)
                                 }
-                                voicePreviewText = recognized
+                                voiceIsStatusPrompt = false
+                                voiceDisplayText = recognized
+                                uncommittedVoiceText = ""
                                 refreshTopBar()
                             }
                         }
@@ -1220,7 +1234,9 @@ class CustomKeyboardService : InputMethodService() {
                         if (!matches.isNullOrEmpty()) {
                             val partial = matches[0].trim()
                             if (partial.isNotEmpty()) {
-                                voicePreviewText = partial
+                                voiceIsStatusPrompt = false
+                                voiceDisplayText = partial
+                                uncommittedVoiceText = partial
                                 refreshTopBar()
                             }
                         }
@@ -1245,7 +1261,9 @@ class CustomKeyboardService : InputMethodService() {
 
             speechRecognizer?.startListening(recognizerIntent)
         } catch (e: Exception) {
-            voicePreviewText = if (currentLang == Lang.AR) "اضغط على الميكروفون للتحدث" else "Tap mic to speak"
+            voiceIsStatusPrompt = true
+            voiceDisplayText = if (currentLang == Lang.AR) "اضغط على الميكروفون للتحدث" else "Tap mic to speak"
+            uncommittedVoiceText = ""
             refreshTopBar()
         }
     }
@@ -1260,7 +1278,6 @@ class CustomKeyboardService : InputMethodService() {
         val timeoutSeconds = prefs.getInt("voice_typing_timeout_sec", 180)
         val runnable = Runnable {
             if (isVoiceListening) {
-                commitVoicePreview()
                 stopVoiceTyping(cancel = false)
             }
         }
@@ -1269,10 +1286,10 @@ class CustomKeyboardService : InputMethodService() {
     }
 
     private fun commitVoicePreview() {
-        if (voicePreviewText.isNotBlank()) {
-            val textToInsert = "$voicePreviewText "
+        if (!voiceIsStatusPrompt && uncommittedVoiceText.isNotBlank()) {
+            val textToInsert = "${uncommittedVoiceText.trim()} "
             currentInputConnection?.commitText(textToInsert, 1)
-            voicePreviewText = ""
+            uncommittedVoiceText = ""
         }
     }
 
@@ -1289,7 +1306,9 @@ class CustomKeyboardService : InputMethodService() {
         } catch (ignored: Exception) {}
         speechRecognizer = null
         isVoiceListening = false
-        voicePreviewText = ""
+        voiceDisplayText = ""
+        voiceIsStatusPrompt = true
+        uncommittedVoiceText = ""
         refreshTopBar()
     }
 
