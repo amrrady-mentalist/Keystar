@@ -399,4 +399,41 @@ class ModeAndLocalizationTest {
         assertEquals("LETTERS", resolveTargetMode(android.text.InputType.TYPE_CLASS_TEXT))
         assertEquals("LETTERS", resolveTargetMode(android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS))
     }
+
+    @Test
+    fun testSymbolsPagesLayoutMatchesScreenshots() {
+        // Screenshot 1 (Character Page 1):
+        // Row 0: 1 2 3 4 5 6 7 8 9 0
+        assertEquals(
+            listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0"),
+            KeyboardLayoutData.symbolsPage1Row0
+        )
+        // Row 1: @ # $ _ & - + ( ) /
+        assertEquals(
+            listOf("@", "#", "$", "_", "&", "-", "+", "(", ")", "/"),
+            KeyboardLayoutData.symbolsPage1Row1
+        )
+        // Row 2: * " ' : ; ! ?
+        assertEquals(
+            listOf("*", "\"", "'", ":", ";", "!", "?"),
+            KeyboardLayoutData.symbolsPage1Row2
+        )
+
+        // Screenshot 2 (Character Page 2):
+        // Row 0: ~ ` | • √ π ÷ × § Δ
+        assertEquals(
+            listOf("~", "`", "|", "•", "√", "π", "÷", "×", "§", "Δ"),
+            KeyboardLayoutData.symbolsPage2Row0
+        )
+        // Row 1: £ ¢ € ¥ ^ ° = { } \
+        assertEquals(
+            listOf("£", "¢", "€", "¥", "^", "°", "=", "{", "}", "\\"),
+            KeyboardLayoutData.symbolsPage2Row1
+        )
+        // Row 2: % © ® ™ ✓ [ ]
+        assertEquals(
+            listOf("%", "©", "®", "™", "✓", "[", "]"),
+            KeyboardLayoutData.symbolsPage2Row2
+        )
+    }
 }

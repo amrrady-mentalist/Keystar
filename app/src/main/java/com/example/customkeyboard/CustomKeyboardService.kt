@@ -63,7 +63,7 @@ class CustomKeyboardService : InputMethodService() {
 
     private var currentLang = Lang.EN
     private var currentMode = Mode.LETTERS
-    private var lastAltMode = Mode.NUMBERS
+    private var lastAltMode = Mode.SYMBOLS
     private var shiftOn = false
     private var capsLock = false
     private var lastShiftTapTime = 0L
@@ -409,12 +409,12 @@ class CustomKeyboardService : InputMethodService() {
         activeInstance = this
         prefs = getSharedPreferences("keyboard_prefs", Context.MODE_PRIVATE)
         prefs.registerOnSharedPreferenceChangeListener(prefChangeListener)
-        val savedAltMode = prefs.getString("last_alt_mode", Mode.NUMBERS.name)
+        val savedAltMode = prefs.getString("last_alt_mode", Mode.SYMBOLS.name)
         lastAltMode = try {
-            val m = Mode.valueOf(savedAltMode ?: Mode.NUMBERS.name)
-            if (m == Mode.NUMBERS || m == Mode.SYMBOLS) m else Mode.NUMBERS
+            val m = Mode.valueOf(savedAltMode ?: Mode.SYMBOLS.name)
+            if (m == Mode.NUMBERS || m == Mode.SYMBOLS) m else Mode.SYMBOLS
         } catch (e: Exception) {
-            Mode.NUMBERS
+            Mode.SYMBOLS
         }
         clipboardManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipHistory = ClipboardHistory(this)
@@ -748,12 +748,10 @@ class CustomKeyboardService : InputMethodService() {
                 rootContainer.addView(buildNumbersView())
             }
             Mode.SYMBOLS -> {
-                val pageRows = if (symbolsPage == 1) KeyboardLayoutData.symbolsPage1Rows else KeyboardLayoutData.symbolsPage2Rows
-                rootContainer.addView(buildRow(KeyboardLayoutData.numberRow))
-                rootContainer.addView(buildSymbolsRow(pageRows[0]))
-                rootContainer.addView(buildSymbolsRow(pageRows[1], prependToggle = true))
-                // Delete stays reachable from the symbols screen too, not just letters.
-                rootContainer.addView(buildSymbolsBottomRow(KeyboardLayoutData.symbolsSharedRow))
+                rootContainer.addView(buildSymbolsRow0())
+                rootContainer.addView(buildSymbolsRow1())
+                rootContainer.addView(buildSymbolsRow2())
+                rootContainer.addView(buildSymbolsBottomRow())
             }
             Mode.LETTERS -> {
                 if (currentLang == Lang.AR) {
@@ -770,7 +768,7 @@ class CustomKeyboardService : InputMethodService() {
             }
         }
 
-        if (currentMode != Mode.CLIPBOARD && currentMode != Mode.NUMBERS) {
+        if (currentMode != Mode.CLIPBOARD && currentMode != Mode.NUMBERS && currentMode != Mode.SYMBOLS) {
             rootContainer.addView(buildBottomRow())
         }
     }
@@ -3011,32 +3009,153 @@ class CustomKeyboardService : InputMethodService() {
         return row
     }
 
-    private fun buildSymbolsRow(keys: List<String>, prependToggle: Boolean = false): LinearLayout {
+    private fun getSymbolsRowHeightDp(): Int {
+        return (getRowHeightDp() * 5) / 4
+    }
+
+    private fun makeNumpadToggleKey(weight: Float = 1f): View {
+        val resting = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
+        val numpadFontSize = when (prefs.getString("key_font_size", "normal")) {
+            "small" -> 9.5f
+            "large" -> 12f
+            "extra_large" -> 13.5f
+            else -> 10.5f
+        }
+        return TextView(this).apply {
+            text = "1 2\n3 4"
+            gravity = Gravity.CENTER
+            setTextColor(textColor())
+            setTypeface(getKeyTypeface())
+            textSize = numpadFontSize
+            includeFontPadding = false
+            setLineSpacing(0f, 0.82f)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
+            background = resting
+            applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP) {
+                switchMode(Mode.NUMBERS)
+            }
+        }
+    }
+
+    private fun makePunctuationSpecialKey(
+        label: String,
+        weight: Float = 1f,
+        fontSize: Float = getSymbolFontSize(),
+        onClick: () -> Unit
+    ): TextView {
+        val resting = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
+        return TextView(this).apply {
+            text = label
+            gravity = Gravity.CENTER
+            setTextColor(textColor())
+            setTypeface(getKeyTypeface())
+            textSize = fontSize
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
+            background = resting
+            applyKeyTouchBehavior(this, pressHighlightColor(), resting, KEY_RADIUS_DP) { onClick() }
+        }
+    }
+
+    private fun buildSymbolsRow0(): LinearLayout {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getSymbolsRowHeightDp()))
+            clipChildren = false
+            clipToPadding = false
         }
-        if (prependToggle) {
-            val label = if (symbolsPage == 1) "1/2" else "2/2"
-            row.addView(makeSpecialKey(label, weight = 1.3f) { toggleSymbolsPage() })
-        }
+        val keys = if (symbolsPage == 1) KeyboardLayoutData.symbolsPage1Row0 else KeyboardLayoutData.symbolsPage2Row0
         keys.forEach { rawKey ->
-            val k = if (rawKey == "?" && currentLang == Lang.AR) "؟" else rawKey
-            row.addView(makeKey(k, weight = 1f, fontSize = getSymbolFontSize()) { commitSymbol(k) })
+            row.addView(makeKey(rawKey, weight = 1f, fontSize = getSymbolFontSize()) {
+                if (symbolsPage == 1) commitLetter(rawKey) else commitSymbol(rawKey)
+            })
         }
         return row
     }
 
-    private fun buildSymbolsBottomRow(keys: List<String>): LinearLayout {
+    private fun buildSymbolsRow1(): LinearLayout {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getSymbolsRowHeightDp()))
+            clipChildren = false
+            clipToPadding = false
         }
+        val keys = if (symbolsPage == 1) KeyboardLayoutData.symbolsPage1Row1 else KeyboardLayoutData.symbolsPage2Row1
+        keys.forEach { rawKey ->
+            row.addView(makeKey(rawKey, weight = 1f, fontSize = getSymbolFontSize()) {
+                commitSymbol(rawKey)
+            })
+        }
+        return row
+    }
+
+    private fun buildSymbolsRow2(): LinearLayout {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getSymbolsRowHeightDp()))
+            clipChildren = false
+            clipToPadding = false
+        }
+        val toggleLabel = if (symbolsPage == 1) "=\\<" else (if (currentLang == Lang.AR) "؟123" else "?123")
+        row.addView(makeSpecialKey(toggleLabel, weight = 1.5f) {
+            toggleSymbolsPage()
+        })
+
+        val keys = if (symbolsPage == 1) KeyboardLayoutData.symbolsPage1Row2 else KeyboardLayoutData.symbolsPage2Row2
         keys.forEach { rawKey ->
             val k = if (rawKey == "?" && currentLang == Lang.AR) "؟" else rawKey
-            row.addView(makeKey(k, weight = 1f, fontSize = getSymbolFontSize()) { commitSymbol(k) })
+            row.addView(makeKey(k, weight = 1f, fontSize = getSymbolFontSize()) {
+                commitSymbol(k)
+            })
         }
+
         row.addView(makeBackspaceKey(weight = 1.5f))
+        return row
+    }
+
+    private fun buildSymbolsBottomRow(): LinearLayout {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getSymbolsRowHeightDp()))
+            clipChildren = false
+            clipToPadding = false
+        }
+        // 1. ABC Key
+        row.addView(make123Key("ABC", weight = 1.4f) {
+            switchMode(Mode.LETTERS)
+        })
+
+        // 2. Comma on Page 1, Less-than "<" on Page 2
+        if (symbolsPage == 1) {
+            val commaSymbol = if (currentLang == Lang.AR) "،" else ","
+            row.addView(makePunctuationSpecialKey(commaSymbol, weight = 1f) {
+                commitPunctuationOrSpace(commaSymbol)
+            })
+        } else {
+            row.addView(makePunctuationSpecialKey("<", weight = 1f) {
+                commitSymbol("<")
+            })
+        }
+
+        // 3. 1 2 / 3 4 Numpad Key
+        row.addView(makeNumpadToggleKey(weight = 1f))
+
+        // 4. Space bar
+        val spaceLabel = if (currentLang == Lang.EN) "English" else "العربية"
+        row.addView(makeSpaceKey(spaceLabel, weight = 4.2f))
+
+        // 5. Period "." on Page 1, Greater-than ">" on Page 2
+        if (symbolsPage == 1) {
+            row.addView(makePunctuationSpecialKey(".", weight = 1f) {
+                commitPunctuationOrSpace(".")
+            })
+        } else {
+            row.addView(makePunctuationSpecialKey(">", weight = 1f) {
+                commitSymbol(">")
+            })
+        }
+
+        // 6. Enter / Search Key
+        row.addView(makeEnterKey(weight = 1.4f))
         return row
     }
 
@@ -3149,7 +3268,7 @@ class CustomKeyboardService : InputMethodService() {
         }
 
         if (currentLang == Lang.AR && currentMode == Mode.LETTERS) {
-            row.addView(make123Key("؟٣٢١", weight = 1.5f) { switchMode(lastAltMode) })
+            row.addView(make123Key("؟٣٢١", weight = 1.5f) { switchMode(Mode.SYMBOLS) })
             row.addView(makeArabicCommaEmojiKey(weight = 1f))
             row.addView(makeGlobeKey(weight = 1f) { switchLanguage() })
             row.addView(makeSpaceKey("العربية", weight = 5f))
@@ -3159,17 +3278,12 @@ class CustomKeyboardService : InputMethodService() {
         }
 
         when (currentMode) {
-            Mode.SYMBOLS -> {
-                row.addView(make123Key("ABC", weight = 1.4f) { switchMode(Mode.LETTERS) })
-                val numLabel = if (currentLang == Lang.AR) "١٢٣" else "123"
-                row.addView(makeSpecialKey(numLabel, weight = 1.1f) { switchMode(Mode.NUMBERS) })
-            }
             Mode.EMOJI -> {
                 row.addView(make123Key("ABC", weight = 1.5f) { switchMode(Mode.LETTERS) })
             }
             else -> {
                 val altLabel = if (currentLang == Lang.AR) "؟123" else "?123"
-                row.addView(make123Key(altLabel, weight = 1.5f) { switchMode(lastAltMode) })
+                row.addView(make123Key(altLabel, weight = 1.5f) { switchMode(Mode.SYMBOLS) })
                 row.addView(makeCommaEmojiKey(weight = 1f))
             }
         }

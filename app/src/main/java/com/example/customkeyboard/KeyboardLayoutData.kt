@@ -133,21 +133,27 @@ object KeyboardLayoutData {
         "/" to listOf("/", "\\")
     )
 
-    // Page 1 of punctuation/symbols (the default "?123" screen).
+    // Page 1 of punctuation/symbols (matching Screenshot 1: 10 keys row 0, 10 keys row 1, 7 keys row 2).
+    val symbolsPage1Row0 = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0")
+    val symbolsPage1Row1 = listOf("@", "#", "$", "_", "&", "-", "+", "(", ")", "/")
+    val symbolsPage1Row2 = listOf("*", "\"", "'", ":", ";", "!", "?")
+
+    // Page 2 of punctuation/symbols (matching Screenshot 2: 10 keys row 0, 10 keys row 1, 7 keys row 2).
+    val symbolsPage2Row0 = listOf("~", "`", "|", "•", "√", "π", "÷", "×", "§", "Δ")
+    val symbolsPage2Row1 = listOf("£", "¢", "€", "¥", "^", "°", "=", "{", "}", "\\")
+    val symbolsPage2Row2 = listOf("%", "©", "®", "™", "✓", "[", "]")
+
     val symbolsPage1Rows = listOf(
-        listOf("@", "#", "$", "_", "&", "-", "+", "(", ")", "/"),
-        listOf("*", "\"", "'", ":", ";", "!", "×", "%")
+        symbolsPage1Row0,
+        symbolsPage1Row1,
+        symbolsPage1Row2
     )
 
-    // Page 2 of punctuation/symbols, reached via the "1/2" <-> "2/2" toggle key,
-    // matching Gboard's two-page symbol layout.
     val symbolsPage2Rows = listOf(
-        listOf("€", "£", "¥", "¢", "^", "°", "=", "{", "}"),
-        listOf("\\", "©", "®", "™", "✓", "[", "]", "<", ">")
+        symbolsPage2Row0,
+        symbolsPage2Row1,
+        symbolsPage2Row2
     )
-
-    // Shared bottom symbol row, shown on both pages (same as Gboard keeps a stable last row).
-    val symbolsSharedRow = listOf("~", "`", "|", "•", "√", "π", "÷", "?")
 
     val emojiCategoryIcons = listOf(
         "😀" to "Smileys",
