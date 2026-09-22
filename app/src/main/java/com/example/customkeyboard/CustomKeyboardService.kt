@@ -386,6 +386,11 @@ class CustomKeyboardService : InputMethodService() {
 
     companion object {
         var activeInstance: CustomKeyboardService? = null
+
+        fun formatCopiedTextPreview(text: String): String {
+            val clean = text.replace(Regex("\\s+"), " ").trim()
+            return clean.take(4) + "..."
+        }
     }
 
     fun refreshKeyboardSettings() {
@@ -1424,17 +1429,12 @@ class CustomKeyboardService : InputMethodService() {
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(10), dp(4), dp(10), dp(4))
+            setPadding(dp(8), 0, dp(8), 0)
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
-            ).apply {
-                topMargin = dp(4)
-                bottomMargin = dp(4)
-                marginStart = dp(4)
-                marginEnd = dp(4)
-            }
-            val normalBg = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
+            )
+            val normalBg = ColorDrawable(Color.TRANSPARENT)
             val pressedBg = roundedDrawable(pressHighlightColor(), KEY_RADIUS_DP)
             val sld = StateListDrawable().apply {
                 addState(intArrayOf(android.R.attr.state_pressed), pressedBg)
@@ -1448,15 +1448,14 @@ class CustomKeyboardService : InputMethodService() {
         val icon = ImageView(this).apply {
             setImageResource(R.drawable.ic_clipboard)
             setColorFilter(textColor())
-            val iconSize = dp(15)
+            val iconSize = dp(16)
             layoutParams = LinearLayout.LayoutParams(iconSize, iconSize).apply {
                 marginEnd = dp(6)
             }
         }
         container.addView(icon)
 
-        val cleanText = text.replace(Regex("\\s+"), " ").trim()
-        val display = if (cleanText.length > 32) cleanText.take(30) + "…" else cleanText
+        val display = formatCopiedTextPreview(text)
         val tv = TextView(this).apply {
             this.text = display
             setTextColor(textColor())
@@ -1485,17 +1484,12 @@ class CustomKeyboardService : InputMethodService() {
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(8), dp(3), dp(10), dp(3))
+            setPadding(dp(8), 0, dp(8), 0)
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
-            ).apply {
-                topMargin = dp(4)
-                bottomMargin = dp(4)
-                marginStart = dp(4)
-                marginEnd = dp(4)
-            }
-            val normalBg = keyBackground(specialKeyColor(), KEY_RADIUS_DP)
+            )
+            val normalBg = ColorDrawable(Color.TRANSPARENT)
             val pressedBg = roundedDrawable(pressHighlightColor(), KEY_RADIUS_DP)
             val sld = StateListDrawable().apply {
                 addState(intArrayOf(android.R.attr.state_pressed), pressedBg)
@@ -1514,9 +1508,10 @@ class CustomKeyboardService : InputMethodService() {
                     val iv = ImageView(this).apply {
                         setImageBitmap(thumb)
                         scaleType = ImageView.ScaleType.CENTER_CROP
-                        layoutParams = LinearLayout.LayoutParams(dp(24), dp(24)).apply {
+                        layoutParams = LinearLayout.LayoutParams(dp(22), dp(22)).apply {
                             marginEnd = dp(6)
                         }
+                        background = roundedDrawable(Color.TRANSPARENT, dp(4))
                         clipToOutline = true
                     }
                     container.addView(iv)
@@ -1539,10 +1534,10 @@ class CustomKeyboardService : InputMethodService() {
         }
 
         val tv = TextView(this).apply {
-            this.text = "Send Screenshot"
+            this.text = if (currentLang == Lang.AR) "لقطة شاشة" else "Screenshot"
             setTextColor(textColor())
-            setTypeface(getKeyTypeface(), Typeface.BOLD)
-            textSize = 12.5f
+            setTypeface(getKeyTypeface())
+            textSize = 13f
             isSingleLine = true
             includeFontPadding = false
             gravity = Gravity.CENTER_VERTICAL

@@ -7,17 +7,11 @@ class SuggestionBarMediaTest {
 
     @Test
     fun testCopiedTextPreviewFormatting() {
-        fun formatPreview(text: String): String {
-            val clean = text.replace(Regex("\\s+"), " ").trim()
-            return if (clean.length > 32) clean.take(30) + "…" else clean
-        }
-
-        assertEquals("Hello world", formatPreview("  Hello   world  \n"))
-        val longText = "This is an extraordinarily long text copied from another app that exceeds thirty-two characters"
-        val formatted = formatPreview(longText)
-        assertTrue(formatted.endsWith("…"))
-        assertEquals(31, formatted.length) // 30 chars + 1 ellipsis
-        assertEquals("This is an extraordinarily lon…", formatted)
+        assertEquals("Albe...", CustomKeyboardService.formatCopiedTextPreview("Albert Einstein"))
+        assertEquals("Hell...", CustomKeyboardService.formatCopiedTextPreview("  Hello   world  \n"))
+        assertEquals("This...", CustomKeyboardService.formatCopiedTextPreview("This is an extraordinarily long text"))
+        assertEquals("saba...", CustomKeyboardService.formatCopiedTextPreview("saba7"))
+        assertEquals("Hi...", CustomKeyboardService.formatCopiedTextPreview("Hi"))
     }
 
     @Test
