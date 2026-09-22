@@ -32,6 +32,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.text.InputType
+import android.text.TextPaint
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
@@ -118,6 +119,8 @@ class CustomKeyboardService : InputMethodService() {
     private val ICON_GLYPH_DP = 30
     private val KEY_INSET_V_DP = 4
     private val baselineArabicLetters = setOf("ط", "ك", "ف", "ث", "ا", "ة", "ظ", "د", "ب", "ت", "ذ", "ه", "ء")
+    // Wide/descender Arabic letters whose sweeping tails, deep bowls, or bottom dots require optical proportional sizing
+    private val wideArabicLetters = setOf("ص", "ض", "س", "ش", "ي", "ى", "ئ")
 
     private fun getKeyInsetHDp(): Int {
         return when (prefs.getString("button_width", "wide")) {
@@ -144,15 +147,62 @@ class CustomKeyboardService : InputMethodService() {
         }
     }
 
-    private fun getLetterFontSize(): Float {
+    private fun getLetterFontSize(label: String? = null, isArabic: Boolean = (currentLang == Lang.AR)): Float {
         val isSystemFont = prefs.getString("font_style", "bold") == "system"
+        val isWide = isArabic && label != null && label in wideArabicLetters
         val baseSize = when (prefs.getString("key_font_size", "normal")) {
-            "small" -> 19f
-            "large" -> 26.5f
-            "extra_large" -> 30.5f
-            else -> 23f
+            "small" -> if (isWide) 18.5f else 19f
+            "large" -> if (isWide) 24.5f else 26.5f
+            "extra_large" -> if (isWide) 25.5f else 30.5f
+            else -> if (isWide) 22f else 23f
         }
-        return if (isSystemFont) baseSize + 1f else baseSize
+        return if (isSystemFont) baseSize + (if (isWide) 0.5f else 1f) else baseSize
+    }
+
+    /**
+     * Dynamically verifies that a key's letter fits completely inside the key's printable area
+     * across any screen width, font scale, or key-inset setting without clipping any glyph strokes.
+     */
+    private fun computeEffectiveKeyFontSize(
+        label: String,
+        baseFontSize: Float,
+        isArabic: Boolean,
+        weight: Float
+    ): Float {
+        if (!isArabic || label.isEmpty()) return baseFontSize
+        return try {
+            val testPaint = TextPaint().apply {
+                typeface = getKeyTypeface()
+                textSize = TypedValue.applyDimension(
+                    TypedValue.COMPLEX_UNIT_SP,
+                    baseFontSize,
+                    resources.displayMetrics
+                )
+            }
+            val textWidth = testPaint.measureText(label)
+            val metrics = testPaint.fontMetrics
+            val textHeight = metrics.descent - metrics.ascent
+
+            val screenWidthPx = resources.displayMetrics.widthPixels
+            // In standard Arabic phone layouts, letter rows contain 11 keys across
+            val estKeyWidthPx = (screenWidthPx / 11f) * weight
+            val hInset = dp(getKeyInsetHDp())
+            // Safe horizontal printable width inside the key background with padding
+            val safeWidthPx = estKeyWidthPx - (hInset * 2 + dpF(3.5f))
+            // Safe vertical printable height inside the key
+            val safeHeightPx = dp(getRowHeightDp()) - dp(7)
+
+            var scale = 1f
+            if (textWidth > 0f && textWidth > safeWidthPx) {
+                scale = minOf(scale, safeWidthPx / textWidth)
+            }
+            if (textHeight > 0f && textHeight > safeHeightPx) {
+                scale = minOf(scale, safeHeightPx / textHeight)
+            }
+            baseFontSize * scale
+        } catch (e: Exception) {
+            baseFontSize
+        }
     }
 
     private fun getSuggestionFontSize(): Float {
@@ -2896,9 +2946,11 @@ class CustomKeyboardService : InputMethodService() {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
+            clipChildren = false
+            clipToPadding = false
         }
         KeyboardLayoutData.arabicNumberRow.forEach { num ->
-            row.addView(makeKey(num, weight = 1f, fontSize = getLetterFontSize()) {
+            row.addView(makeKey(num, weight = 1f, fontSize = getLetterFontSize(label = num)) {
                 commitSymbol(num)
             })
         }
@@ -2909,6 +2961,8 @@ class CustomKeyboardService : InputMethodService() {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
+            clipChildren = false
+            clipToPadding = false
         }
         val keys = KeyboardLayoutData.arabicRows[rowIndex]
         val hints = KeyboardLayoutData.arabicHints[rowIndex]
@@ -2918,7 +2972,7 @@ class CustomKeyboardService : InputMethodService() {
                 makeKey(
                     label = letter,
                     weight = 1f,
-                    fontSize = getLetterFontSize(),
+                    fontSize = getLetterFontSize(label = letter),
                     hint = hint,
                     onLongClick = hint?.let { h -> { commitSymbol(h) } }
                 ) {
@@ -2933,6 +2987,8 @@ class CustomKeyboardService : InputMethodService() {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(getRowHeightDp()))
+            clipChildren = false
+            clipToPadding = false
         }
         val keys = KeyboardLayoutData.arabicRows[2]
         val hints = KeyboardLayoutData.arabicHints[2]
@@ -2942,7 +2998,7 @@ class CustomKeyboardService : InputMethodService() {
                 makeKey(
                     label = letter,
                     weight = 1f,
-                    fontSize = getLetterFontSize(),
+                    fontSize = getLetterFontSize(label = letter),
                     hint = hint,
                     onLongClick = hint?.let { h -> { commitSymbol(h) } }
                 ) {
@@ -3439,21 +3495,29 @@ class CustomKeyboardService : InputMethodService() {
             else -> label
         }
 
+        val isArabic = currentLang == Lang.AR
+        val effectiveFontSize = computeEffectiveKeyFontSize(label, fontSize, isArabic, weight)
+
         if (hint == null) {
-            val isArabic = currentLang == Lang.AR
             return TextView(this).apply {
                 text = label
                 gravity = Gravity.CENTER
                 setTextColor(textColor())
                 setTypeface(getKeyTypeface())
-                textSize = fontSize
-                includeFontPadding = if (isArabic) true else false
+                textSize = effectiveFontSize
+                includeFontPadding = if (isArabic && label !in wideArabicLetters) true else false
                 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
                 background = resting
                 if (isArabic) {
                     val isBaseline = label in baselineArabicLetters
                     val raiseDp = if (isBaseline) {
                         if (prefs.getString("key_font_size", "normal") == "extra_large") 0.5f else 0f
+                    } else if (label in wideArabicLetters) {
+                        when (prefs.getString("key_font_size", "normal")) {
+                            "extra_large" -> 1.5f
+                            "large" -> 1.2f
+                            else -> 0.8f
+                        }
                     } else {
                         when (prefs.getString("key_font_size", "normal")) {
                             "extra_large" -> 2.5f
@@ -3486,14 +3550,13 @@ class CustomKeyboardService : InputMethodService() {
             layoutDirection = View.LAYOUT_DIRECTION_LTR
         }
 
-        val isArabic = currentLang == Lang.AR
         val tvMain = TextView(this).apply {
             text = label
             gravity = Gravity.CENTER
             setTextColor(textColor())
             setTypeface(getKeyTypeface())
-            textSize = fontSize
-            includeFontPadding = if (isArabic) true else false
+            textSize = effectiveFontSize
+            includeFontPadding = if (isArabic && label !in wideArabicLetters) true else false
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
@@ -3503,6 +3566,12 @@ class CustomKeyboardService : InputMethodService() {
             val raiseDp = if (isArabic) {
                 if (label in baselineArabicLetters) {
                     if (prefs.getString("key_font_size", "normal") == "extra_large") 0.5f else 0f
+                } else if (label in wideArabicLetters) {
+                    when (prefs.getString("key_font_size", "normal")) {
+                        "extra_large" -> 1.5f
+                        "large" -> 1.2f
+                        else -> 0.8f
+                    }
                 } else {
                     when (prefs.getString("key_font_size", "normal")) {
                         "extra_large" -> 2.5f
