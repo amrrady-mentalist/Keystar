@@ -15,7 +15,7 @@ import kotlin.math.min
 /**
  * Intelligent bilingual suggestion & correction engine:
  * Priority 1: Full word completion while writing (e.g., "foo" -> "food", "football", "foot", "footage")
- * Priority 2: Next-word prediction after space (e.g., "foot " -> "and", "it", "prints", "ball", "🦶", "👣")
+ * Priority 2: Next-word prediction after space (e.g., "foot " -> "and", "it", "prints", "ball", "ðŸ¦¶", "ðŸ‘£")
  * Priority 3: Typo detection & spell-correction with auto-replace (e.g., "fot" -> "foot", "for", "fit")
  * Priority 4: Contraction & punctuation formatting (e.g., "lets" -> "let's", "dont" -> "don't", "cant" -> "can't")
  * Plus: Morphological expansion (past/present/future/plurals) and offline contextual emojis.
@@ -335,31 +335,31 @@ object Dictionary {
 
     // Arabic morphological derivations
     private val arabicMorphologyMap = mapOf(
-        "كتب" to listOf("يكتب", "كاتب", "مكتوب", "كتابة", "كتاب", "كتبت", "سيكتب"),
-        "لعب" to listOf("يلعب", "لاعب", "لعبة", "لعبت", "سيلعب", "ألعاب"),
-        "عمل" to listOf("يعمل", "عامل", "معمول", "عملت", "سيعمل", "أعمال"),
-        "حزن" to listOf("يحزن", "حزين", "حزينة", "حزنت", "أحزان"),
-        "فرح" to listOf("يفرح", "فرحان", "فرحانة", "فرحت", "أفراح"),
-        "حب" to listOf("يحب", "حبيب", "حبيبي", "حبيبتي", "حبيت", "محبة"),
-        "شكر" to listOf("يشكر", "شكرا", "شاكر", "مشكور", "شكرت"),
-        "سحر" to listOf("يسحر", "ساحر", "مسحور", "سحرية", "سحري"),
-        "تست" to listOf("تستنج", "تستات", "تسترت"),
-        "طلب" to listOf("يطلب", "طالب", "مطلوب", "طلبت", "طلبات"),
-        "درس" to listOf("يدرس", "دارس", "مدروس", "دراسة", "درست"),
-        "شرب" to listOf("يشرب", "شارب", "مشروب", "شربت", "مشروبات"),
-        "أكل" to listOf("يأكل", "آكل", "مأكول", "أكلت", "مأكولات"),
-        "نوم" to listOf("ينام", "نائم", "نمت", "منام"),
-        "مشى" to listOf("يمشي", "ماشي", "مشيت", "مشوار"),
-        "جرى" to listOf("يجري", "جاري", "جريت"),
-        "سأل" to listOf("يسأل", "سائل", "مسؤول", "سألت", "أسئلة"),
-        "علم" to listOf("يعلم", "عالم", "معلوم", "علمت", "علوم"),
-        "قال" to listOf("يقول", "قائل", "قلت", "سأقول"),
-        "راح" to listOf("يروح", "رايح", "روحت"),
-        "شاف" to listOf("يشوف", "شايف", "شوفت"),
-        "عرف" to listOf("يعرف", "عارف", "عرفت"),
-        "فهم" to listOf("يفهم", "فاهم", "فهمت"),
-        "سمع" to listOf("يسمع", "سامع", "سمعت"),
-        "فتح" to listOf("يفتح", "فاتح", "مفتوح", "فتحت")
+        "ÙƒØªØ¨" to listOf("ÙŠÙƒØªØ¨", "ÙƒØ§ØªØ¨", "Ù…ÙƒØªÙˆØ¨", "ÙƒØªØ§Ø¨Ø©", "ÙƒØªØ§Ø¨", "ÙƒØªØ¨Øª", "Ø³ÙŠÙƒØªØ¨"),
+        "Ù„Ø¹Ø¨" to listOf("ÙŠÙ„Ø¹Ø¨", "Ù„Ø§Ø¹Ø¨", "Ù„Ø¹Ø¨Ø©", "Ù„Ø¹Ø¨Øª", "Ø³ÙŠÙ„Ø¹Ø¨", "Ø£Ù„Ø¹Ø§Ø¨"),
+        "Ø¹Ù…Ù„" to listOf("ÙŠØ¹Ù…Ù„", "Ø¹Ø§Ù…Ù„", "Ù…Ø¹Ù…ÙˆÙ„", "Ø¹Ù…Ù„Øª", "Ø³ÙŠØ¹Ù…Ù„", "Ø£Ø¹Ù…Ø§Ù„"),
+        "Ø­Ø²Ù†" to listOf("ÙŠØ­Ø²Ù†", "Ø­Ø²ÙŠÙ†", "Ø­Ø²ÙŠÙ†Ø©", "Ø­Ø²Ù†Øª", "Ø£Ø­Ø²Ø§Ù†"),
+        "ÙØ±Ø­" to listOf("ÙŠÙØ±Ø­", "ÙØ±Ø­Ø§Ù†", "ÙØ±Ø­Ø§Ù†Ø©", "ÙØ±Ø­Øª", "Ø£ÙØ±Ø§Ø­"),
+        "Ø­Ø¨" to listOf("ÙŠØ­Ø¨", "Ø­Ø¨ÙŠØ¨", "Ø­Ø¨ÙŠØ¨ÙŠ", "Ø­Ø¨ÙŠØ¨ØªÙŠ", "Ø­Ø¨ÙŠØª", "Ù…Ø­Ø¨Ø©"),
+        "Ø´ÙƒØ±" to listOf("ÙŠØ´ÙƒØ±", "Ø´ÙƒØ±Ø§", "Ø´Ø§ÙƒØ±", "Ù…Ø´ÙƒÙˆØ±", "Ø´ÙƒØ±Øª"),
+        "Ø³Ø­Ø±" to listOf("ÙŠØ³Ø­Ø±", "Ø³Ø§Ø­Ø±", "Ù…Ø³Ø­ÙˆØ±", "Ø³Ø­Ø±ÙŠØ©", "Ø³Ø­Ø±ÙŠ"),
+        "ØªØ³Øª" to listOf("ØªØ³ØªÙ†Ø¬", "ØªØ³ØªØ§Øª", "ØªØ³ØªØ±Øª"),
+        "Ø·Ù„Ø¨" to listOf("ÙŠØ·Ù„Ø¨", "Ø·Ø§Ù„Ø¨", "Ù…Ø·Ù„ÙˆØ¨", "Ø·Ù„Ø¨Øª", "Ø·Ù„Ø¨Ø§Øª"),
+        "Ø¯Ø±Ø³" to listOf("ÙŠØ¯Ø±Ø³", "Ø¯Ø§Ø±Ø³", "Ù…Ø¯Ø±ÙˆØ³", "Ø¯Ø±Ø§Ø³Ø©", "Ø¯Ø±Ø³Øª"),
+        "Ø´Ø±Ø¨" to listOf("ÙŠØ´Ø±Ø¨", "Ø´Ø§Ø±Ø¨", "Ù…Ø´Ø±ÙˆØ¨", "Ø´Ø±Ø¨Øª", "Ù…Ø´Ø±ÙˆØ¨Ø§Øª"),
+        "Ø£ÙƒÙ„" to listOf("ÙŠØ£ÙƒÙ„", "Ø¢ÙƒÙ„", "Ù…Ø£ÙƒÙˆÙ„", "Ø£ÙƒÙ„Øª", "Ù…Ø£ÙƒÙˆÙ„Ø§Øª"),
+        "Ù†ÙˆÙ…" to listOf("ÙŠÙ†Ø§Ù…", "Ù†Ø§Ø¦Ù…", "Ù†Ù…Øª", "Ù…Ù†Ø§Ù…"),
+        "Ù…Ø´Ù‰" to listOf("ÙŠÙ…Ø´ÙŠ", "Ù…Ø§Ø´ÙŠ", "Ù…Ø´ÙŠØª", "Ù…Ø´ÙˆØ§Ø±"),
+        "Ø¬Ø±Ù‰" to listOf("ÙŠØ¬Ø±ÙŠ", "Ø¬Ø§Ø±ÙŠ", "Ø¬Ø±ÙŠØª"),
+        "Ø³Ø£Ù„" to listOf("ÙŠØ³Ø£Ù„", "Ø³Ø§Ø¦Ù„", "Ù…Ø³Ø¤ÙˆÙ„", "Ø³Ø£Ù„Øª", "Ø£Ø³Ø¦Ù„Ø©"),
+        "Ø¹Ù„Ù…" to listOf("ÙŠØ¹Ù„Ù…", "Ø¹Ø§Ù„Ù…", "Ù…Ø¹Ù„ÙˆÙ…", "Ø¹Ù„Ù…Øª", "Ø¹Ù„ÙˆÙ…"),
+        "Ù‚Ø§Ù„" to listOf("ÙŠÙ‚ÙˆÙ„", "Ù‚Ø§Ø¦Ù„", "Ù‚Ù„Øª", "Ø³Ø£Ù‚ÙˆÙ„"),
+        "Ø±Ø§Ø­" to listOf("ÙŠØ±ÙˆØ­", "Ø±Ø§ÙŠØ­", "Ø±ÙˆØ­Øª"),
+        "Ø´Ø§Ù" to listOf("ÙŠØ´ÙˆÙ", "Ø´Ø§ÙŠÙ", "Ø´ÙˆÙØª"),
+        "Ø¹Ø±Ù" to listOf("ÙŠØ¹Ø±Ù", "Ø¹Ø§Ø±Ù", "Ø¹Ø±ÙØª"),
+        "ÙÙ‡Ù…" to listOf("ÙŠÙÙ‡Ù…", "ÙØ§Ù‡Ù…", "ÙÙ‡Ù…Øª"),
+        "Ø³Ù…Ø¹" to listOf("ÙŠØ³Ù…Ø¹", "Ø³Ø§Ù…Ø¹", "Ø³Ù…Ø¹Øª"),
+        "ÙØªØ­" to listOf("ÙŠÙØªØ­", "ÙØ§ØªØ­", "Ù…ÙØªÙˆØ­", "ÙØªØ­Øª")
     )
 
     /**
@@ -466,10 +466,10 @@ object Dictionary {
 
                 if (arList.isEmpty()) {
                     arList.addAll(listOf(
-                        "الله", "في", "من", "على", "ما", "أن", "إلى", "لا", "هذا", "أو",
-                        "شكرا", "تمام", "مرحبا", "أهلا", "صباح", "الخير", "مساء", "النور",
-                        "الحمد", "لله", "إن", "شاء", "سعيد", "حزين", "حب", "حبيبي", "تسلم",
-                        "قدم", "رجل", "طعام", "أكل", "كورة", "كرة", "تست", "اختبار", "سحر"
+                        "Ø§Ù„Ù„Ù‡", "ÙÙŠ", "Ù…Ù†", "Ø¹Ù„Ù‰", "Ù…Ø§", "Ø£Ù†", "Ø¥Ù„Ù‰", "Ù„Ø§", "Ù‡Ø°Ø§", "Ø£Ùˆ",
+                        "Ø´ÙƒØ±Ø§", "ØªÙ…Ø§Ù…", "Ù…Ø±Ø­Ø¨Ø§", "Ø£Ù‡Ù„Ø§", "ØµØ¨Ø§Ø­", "Ø§Ù„Ø®ÙŠØ±", "Ù…Ø³Ø§Ø¡", "Ø§Ù„Ù†ÙˆØ±",
+                        "Ø§Ù„Ø­Ù…Ø¯", "Ù„Ù„Ù‡", "Ø¥Ù†", "Ø´Ø§Ø¡", "Ø³Ø¹ÙŠØ¯", "Ø­Ø²ÙŠÙ†", "Ø­Ø¨", "Ø­Ø¨ÙŠØ¨ÙŠ", "ØªØ³Ù„Ù…",
+                        "Ù‚Ø¯Ù…", "Ø±Ø¬Ù„", "Ø·Ø¹Ø§Ù…", "Ø£ÙƒÙ„", "ÙƒÙˆØ±Ø©", "ÙƒØ±Ø©", "ØªØ³Øª", "Ø§Ø®ØªØ¨Ø§Ø±", "Ø³Ø­Ø±"
                     ))
                 }
 
@@ -510,19 +510,19 @@ object Dictionary {
                 }
 
                 if (tempEmojiMap.isEmpty()) {
-                    tempEmojiMap["love"] = listOf("❤️", "😍", "💕", "🥰")
-                    tempEmojiMap["happy"] = listOf("😊", "😃", "🎉", "🥳")
-                    tempEmojiMap["sad"] = listOf("😢", "😭", "😞", "💔")
-                    tempEmojiMap["fire"] = listOf("🔥", "⚡", "💥")
-                    tempEmojiMap["magic"] = listOf("🪄", "🔮", "✨", "🎩")
-                    tempEmojiMap["test"] = listOf("🧪", "📝", "🔬")
-                    tempEmojiMap["foot"] = listOf("🦶", "👣", "👟", "⚽")
-                    tempEmojiMap["food"] = listOf("🍕", "🍔", "🍟", "🍲")
-                    tempEmojiMap["coffee"] = listOf("☕", "🍵", "🧋")
-                    tempEmojiMap["حب"] = listOf("❤️", "😍", "🥰")
-                    tempEmojiMap["سعيد"] = listOf("😃", "😊", "🎉")
-                    tempEmojiMap["حزين"] = listOf("😢", "😭", "😞")
-                    tempEmojiMap["شكرا"] = listOf("🙏", "🌹", "❤️")
+                    tempEmojiMap["love"] = listOf("â¤ï¸", "ðŸ˜", "ðŸ’•", "ðŸ¥°")
+                    tempEmojiMap["happy"] = listOf("ðŸ˜Š", "ðŸ˜ƒ", "ðŸŽ‰", "ðŸ¥³")
+                    tempEmojiMap["sad"] = listOf("ðŸ˜¢", "ðŸ˜­", "ðŸ˜ž", "ðŸ’”")
+                    tempEmojiMap["fire"] = listOf("ðŸ”¥", "âš¡", "ðŸ’¥")
+                    tempEmojiMap["magic"] = listOf("ðŸª„", "ðŸ”®", "âœ¨", "ðŸŽ©")
+                    tempEmojiMap["test"] = listOf("ðŸ§ª", "ðŸ“", "ðŸ”¬")
+                    tempEmojiMap["foot"] = listOf("ðŸ¦¶", "ðŸ‘£", "ðŸ‘Ÿ", "âš½")
+                    tempEmojiMap["food"] = listOf("ðŸ•", "ðŸ”", "ðŸŸ", "ðŸ²")
+                    tempEmojiMap["coffee"] = listOf("â˜•", "ðŸµ", "ðŸ§‹")
+                    tempEmojiMap["Ø­Ø¨"] = listOf("â¤ï¸", "ðŸ˜", "ðŸ¥°")
+                    tempEmojiMap["Ø³Ø¹ÙŠØ¯"] = listOf("ðŸ˜ƒ", "ðŸ˜Š", "ðŸŽ‰")
+                    tempEmojiMap["Ø­Ø²ÙŠÙ†"] = listOf("ðŸ˜¢", "ðŸ˜­", "ðŸ˜ž")
+                    tempEmojiMap["Ø´ÙƒØ±Ø§"] = listOf("ðŸ™", "ðŸŒ¹", "â¤ï¸")
                 }
 
                 // 4. Load Next-Word transitions map
@@ -553,11 +553,11 @@ object Dictionary {
                     tempNextWordsMap["thank"] = listOf("you", "God", "everyone")
                     tempNextWordsMap["thanks"] = listOf("for", "a", "lot", "bro")
                     tempNextWordsMap["good"] = listOf("morning", "night", "job", "luck")
-                    tempNextWordsMap["صباح"] = listOf("الخير", "الورد", "النور")
-                    tempNextWordsMap["مساء"] = listOf("الخير", "النور", "الورد")
-                    tempNextWordsMap["شكرا"] = listOf("جزيلا", "لك", "يا")
-                    tempNextWordsMap["إن"] = listOf("شاء", "الله")
-                    tempNextWordsMap["الحمد"] = listOf("لله")
+                    tempNextWordsMap["ØµØ¨Ø§Ø­"] = listOf("Ø§Ù„Ø®ÙŠØ±", "Ø§Ù„ÙˆØ±Ø¯", "Ø§Ù„Ù†ÙˆØ±")
+                    tempNextWordsMap["Ù…Ø³Ø§Ø¡"] = listOf("Ø§Ù„Ø®ÙŠØ±", "Ø§Ù„Ù†ÙˆØ±", "Ø§Ù„ÙˆØ±Ø¯")
+                    tempNextWordsMap["Ø´ÙƒØ±Ø§"] = listOf("Ø¬Ø²ÙŠÙ„Ø§", "Ù„Ùƒ", "ÙŠØ§")
+                    tempNextWordsMap["Ø¥Ù†"] = listOf("Ø´Ø§Ø¡", "Ø§Ù„Ù„Ù‡")
+                    tempNextWordsMap["Ø§Ù„Ø­Ù…Ø¯"] = listOf("Ù„Ù„Ù‡")
                 }
 
                 enKeys = tempEnKeys
@@ -588,9 +588,9 @@ object Dictionary {
         for (ch in text) {
             when (ch) {
                 '\u064B', '\u064C', '\u064D', '\u064E', '\u064F', '\u0650', '\u0651', '\u0652', '\u0670', '\u0640' -> continue
-                'أ', 'إ', 'آ', 'ٱ' -> sb.append('ا')
-                'ة' -> sb.append('ه')
-                'ى' -> sb.append('ي')
+                'Ø£', 'Ø¥', 'Ø¢', 'Ù±' -> sb.append('Ø§')
+                'Ø©' -> sb.append('Ù‡')
+                'Ù‰' -> sb.append('ÙŠ')
                 else -> sb.append(ch)
             }
         }
@@ -650,7 +650,7 @@ object Dictionary {
         val semanticMatches = lookupSemanticEmojis(clean, norm)
         results.addAll(semanticMatches)
 
-        // 3. Keyword / prefix search in emojiMap for partial words (e.g., "foo" -> matches "food" -> 🍕, 🍔)
+        // 3. Keyword / prefix search in emojiMap for partial words (e.g., "foo" -> matches "food" -> ðŸ•, ðŸ”)
         if (results.size < limit && clean.length >= 3) {
             for ((k, list) in emojiMap) {
                 if (k.startsWith(clean) || clean.startsWith(k)) {
@@ -667,109 +667,109 @@ object Dictionary {
         return when {
             // Foot / Feet / Steps / Shoes
             clean in listOf("foot", "feet", "toe", "step", "walk", "walking", "runner", "shoe", "shoes") ->
-                listOf("🦶", "👣", "👟", "🧦")
-            norm in listOf("قدم", "رجل", "خطوة", "ارجل", "كعب", "حذاء", "مشى", "يمشي") ->
-                listOf("🦶", "👣", "👟", "🧦")
+                listOf("ðŸ¦¶", "ðŸ‘£", "ðŸ‘Ÿ", "ðŸ§¦")
+            norm in listOf("Ù‚Ø¯Ù…", "Ø±Ø¬Ù„", "Ø®Ø·ÙˆØ©", "Ø§Ø±Ø¬Ù„", "ÙƒØ¹Ø¨", "Ø­Ø°Ø§Ø¡", "Ù…Ø´Ù‰", "ÙŠÙ…Ø´ÙŠ") ->
+                listOf("ðŸ¦¶", "ðŸ‘£", "ðŸ‘Ÿ", "ðŸ§¦")
 
             // Food / Eating / Snacks / Cooking
             clean in listOf("foo", "food", "eat", "eating", "eaten", "cook", "cooking", "snack", "dinner", "lunch", "meal", "pizza", "burger") ->
-                listOf("🍕", "🍔", "🍟", "🍲", "🥗")
-            norm in listOf("طعام", "اكل", "ياكل", "وجبة", "بيتزا", "برجر", "غداء", "عشاء", "طبخ") ->
-                listOf("🍕", "🍔", "🍟", "🍲", "🥗")
+                listOf("ðŸ•", "ðŸ”", "ðŸŸ", "ðŸ²", "ðŸ¥—")
+            norm in listOf("Ø·Ø¹Ø§Ù…", "Ø§ÙƒÙ„", "ÙŠØ§ÙƒÙ„", "ÙˆØ¬Ø¨Ø©", "Ø¨ÙŠØªØ²Ø§", "Ø¨Ø±Ø¬Ø±", "ØºØ¯Ø§Ø¡", "Ø¹Ø´Ø§Ø¡", "Ø·Ø¨Ø®") ->
+                listOf("ðŸ•", "ðŸ”", "ðŸŸ", "ðŸ²", "ðŸ¥—")
 
             // Football / Soccer / Sports
             clean in listOf("football", "soccer", "ball", "match", "game", "goal", "fifa") ->
-                listOf("⚽", "🏈", "🏟️", "🏆")
-            norm in listOf("كورة", "كرة", "قدم", "مباراة", "ملعب", "هدف", "كاس") ->
-                listOf("⚽", "🏟️", "🏆")
+                listOf("âš½", "ðŸˆ", "ðŸŸï¸", "ðŸ†")
+            norm in listOf("ÙƒÙˆØ±Ø©", "ÙƒØ±Ø©", "Ù‚Ø¯Ù…", "Ù…Ø¨Ø§Ø±Ø§Ø©", "Ù…Ù„Ø¹Ø¨", "Ù‡Ø¯Ù", "ÙƒØ§Ø³") ->
+                listOf("âš½", "ðŸŸï¸", "ðŸ†")
 
             // Sad / Crying / Tears / Heartbreak
             clean in listOf("sad", "sadness", "sadly", "cry", "crying", "tears", "depressed", "unhappy", "sorrow", "grief") ->
-                listOf("😢", "😭", "💔", "😞", "🥺")
-            norm in listOf("حزن", "حزين", "زعلان", "دموع", "بكى", "تعبان", "مقهور", "قلبي") ->
-                listOf("😢", "😭", "💔", "😞", "🥺")
+                listOf("ðŸ˜¢", "ðŸ˜­", "ðŸ’”", "ðŸ˜ž", "ðŸ¥º")
+            norm in listOf("Ø­Ø²Ù†", "Ø­Ø²ÙŠÙ†", "Ø²Ø¹Ù„Ø§Ù†", "Ø¯Ù…ÙˆØ¹", "Ø¨ÙƒÙ‰", "ØªØ¹Ø¨Ø§Ù†", "Ù…Ù‚Ù‡ÙˆØ±", "Ù‚Ù„Ø¨ÙŠ") ->
+                listOf("ðŸ˜¢", "ðŸ˜­", "ðŸ’”", "ðŸ˜ž", "ðŸ¥º")
 
             // Happy / Joy / Smile / Laugh
             clean in listOf("happy", "happiness", "joy", "smile", "smiling", "glad", "cheerful", "excited") ->
-                listOf("😊", "😄", "😃", "🎉", "✨")
-            norm in listOf("فرح", "سعيد", "مبسوط", "فرحان", "ضحك", "روعة", "مبتسم") ->
-                listOf("😃", "😊", "🎉", "✨")
+                listOf("ðŸ˜Š", "ðŸ˜„", "ðŸ˜ƒ", "ðŸŽ‰", "âœ¨")
+            norm in listOf("ÙØ±Ø­", "Ø³Ø¹ÙŠØ¯", "Ù…Ø¨Ø³ÙˆØ·", "ÙØ±Ø­Ø§Ù†", "Ø¶Ø­Ùƒ", "Ø±ÙˆØ¹Ø©", "Ù…Ø¨ØªØ³Ù…") ->
+                listOf("ðŸ˜ƒ", "ðŸ˜Š", "ðŸŽ‰", "âœ¨")
 
             // Love / Heart / Romantic
             clean in listOf("love", "loving", "loved", "heart", "crush", "sweetheart", "kiss", "kisses", "romance") ->
-                listOf("❤️", "😍", "🥰", "💕", "💖", "😘")
-            norm in listOf("حب", "بحبك", "قلبي", "حبيبي", "حبيبتي", "عشقي", "غرام", "بوسة") ->
-                listOf("❤️", "😍", "🥰", "💕", "😘")
+                listOf("â¤ï¸", "ðŸ˜", "ðŸ¥°", "ðŸ’•", "ðŸ’–", "ðŸ˜˜")
+            norm in listOf("Ø­Ø¨", "Ø¨Ø­Ø¨Ùƒ", "Ù‚Ù„Ø¨ÙŠ", "Ø­Ø¨ÙŠØ¨ÙŠ", "Ø­Ø¨ÙŠØ¨ØªÙŠ", "Ø¹Ø´Ù‚ÙŠ", "ØºØ±Ø§Ù…", "Ø¨ÙˆØ³Ø©") ->
+                listOf("â¤ï¸", "ðŸ˜", "ðŸ¥°", "ðŸ’•", "ðŸ˜˜")
 
             // Fire / Flame / Lit / Hot
             clean in listOf("fire", "flame", "lit", "hot", "burn", "burning", "spicy") ->
-                listOf("🔥", "⚡", "💥")
-            norm in listOf("نار", "ولعة", "حريقة", "مولع", "شعلة") ->
-                listOf("🔥", "⚡", "💥")
+                listOf("ðŸ”¥", "âš¡", "ðŸ’¥")
+            norm in listOf("Ù†Ø§Ø±", "ÙˆÙ„Ø¹Ø©", "Ø­Ø±ÙŠÙ‚Ø©", "Ù…ÙˆÙ„Ø¹", "Ø´Ø¹Ù„Ø©") ->
+                listOf("ðŸ”¥", "âš¡", "ðŸ’¥")
 
             // Test / Chemistry / Science / Quiz
             clean in listOf("test", "testing", "tested", "tests", "exam", "quiz", "check", "lab") ->
-                listOf("🧪", "📝", "🔬", "✅")
-            norm in listOf("تست", "اختبار", "امتحان", "فحص", "تجربة", "معمل") ->
-                listOf("🧪", "📝", "🔬", "✅")
+                listOf("ðŸ§ª", "ðŸ“", "ðŸ”¬", "âœ…")
+            norm in listOf("ØªØ³Øª", "Ø§Ø®ØªØ¨Ø§Ø±", "Ø§Ù…ØªØ­Ø§Ù†", "ÙØ­Øµ", "ØªØ¬Ø±Ø¨Ø©", "Ù…Ø¹Ù…Ù„") ->
+                listOf("ðŸ§ª", "ðŸ“", "ðŸ”¬", "âœ…")
 
             // Thank / Thanks / Gratitude
             clean in listOf("thank", "thanks", "grateful", "appreciate", "blessed") ->
-                listOf("🙏", "🌹", "❤️", "✨")
-            norm in listOf("شكرا", "تسلم", "مشكور", "يسلمو", "الف شكر", "بارك الله") ->
-                listOf("🙏", "🌹", "❤️", "✨")
+                listOf("ðŸ™", "ðŸŒ¹", "â¤ï¸", "âœ¨")
+            norm in listOf("Ø´ÙƒØ±Ø§", "ØªØ³Ù„Ù…", "Ù…Ø´ÙƒÙˆØ±", "ÙŠØ³Ù„Ù…Ùˆ", "Ø§Ù„Ù Ø´ÙƒØ±", "Ø¨Ø§Ø±Ùƒ Ø§Ù„Ù„Ù‡") ->
+                listOf("ðŸ™", "ðŸŒ¹", "â¤ï¸", "âœ¨")
 
             // Good morning / Good night
             clean in listOf("morning", "sun", "sunrise") ->
-                listOf("☀️", "🌅", "☕")
+                listOf("â˜€ï¸", "ðŸŒ…", "â˜•")
             clean in listOf("night", "sleep", "dream", "moon") ->
-                listOf("🌙", "⭐", "😴", "✨")
-            norm in listOf("صباح", "شمس") ->
-                listOf("☀️", "🌸", "☕")
-            norm in listOf("مساء", "ليل", "نوم", "قمر") ->
-                listOf("🌙", "✨", "🌹")
+                listOf("ðŸŒ™", "â­", "ðŸ˜´", "âœ¨")
+            norm in listOf("ØµØ¨Ø§Ø­", "Ø´Ù…Ø³") ->
+                listOf("â˜€ï¸", "ðŸŒ¸", "â˜•")
+            norm in listOf("Ù…Ø³Ø§Ø¡", "Ù„ÙŠÙ„", "Ù†ÙˆÙ…", "Ù‚Ù…Ø±") ->
+                listOf("ðŸŒ™", "âœ¨", "ðŸŒ¹")
 
             // Money / Cash / Rich
             clean in listOf("money", "cash", "dollar", "rich", "wealth", "pay", "payment") ->
-                listOf("💰", "💵", "🤑", "💳")
-            norm in listOf("فلوس", "مصاري", "مال", "دولار", "غني") ->
-                listOf("💰", "💵", "🤑")
+                listOf("ðŸ’°", "ðŸ’µ", "ðŸ¤‘", "ðŸ’³")
+            norm in listOf("ÙÙ„ÙˆØ³", "Ù…ØµØ§Ø±ÙŠ", "Ù…Ø§Ù„", "Ø¯ÙˆÙ„Ø§Ø±", "ØºÙ†ÙŠ") ->
+                listOf("ðŸ’°", "ðŸ’µ", "ðŸ¤‘")
 
             // Car / Driving / Vehicle
             clean in listOf("car", "drive", "driving", "auto", "vehicle", "ride") ->
-                listOf("🚗", "🚘", "🏎️")
-            norm in listOf("عربية", "سيارة", "سواقة", "عربيات") ->
-                listOf("🚗", "🚘")
+                listOf("ðŸš—", "ðŸš˜", "ðŸŽï¸")
+            norm in listOf("Ø¹Ø±Ø¨ÙŠØ©", "Ø³ÙŠØ§Ø±Ø©", "Ø³ÙˆØ§Ù‚Ø©", "Ø¹Ø±Ø¨ÙŠØ§Øª") ->
+                listOf("ðŸš—", "ðŸš˜")
 
             // Coffee / Tea / Drinks
             clean in listOf("coffee", "tea", "drink", "cafe", "espresso", "latte", "cup") ->
-                listOf("☕", "🍵", "🧋", "🥤")
-            norm in listOf("قهوة", "شاي", "كافيه", "مشروب", "عصير") ->
-                listOf("☕", "🍵", "🧋")
+                listOf("â˜•", "ðŸµ", "ðŸ§‹", "ðŸ¥¤")
+            norm in listOf("Ù‚Ù‡ÙˆØ©", "Ø´Ø§ÙŠ", "ÙƒØ§ÙÙŠÙ‡", "Ù…Ø´Ø±ÙˆØ¨", "Ø¹ØµÙŠØ±") ->
+                listOf("â˜•", "ðŸµ", "ðŸ§‹")
 
             // Party / Celebration / Birthday
             clean in listOf("party", "celebrate", "birthday", "cheers", "festival", "dance") ->
-                listOf("🎉", "🥳", "🍾", "🎂", "🎈")
-            norm in listOf("حفلة", "عيد ميلاد", "مبروك", "تهانينا", "احتفال") ->
-                listOf("🎉", "🥳", "🎂", "🎈")
+                listOf("ðŸŽ‰", "ðŸ¥³", "ðŸ¾", "ðŸŽ‚", "ðŸŽˆ")
+            norm in listOf("Ø­ÙÙ„Ø©", "Ø¹ÙŠØ¯ Ù…ÙŠÙ„Ø§Ø¯", "Ù…Ø¨Ø±ÙˆÙƒ", "ØªÙ‡Ø§Ù†ÙŠÙ†Ø§", "Ø§Ø­ØªÙØ§Ù„") ->
+                listOf("ðŸŽ‰", "ðŸ¥³", "ðŸŽ‚", "ðŸŽˆ")
 
             // Magic / Mystery / Trick
             clean in listOf("magic", "magical", "trick", "wizard", "illusion", "secret") ->
-                listOf("🪄", "🔮", "✨", "🎩", "🤫")
-            norm in listOf("سحر", "خدعة", "ساحر", "سري", "خفي") ->
-                listOf("🪄", "🔮", "✨", "🎩", "🤫")
+                listOf("ðŸª„", "ðŸ”®", "âœ¨", "ðŸŽ©", "ðŸ¤«")
+            norm in listOf("Ø³Ø­Ø±", "Ø®Ø¯Ø¹Ø©", "Ø³Ø§Ø­Ø±", "Ø³Ø±ÙŠ", "Ø®ÙÙŠ") ->
+                listOf("ðŸª„", "ðŸ”®", "âœ¨", "ðŸŽ©", "ðŸ¤«")
 
             // Affirmation / OK / Yes / Done
             clean in listOf("ok", "okay", "yes", "done", "good", "great", "nice", "perfect", "cool") ->
-                listOf("👍", "👌", "✅", "😎", "💯")
-            norm in listOf("تمام", "صح", "ماشي", "اوكي", "مضبوط", "حلو", "جميل") ->
-                listOf("👍", "👌", "✅", "💯")
+                listOf("ðŸ‘", "ðŸ‘Œ", "âœ…", "ðŸ˜Ž", "ðŸ’¯")
+            norm in listOf("ØªÙ…Ø§Ù…", "ØµØ­", "Ù…Ø§Ø´ÙŠ", "Ø§ÙˆÙƒÙŠ", "Ù…Ø¶Ø¨ÙˆØ·", "Ø­Ù„Ùˆ", "Ø¬Ù…ÙŠÙ„") ->
+                listOf("ðŸ‘", "ðŸ‘Œ", "âœ…", "ðŸ’¯")
 
             // Laugh / LOL / Funny
             clean in listOf("lol", "haha", "hahaha", "laugh", "funny", "hilarious", "joke") ->
-                listOf("😂", "🤣", "😆")
-            norm in listOf("هههه", "ههههه", "ضحك", "نكته", "مسخرة") ->
-                listOf("😂", "🤣", "😆")
+                listOf("ðŸ˜‚", "ðŸ¤£", "ðŸ˜†")
+            norm in listOf("Ù‡Ù‡Ù‡Ù‡", "Ù‡Ù‡Ù‡Ù‡Ù‡", "Ø¶Ø­Ùƒ", "Ù†ÙƒØªÙ‡", "Ù…Ø³Ø®Ø±Ø©") ->
+                listOf("ðŸ˜‚", "ðŸ¤£", "ðŸ˜†")
 
             else -> emptyList()
         }
@@ -791,10 +791,10 @@ object Dictionary {
             if (direct != null) {
                 results.addAll(direct)
             } else {
-                results.add("ي$clean")
-                results.add("${clean}ت")
-                results.add("س${clean}")
-                results.add("ال$clean")
+                results.add("ÙŠ$clean")
+                results.add("${clean}Øª")
+                results.add("Ø³${clean}")
+                results.add("Ø§Ù„$clean")
             }
         } else {
             val irregular = irregularEnglishForms[clean]
@@ -892,25 +892,25 @@ object Dictionary {
         "give me a" to listOf("call", "minute", "hand", "chance", "break"),
 
         // Arabic multi-word trigrams
-        "السلام عليكم" to listOf("ورحمة", "ورحمة الله", "يا"),
-        "ورحمة الله" to listOf("وبركاته"),
-        "إن شاء الله" to listOf("خير", "تمام", "تكون", "أشوفك", "قريبا"),
-        "ان شاء الله" to listOf("خير", "تمام", "تكون", "أشوفك", "قريبا"),
-        "شاء الله" to listOf("خير", "تمام", "تكون", "أشوفك"),
-        "الحمد لله" to listOf("على", "دائما", "كثيرا", "رب", "تمام"),
-        "صباح الخير" to listOf("يا", "عليك", "حبيبي", "يا غالي"),
-        "مساء الخير" to listOf("يا", "عليك", "حبيبي"),
-        "كل سنة وانت" to listOf("طيب", "بخير", "سالم"),
-        "سنة وانت" to listOf("طيب", "بخير"),
-        "كل عام وانتم" to listOf("بخير", "بصحة"),
-        "عام وانتم" to listOf("بخير"),
-        "جزاك الله" to listOf("خيرا", "كل", "ألف"),
-        "شكرا جزيلا" to listOf("لك", "يا", "على", "أخي"),
-        "من فضلك" to listOf("ممكن", "عايز", "لو", "أحتاج"),
-        "عامل ايه" to listOf("يا", "النهاردة", "في", "أخبارك"),
-        "ألف مبروك" to listOf("يا", "حبيبي", "عليك"),
-        "وحشتني جدا" to listOf("يا", "والله"),
-        "بحبك جدا" to listOf("يا", "وربنا"),
+        "Ø§Ù„Ø³Ù„Ø§Ù… Ø¹Ù„ÙŠÙƒÙ…" to listOf("ÙˆØ±Ø­Ù…Ø©", "ÙˆØ±Ø­Ù…Ø© Ø§Ù„Ù„Ù‡", "ÙŠØ§"),
+        "ÙˆØ±Ø­Ù…Ø© Ø§Ù„Ù„Ù‡" to listOf("ÙˆØ¨Ø±ÙƒØ§ØªÙ‡"),
+        "Ø¥Ù† Ø´Ø§Ø¡ Ø§Ù„Ù„Ù‡" to listOf("Ø®ÙŠØ±", "ØªÙ…Ø§Ù…", "ØªÙƒÙˆÙ†", "Ø£Ø´ÙˆÙÙƒ", "Ù‚Ø±ÙŠØ¨Ø§"),
+        "Ø§Ù† Ø´Ø§Ø¡ Ø§Ù„Ù„Ù‡" to listOf("Ø®ÙŠØ±", "ØªÙ…Ø§Ù…", "ØªÙƒÙˆÙ†", "Ø£Ø´ÙˆÙÙƒ", "Ù‚Ø±ÙŠØ¨Ø§"),
+        "Ø´Ø§Ø¡ Ø§Ù„Ù„Ù‡" to listOf("Ø®ÙŠØ±", "ØªÙ…Ø§Ù…", "ØªÙƒÙˆÙ†", "Ø£Ø´ÙˆÙÙƒ"),
+        "Ø§Ù„Ø­Ù…Ø¯ Ù„Ù„Ù‡" to listOf("Ø¹Ù„Ù‰", "Ø¯Ø§Ø¦Ù…Ø§", "ÙƒØ«ÙŠØ±Ø§", "Ø±Ø¨", "ØªÙ…Ø§Ù…"),
+        "ØµØ¨Ø§Ø­ Ø§Ù„Ø®ÙŠØ±" to listOf("ÙŠØ§", "Ø¹Ù„ÙŠÙƒ", "Ø­Ø¨ÙŠØ¨ÙŠ", "ÙŠØ§ ØºØ§Ù„ÙŠ"),
+        "Ù…Ø³Ø§Ø¡ Ø§Ù„Ø®ÙŠØ±" to listOf("ÙŠØ§", "Ø¹Ù„ÙŠÙƒ", "Ø­Ø¨ÙŠØ¨ÙŠ"),
+        "ÙƒÙ„ Ø³Ù†Ø© ÙˆØ§Ù†Øª" to listOf("Ø·ÙŠØ¨", "Ø¨Ø®ÙŠØ±", "Ø³Ø§Ù„Ù…"),
+        "Ø³Ù†Ø© ÙˆØ§Ù†Øª" to listOf("Ø·ÙŠØ¨", "Ø¨Ø®ÙŠØ±"),
+        "ÙƒÙ„ Ø¹Ø§Ù… ÙˆØ§Ù†ØªÙ…" to listOf("Ø¨Ø®ÙŠØ±", "Ø¨ØµØ­Ø©"),
+        "Ø¹Ø§Ù… ÙˆØ§Ù†ØªÙ…" to listOf("Ø¨Ø®ÙŠØ±"),
+        "Ø¬Ø²Ø§Ùƒ Ø§Ù„Ù„Ù‡" to listOf("Ø®ÙŠØ±Ø§", "ÙƒÙ„", "Ø£Ù„Ù"),
+        "Ø´ÙƒØ±Ø§ Ø¬Ø²ÙŠÙ„Ø§" to listOf("Ù„Ùƒ", "ÙŠØ§", "Ø¹Ù„Ù‰", "Ø£Ø®ÙŠ"),
+        "Ù…Ù† ÙØ¶Ù„Ùƒ" to listOf("Ù…Ù…ÙƒÙ†", "Ø¹Ø§ÙŠØ²", "Ù„Ùˆ", "Ø£Ø­ØªØ§Ø¬"),
+        "Ø¹Ø§Ù…Ù„ Ø§ÙŠÙ‡" to listOf("ÙŠØ§", "Ø§Ù„Ù†Ù‡Ø§Ø±Ø¯Ø©", "ÙÙŠ", "Ø£Ø®Ø¨Ø§Ø±Ùƒ"),
+        "Ø£Ù„Ù Ù…Ø¨Ø±ÙˆÙƒ" to listOf("ÙŠØ§", "Ø­Ø¨ÙŠØ¨ÙŠ", "Ø¹Ù„ÙŠÙƒ"),
+        "ÙˆØ­Ø´ØªÙ†ÙŠ Ø¬Ø¯Ø§" to listOf("ÙŠØ§", "ÙˆØ§Ù„Ù„Ù‡"),
+        "Ø¨Ø­Ø¨Ùƒ Ø¬Ø¯Ø§" to listOf("ÙŠØ§", "ÙˆØ±Ø¨Ù†Ø§"),
 
         // Standard Bigrams
         "foot" to listOf("ball", "prints", "step", "wear", "and", "it", "traffic", "note"),
@@ -951,23 +951,23 @@ object Dictionary {
         "please" to listOf("help", "send", "check", "call", "let", "give", "tell"),
 
         // Arabic Bigrams
-        "السلام" to listOf("عليكم", "ورحمة", "والأمان"),
-        "صباح" to listOf("الخير", "الورد", "النور", "الفل", "الجمال"),
-        "مساء" to listOf("الخير", "النور", "الورد", "الفل", "الجمال"),
-        "شكرا" to listOf("جزيلا", "لك", "يا", "جدا", "كتير", "حبيبي"),
-        "الحمد" to listOf("لله", "والشكر لله"),
-        "ان" to listOf("شاء الله", "كنت", "لم", "كان"),
-        "إن" to listOf("شاء الله", "كنت", "لم", "كان"),
-        "عامل" to listOf("ايه", "اي", "تمام", "شغل"),
-        "ازيك" to listOf("يا", "عامل ايه", "اخبارك"),
-        "تمام" to listOf("جدا", "الحمد لله", "يا باشا", "كده"),
-        "انا" to listOf("تمام", "بخير", "في", "رايح", "بحبك", "عايز", "مش"),
-        "انت" to listOf("فين", "عامل ايه", "وحشني", "صح", "جميل"),
-        "هو" to listOf("فين", "كان", "قال", "رايح"),
-        "هي" to listOf("فين", "كانت", "قالت", "رايحة"),
-        "كل" to listOf("سنة", "عام", "يوم", "حاجة", "مرة", "واحد"),
-        "في" to listOf("البيت", "الشغل", "الطريق", "مصر", "كل مكان"),
-        "مع" to listOf("السلامة", "ألف سلامة", "بعض", "حبيبي")
+        "Ø§Ù„Ø³Ù„Ø§Ù…" to listOf("Ø¹Ù„ÙŠÙƒÙ…", "ÙˆØ±Ø­Ù…Ø©", "ÙˆØ§Ù„Ø£Ù…Ø§Ù†"),
+        "ØµØ¨Ø§Ø­" to listOf("Ø§Ù„Ø®ÙŠØ±", "Ø§Ù„ÙˆØ±Ø¯", "Ø§Ù„Ù†ÙˆØ±", "Ø§Ù„ÙÙ„", "Ø§Ù„Ø¬Ù…Ø§Ù„"),
+        "Ù…Ø³Ø§Ø¡" to listOf("Ø§Ù„Ø®ÙŠØ±", "Ø§Ù„Ù†ÙˆØ±", "Ø§Ù„ÙˆØ±Ø¯", "Ø§Ù„ÙÙ„", "Ø§Ù„Ø¬Ù…Ø§Ù„"),
+        "Ø´ÙƒØ±Ø§" to listOf("Ø¬Ø²ÙŠÙ„Ø§", "Ù„Ùƒ", "ÙŠØ§", "Ø¬Ø¯Ø§", "ÙƒØªÙŠØ±", "Ø­Ø¨ÙŠØ¨ÙŠ"),
+        "Ø§Ù„Ø­Ù…Ø¯" to listOf("Ù„Ù„Ù‡", "ÙˆØ§Ù„Ø´ÙƒØ± Ù„Ù„Ù‡"),
+        "Ø§Ù†" to listOf("Ø´Ø§Ø¡ Ø§Ù„Ù„Ù‡", "ÙƒÙ†Øª", "Ù„Ù…", "ÙƒØ§Ù†"),
+        "Ø¥Ù†" to listOf("Ø´Ø§Ø¡ Ø§Ù„Ù„Ù‡", "ÙƒÙ†Øª", "Ù„Ù…", "ÙƒØ§Ù†"),
+        "Ø¹Ø§Ù…Ù„" to listOf("Ø§ÙŠÙ‡", "Ø§ÙŠ", "ØªÙ…Ø§Ù…", "Ø´ØºÙ„"),
+        "Ø§Ø²ÙŠÙƒ" to listOf("ÙŠØ§", "Ø¹Ø§Ù…Ù„ Ø§ÙŠÙ‡", "Ø§Ø®Ø¨Ø§Ø±Ùƒ"),
+        "ØªÙ…Ø§Ù…" to listOf("Ø¬Ø¯Ø§", "Ø§Ù„Ø­Ù…Ø¯ Ù„Ù„Ù‡", "ÙŠØ§ Ø¨Ø§Ø´Ø§", "ÙƒØ¯Ù‡"),
+        "Ø§Ù†Ø§" to listOf("ØªÙ…Ø§Ù…", "Ø¨Ø®ÙŠØ±", "ÙÙŠ", "Ø±Ø§ÙŠØ­", "Ø¨Ø­Ø¨Ùƒ", "Ø¹Ø§ÙŠØ²", "Ù…Ø´"),
+        "Ø§Ù†Øª" to listOf("ÙÙŠÙ†", "Ø¹Ø§Ù…Ù„ Ø§ÙŠÙ‡", "ÙˆØ­Ø´Ù†ÙŠ", "ØµØ­", "Ø¬Ù…ÙŠÙ„"),
+        "Ù‡Ùˆ" to listOf("ÙÙŠÙ†", "ÙƒØ§Ù†", "Ù‚Ø§Ù„", "Ø±Ø§ÙŠØ­"),
+        "Ù‡ÙŠ" to listOf("ÙÙŠÙ†", "ÙƒØ§Ù†Øª", "Ù‚Ø§Ù„Øª", "Ø±Ø§ÙŠØ­Ø©"),
+        "ÙƒÙ„" to listOf("Ø³Ù†Ø©", "Ø¹Ø§Ù…", "ÙŠÙˆÙ…", "Ø­Ø§Ø¬Ø©", "Ù…Ø±Ø©", "ÙˆØ§Ø­Ø¯"),
+        "ÙÙŠ" to listOf("Ø§Ù„Ø¨ÙŠØª", "Ø§Ù„Ø´ØºÙ„", "Ø§Ù„Ø·Ø±ÙŠÙ‚", "Ù…ØµØ±", "ÙƒÙ„ Ù…ÙƒØ§Ù†"),
+        "Ù…Ø¹" to listOf("Ø§Ù„Ø³Ù„Ø§Ù…Ø©", "Ø£Ù„Ù Ø³Ù„Ø§Ù…Ø©", "Ø¨Ø¹Ø¶", "Ø­Ø¨ÙŠØ¨ÙŠ")
     )
 
     /**
@@ -986,12 +986,12 @@ object Dictionary {
         )
 
         private val arabicCoords = mapOf(
-            'ض' to Pair(0f, 0f), 'ص' to Pair(1f, 0f), 'ث' to Pair(2f, 0f), 'ق' to Pair(3f, 0f), 'ف' to Pair(4f, 0f),
-            'غ' to Pair(5f, 0f), 'ع' to Pair(6f, 0f), 'ه' to Pair(7f, 0f), 'خ' to Pair(8f, 0f), 'ح' to Pair(9f, 0f), 'ج' to Pair(10f, 0f), 'د' to Pair(11f, 0f),
-            'ش' to Pair(0.5f, 1f), 'س' to Pair(1.5f, 1f), 'ي' to Pair(2.5f, 1f), 'ب' to Pair(3.5f, 1f), 'ل' to Pair(4.5f, 1f),
-            'ا' to Pair(5.5f, 1f), 'ت' to Pair(6.5f, 1f), 'ن' to Pair(7.5f, 1f), 'م' to Pair(8.5f, 1f), 'ك' to Pair(9.5f, 1f), 'ط' to Pair(10.5f, 1f),
-            'ئ' to Pair(1f, 2f), 'ء' to Pair(2f, 2f), 'ؤ' to Pair(3f, 2f), 'ر' to Pair(4f, 2f),
-            'ى' to Pair(5.5f, 2f), 'ة' to Pair(6.5f, 2f), 'و' to Pair(7.5f, 2f), 'ز' to Pair(8.5f, 2f), 'ظ' to Pair(9.5f, 2f)
+            'Ø¶' to Pair(0f, 0f), 'Øµ' to Pair(1f, 0f), 'Ø«' to Pair(2f, 0f), 'Ù‚' to Pair(3f, 0f), 'Ù' to Pair(4f, 0f),
+            'Øº' to Pair(5f, 0f), 'Ø¹' to Pair(6f, 0f), 'Ù‡' to Pair(7f, 0f), 'Ø®' to Pair(8f, 0f), 'Ø­' to Pair(9f, 0f), 'Ø¬' to Pair(10f, 0f), 'Ø¯' to Pair(11f, 0f),
+            'Ø´' to Pair(0.5f, 1f), 'Ø³' to Pair(1.5f, 1f), 'ÙŠ' to Pair(2.5f, 1f), 'Ø¨' to Pair(3.5f, 1f), 'Ù„' to Pair(4.5f, 1f),
+            'Ø§' to Pair(5.5f, 1f), 'Øª' to Pair(6.5f, 1f), 'Ù†' to Pair(7.5f, 1f), 'Ù…' to Pair(8.5f, 1f), 'Ùƒ' to Pair(9.5f, 1f), 'Ø·' to Pair(10.5f, 1f),
+            'Ø¦' to Pair(1f, 2f), 'Ø¡' to Pair(2f, 2f), 'Ø¤' to Pair(3f, 2f), 'Ø±' to Pair(4f, 2f),
+            'Ù‰' to Pair(5.5f, 2f), 'Ø©' to Pair(6.5f, 2f), 'Ùˆ' to Pair(7.5f, 2f), 'Ø²' to Pair(8.5f, 2f), 'Ø¸' to Pair(9.5f, 2f)
         )
 
         private val vowels = setOf('a', 'e', 'i', 'o', 'u')
@@ -1000,7 +1000,7 @@ object Dictionary {
             if (c1 == c2) return 0.0f
 
             if (isArabic) {
-                if ((c1 in "أإآا" && c2 in "أإآا") || (c1 in "يى" && c2 in "يى") || (c1 in "ةه" && c2 in "ةه")) {
+                if ((c1 in "Ø£Ø¥Ø¢Ø§" && c2 in "Ø£Ø¥Ø¢Ø§") || (c1 in "ÙŠÙ‰" && c2 in "ÙŠÙ‰") || (c1 in "Ø©Ù‡" && c2 in "Ø©Ù‡")) {
                     return 0.15f
                 }
                 val p1 = arabicCoords[c1]
@@ -1015,7 +1015,7 @@ object Dictionary {
                 return 1.35f
             }
 
-            // Vowel swap bonus (e.g. definately <-> definitely) — checked before keyboard
+            // Vowel swap bonus (e.g. definately <-> definitely) â€” checked before keyboard
             // distance since most vowel pairs are also keyboard-adjacent and would
             // otherwise always be caught by that bracket first
             if (c1 in vowels && c2 in vowels) return 0.60f
@@ -1121,7 +1121,7 @@ object Dictionary {
         // Fallback defaults
         if (results.isEmpty()) {
             if (isArabic) {
-                results.addAll(listOf("في", "من", "على", "يا", "تمام", "جدا", "كتير", "معاك", "إن شاء الله", "الحمد لله"))
+                results.addAll(listOf("ÙÙŠ", "Ù…Ù†", "Ø¹Ù„Ù‰", "ÙŠØ§", "ØªÙ…Ø§Ù…", "Ø¬Ø¯Ø§", "ÙƒØªÙŠØ±", "Ù…Ø¹Ø§Ùƒ", "Ø¥Ù† Ø´Ø§Ø¡ Ø§Ù„Ù„Ù‡", "Ø§Ù„Ø­Ù…Ø¯ Ù„Ù„Ù‡"))
             } else {
                 results.addAll(listOf("to", "the", "and", "it", "is", "for", "you", "in", "with", "that"))
             }
@@ -1142,9 +1142,17 @@ object Dictionary {
      * vowel swaps ("definately" -> "definitely"), and missing characters ("goverment" -> "government")
      * are accurately corrected even when not explicitly listed in overrides.
      */
+    private var lastTypoQuery: String? = null
+    private var lastTypoIsArabic: Boolean = false
+    private var lastTypoResult: List<String> = emptyList()
+
     fun getTypoCorrections(word: String, isArabic: Boolean, limit: Int = 5): List<String> {
         val query = if (isArabic) normalizeArabic(word) else word.trim().lowercase()
         if (query.length < 2) return emptyList()
+
+        if (query == lastTypoQuery && isArabic == lastTypoIsArabic) {
+            return lastTypoResult.take(limit)
+        }
 
         // 1. Instant check for common manual overrides / contractions
         val override = commonTypoOverrides[query]
@@ -1178,13 +1186,15 @@ object Dictionary {
         val frequentEntries = if (isArabic) arFrequentEntries else enFrequentEntries
         val firstChar = query.firstOrNull() ?: ' '
 
-        // A. Candidates starting with same initial char
-        // (no cap here: with the full dictionary a single letter bucket can hold
-        // several thousand entries, and truncating early was silently excluding
-        // valid correction targets — e.g. "grammar" for "grammer" — before they
-        // were ever scored)
+        // A. Candidates starting with same initial char.
+        // Each letter's bucket is already ordered by rank (frequency), not
+        // alphabetically, so a bounded scan still reaches the words that matter
+        // most first â€” this cap just keeps a single keystroke's worth of work
+        // bounded instead of rescanning an entire 10k+ entry bucket every time.
         letterMap[firstChar]?.let { sameLetterList ->
-            for (entry in sameLetterList) {
+            val count = min(sameLetterList.size, 4000)
+            for (i in 0 until count) {
+                val entry = sameLetterList[i]
                 if (seenCandidateKeys.add(entry.key)) {
                     candidateEntries.add(entry)
                 }
@@ -1195,7 +1205,7 @@ object Dictionary {
         if (!isArabic) {
             qwertyNeighbors[firstChar]?.forEach { neighborChar ->
                 letterMap[neighborChar]?.let { neighborList ->
-                    val count = min(neighborList.size, 1500)
+                    val count = min(neighborList.size, 500)
                     for (i in 0 until count) {
                         val entry = neighborList[i]
                         if (seenCandidateKeys.add(entry.key)) {
@@ -1209,7 +1219,7 @@ object Dictionary {
             if (query.length >= 2) {
                 val secondChar = query[1]
                 letterMap[secondChar]?.let { secondList ->
-                    val count = min(secondList.size, 1500)
+                    val count = min(secondList.size, 500)
                     for (i in 0 until count) {
                         val entry = secondList[i]
                         if (seenCandidateKeys.add(entry.key)) {
@@ -1221,7 +1231,7 @@ object Dictionary {
         }
 
         // C. Candidates from top high-frequency dictionary words
-        val freqScanCount = min(frequentEntries.size, 8000)
+        val freqScanCount = min(frequentEntries.size, 4000)
         for (i in 0 until freqScanCount) {
             val entry = frequentEntries[i]
             if (seenCandidateKeys.add(entry.key)) {
@@ -1268,6 +1278,10 @@ object Dictionary {
             }
         }
 
+        lastTypoQuery = query
+        lastTypoIsArabic = isArabic
+        lastTypoResult = results
+
         return results
     }
 
@@ -1311,17 +1325,17 @@ object Dictionary {
     )
 
     private val builtInArabicWords = listOf(
-        "كتاب", "كتابة", "كتابي", "كتب", "كاتب", "مكتوب", "كتائب",
-        "طعام", "اكل", "وجبة", "مطعم", "اطعمة",
-        "كورة", "كرة", "قدم", "مباراة", "ملعب", "اهداف",
-        "قدم", "اقدام", "قديم", "قدام",
-        "فرح", "فرحان", "فرحانة", "افراح", "سعيد", "سعادة",
-        "حزن", "حزين", "حزينة", "احزان", "زعلان",
-        "حب", "حبيبي", "حبيبتي", "بحبك", "محبة",
-        "شكرا", "شاكر", "مشكور", "تسلم", "يسلمو",
-        "صباح", "صباح الخير", "صباح الورد", "صباح النور",
-        "مساء", "مساء الخير", "مساء النور",
-        "الحمد", "الحمد لله", "إن", "إن شاء الله", "تمام", "مرحبا"
+        "ÙƒØªØ§Ø¨", "ÙƒØªØ§Ø¨Ø©", "ÙƒØªØ§Ø¨ÙŠ", "ÙƒØªØ¨", "ÙƒØ§ØªØ¨", "Ù…ÙƒØªÙˆØ¨", "ÙƒØªØ§Ø¦Ø¨",
+        "Ø·Ø¹Ø§Ù…", "Ø§ÙƒÙ„", "ÙˆØ¬Ø¨Ø©", "Ù…Ø·Ø¹Ù…", "Ø§Ø·Ø¹Ù…Ø©",
+        "ÙƒÙˆØ±Ø©", "ÙƒØ±Ø©", "Ù‚Ø¯Ù…", "Ù…Ø¨Ø§Ø±Ø§Ø©", "Ù…Ù„Ø¹Ø¨", "Ø§Ù‡Ø¯Ø§Ù",
+        "Ù‚Ø¯Ù…", "Ø§Ù‚Ø¯Ø§Ù…", "Ù‚Ø¯ÙŠÙ…", "Ù‚Ø¯Ø§Ù…",
+        "ÙØ±Ø­", "ÙØ±Ø­Ø§Ù†", "ÙØ±Ø­Ø§Ù†Ø©", "Ø§ÙØ±Ø§Ø­", "Ø³Ø¹ÙŠØ¯", "Ø³Ø¹Ø§Ø¯Ø©",
+        "Ø­Ø²Ù†", "Ø­Ø²ÙŠÙ†", "Ø­Ø²ÙŠÙ†Ø©", "Ø§Ø­Ø²Ø§Ù†", "Ø²Ø¹Ù„Ø§Ù†",
+        "Ø­Ø¨", "Ø­Ø¨ÙŠØ¨ÙŠ", "Ø­Ø¨ÙŠØ¨ØªÙŠ", "Ø¨Ø­Ø¨Ùƒ", "Ù…Ø­Ø¨Ø©",
+        "Ø´ÙƒØ±Ø§", "Ø´Ø§ÙƒØ±", "Ù…Ø´ÙƒÙˆØ±", "ØªØ³Ù„Ù…", "ÙŠØ³Ù„Ù…Ùˆ",
+        "ØµØ¨Ø§Ø­", "ØµØ¨Ø§Ø­ Ø§Ù„Ø®ÙŠØ±", "ØµØ¨Ø§Ø­ Ø§Ù„ÙˆØ±Ø¯", "ØµØ¨Ø§Ø­ Ø§Ù„Ù†ÙˆØ±",
+        "Ù…Ø³Ø§Ø¡", "Ù…Ø³Ø§Ø¡ Ø§Ù„Ø®ÙŠØ±", "Ù…Ø³Ø§Ø¡ Ø§Ù„Ù†ÙˆØ±",
+        "Ø§Ù„Ø­Ù…Ø¯", "Ø§Ù„Ø­Ù…Ø¯ Ù„Ù„Ù‡", "Ø¥Ù†", "Ø¥Ù† Ø´Ø§Ø¡ Ø§Ù„Ù„Ù‡", "ØªÙ…Ø§Ù…", "Ù…Ø±Ø­Ø¨Ø§"
     )
 
     /**
@@ -1393,8 +1407,24 @@ object Dictionary {
             val isKnown = isKnownWord(prefix, isArabic)
             val hasValidPrefixMatch = isLoaded && run {
                 val keys = if (isArabic) arKeys else enKeys
-                val idx = binarySearchStart(keys, query)
-                idx < keys.size && keys[idx].startsWith(query)
+                val entries = if (isArabic) arEntries else enEntries
+                var idx = binarySearchStart(keys, query)
+                // Scan the alphabetically-contiguous block of matches (capped, cheap) and
+                // only count it as "clearly a word in progress" if one of them is common
+                // enough to be plausible â€” otherwise a single obscure long-tail dictionary
+                // entry (e.g. "cheka") would block a correction to a much more likely word
+                // (e.g. "check") that just isn't alphabetically adjacent to it.
+                var scanned = 0
+                var foundCommon = false
+                while (idx < keys.size && keys[idx].startsWith(query) && scanned < 50) {
+                    if (entries[idx].rank < 15000) {
+                        foundCommon = true
+                        break
+                    }
+                    idx++
+                    scanned++
+                }
+                foundCommon
             }
             if (!isKnown && !hasValidPrefixMatch && prefix.length >= 2) {
                 val typoCorrections = getTypoCorrections(prefix, isArabic, limit = 3)
@@ -1647,7 +1677,7 @@ object Dictionary {
      */
     fun topWords(isArabic: Boolean, limit: Int = 3): List<String> {
         return if (isArabic) {
-            listOf("شكرا", "تمام", "مرحبا", "إن شاء الله", "الحمد لله", "أنا", "في", "على").take(limit)
+            listOf("Ø´ÙƒØ±Ø§", "ØªÙ…Ø§Ù…", "Ù…Ø±Ø­Ø¨Ø§", "Ø¥Ù† Ø´Ø§Ø¡ Ø§Ù„Ù„Ù‡", "Ø§Ù„Ø­Ù…Ø¯ Ù„Ù„Ù‡", "Ø£Ù†Ø§", "ÙÙŠ", "Ø¹Ù„Ù‰").take(limit)
         } else {
             listOf("Hello", "OK", "Thanks", "the", "to", "and", "I", "you").take(limit)
         }
