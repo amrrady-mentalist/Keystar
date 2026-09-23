@@ -119,9 +119,9 @@ class CustomKeyboardService : InputMethodService() {
     private val PILL_RADIUS_DP = 24
     private val ICON_GLYPH_DP = 30
     private val KEY_INSET_V_DP = 4
-    private val baselineArabicLetters = setOf("ط", "ك", "ف", "ث", "ا", "ة", "ظ", "د", "ب", "ت", "ذ", "ه", "ء")
+    private val baselineArabicLetters = setOf("\u0637", "\u0643", "\u0641", "\u062b", "\u0627", "\u0629", "\u0638", "\u062f", "\u0628", "\u062a", "\u0630", "\u0647", "\u0621")
     // Wide/descender Arabic letters whose sweeping tails, deep bowls, or bottom dots require optical proportional sizing
-    private val wideArabicLetters = setOf("ص", "ض", "س", "ش", "ي", "ى", "ئ")
+    private val wideArabicLetters = setOf("\u0635", "\u0636", "\u0633", "\u0634", "\u064a", "\u0649", "\u0626")
 
     private fun getKeyInsetHDp(): Int {
         return when (prefs.getString("button_width", "wide")) {
@@ -257,7 +257,7 @@ class CustomKeyboardService : InputMethodService() {
         }
     }
 
-    private val commonEmojis = listOf("😀", "😂", "❤️", "👍", "🙏", "🔥", "😊", "🎉", "👀", "✅", "😉", "💯")
+    private val commonEmojis = listOf("\u1f600", "\u1f602", "\u2764\ufe0f", "\u1f44d", "\u1f64f", "\u1f525", "\u1f60a", "\u1f389", "\u1f440", "\u2705", "\u1f609", "\u1f4af")
     private var currentEmojiCategory: String = "Smileys"
 
     private val systemClipListener = ClipboardManager.OnPrimaryClipChangedListener {
@@ -801,8 +801,8 @@ class CustomKeyboardService : InputMethodService() {
 
     // Rebuilds only the suggestion bar and the letter/number rows (for shift-state
     // re-casing), leaving the bottom row, window chrome, and popup theme untouched.
-    // A full render() tears down and reinflates the *entire* keyboard — every key,
-    // every listener, every background — which was firing on every single letter
+    // A full render() tears down and reinflates the *entire* keyboard \u2014 every key,
+    // every listener, every background \u2014 which was firing on every single letter
     // typed right after auto-capitalization (i.e. the start of nearly every
     // sentence). That was a major source of visible lag, and the resulting dropped
     // frames were also why key-preview popups sometimes read a not-yet-laid-out
@@ -856,8 +856,8 @@ class CustomKeyboardService : InputMethodService() {
     private fun dpF(v: Float) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, resources.displayMetrics)
 
     private fun isWordCharacter(c: Char): Boolean {
-        if (c == '؟' || c == '،' || c == '؛') return false
-        return c.isLetterOrDigit() || c == '\'' || c == '’' || c == '-' || (c in '\u0600'..'\u06FF' && Character.isLetter(c))
+        if (c == '\u061f' || c == '\u060c' || c == '\u061b') return false
+        return c.isLetterOrDigit() || c == '\'' || c == '\u2019' || c == '-' || (c in '\u0600'..'\u06FF' && Character.isLetter(c))
     }
 
     class TypingContext(
@@ -939,7 +939,7 @@ class CustomKeyboardService : InputMethodService() {
                         setPadding(dp(8), 0, dp(8), 0)
                         layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                     })
-                    addView(iconButtonText("⌫") { deleteChar() })
+                    addView(iconButtonText("\u232b") { deleteChar() })
                 }
             }
             contextualSuggestions.isNotEmpty() || hasPendingMedia -> {
@@ -1106,7 +1106,7 @@ class CustomKeyboardService : InputMethodService() {
             text = if (voiceDisplayText.isNotEmpty()) {
                 voiceDisplayText
             } else {
-                if (currentLang == Lang.AR) "جارٍ الاستماع... تكلّم الآن" else "Listening... Speak now"
+                if (currentLang == Lang.AR) "\u062c\u0627\u0631\u064d \u0627\u0644\u0627\u0633\u062a\u0645\u0627\u0639... \u062a\u0643\u0644\u0651\u0645 \u0627\u0644\u0622\u0646" else "Listening... Speak now"
             }
             setTextColor(if (!voiceIsStatusPrompt && voiceDisplayText.isNotEmpty()) textColor() else textSecondaryColor())
             textSize = 14f
@@ -1285,7 +1285,7 @@ class CustomKeyboardService : InputMethodService() {
                             else -> {
                                 // Every other error (no match, speech timeout, client, busy,
                                 // network, audio, server, disconnected, unsupported/unavailable
-                                // language, etc.) is treated as transient — e.g. someone nearby
+                                // language, etc.) is treated as transient \u2014 e.g. someone nearby
                                 // spoke in a language the recognizer doesn't understand, so that
                                 // bit just gets dismissed and listening keeps going, still only
                                 // ever committing what it can recognize in the supported
@@ -1293,7 +1293,7 @@ class CustomKeyboardService : InputMethodService() {
                                 // time frame by retrying instead of silently giving up and
                                 // requiring a manual tap.
                                 voiceIsStatusPrompt = true
-                                voiceDisplayText = if (currentLang == Lang.AR) "تكلّم الآن..." else "Listening..."
+                                voiceDisplayText = if (currentLang == Lang.AR) "\u062a\u0643\u0644\u0651\u0645 \u0627\u0644\u0622\u0646..." else "Listening..."
                                 uncommittedVoiceText = ""
                                 refreshTopBar()
                                 voiceHandler.postDelayed({
@@ -1358,7 +1358,7 @@ class CustomKeyboardService : InputMethodService() {
             speechRecognizer?.startListening(recognizerIntent)
         } catch (e: Exception) {
             voiceIsStatusPrompt = true
-            voiceDisplayText = if (currentLang == Lang.AR) "اضغط على الميكروفون للتحدث" else "Tap mic to speak"
+            voiceDisplayText = if (currentLang == Lang.AR) "\u0627\u0636\u063a\u0637 \u0639\u0644\u0649 \u0627\u0644\u0645\u064a\u0643\u0631\u0648\u0641\u0648\u0646 \u0644\u0644\u062a\u062d\u062f\u062b" else "Tap mic to speak"
             uncommittedVoiceText = ""
             refreshTopBar()
         }
@@ -1577,7 +1577,7 @@ class CustomKeyboardService : InputMethodService() {
         }
 
         val tv = TextView(this).apply {
-            this.text = if (currentLang == Lang.AR) "لقطة شاشة" else "Screenshot"
+            this.text = if (currentLang == Lang.AR) "\u0644\u0642\u0637\u0629 \u0634\u0627\u0634\u0629" else "Screenshot"
             setTextColor(textColor())
             setTypeface(getKeyTypeface())
             textSize = 13f
@@ -1891,10 +1891,10 @@ class CustomKeyboardService : InputMethodService() {
         }
 
         val enterModes = listOf(
-            Triple("auto_field", "Based on Field", "📝 Field"),
-            Triple("auto_effect", "Based on Effect", "⚡ Effect"),
-            Triple("newline_only", "Next Line Only", "↵ Next Line"),
-            Triple("search_only", "Search Action Only", "🔍 Search")
+            Triple("auto_field", "Based on Field", "\u1f4dd Field"),
+            Triple("auto_effect", "Based on Effect", "\u26a1 Effect"),
+            Triple("newline_only", "Next Line Only", "\u21b5 Next Line"),
+            Triple("search_only", "Search Action Only", "\u1f50d Search")
         )
 
         val currentEnterMode = covertManager.enterKeyBehavior
@@ -1931,7 +1931,7 @@ class CustomKeyboardService : InputMethodService() {
 
         // 3.5 Universal Trigger Status and Quick Toggles
         val triggerHeader = TextView(this).apply {
-            text = "⚡ Universal Triggers"
+            text = "\u26a1 Universal Triggers"
             textSize = 12f
             setTypeface(null, Typeface.BOLD)
             setTextColor(if (isDarkMode()) Color.parseColor("#8AB4F8") else Color.parseColor("#1A73E8"))
@@ -1975,7 +1975,7 @@ class CustomKeyboardService : InputMethodService() {
 
         for ((label, isEnabled, onClick) in triggerItems) {
             val chip = TextView(this).apply {
-                text = "${if (isEnabled) "✓ " else ""}$label"
+                text = "${if (isEnabled) "\u2713 " else ""}$label"
                 textSize = 10.5f
                 gravity = Gravity.CENTER
                 setPadding(dp(4), dp(5), dp(4), dp(5))
@@ -2021,12 +2021,12 @@ class CustomKeyboardService : InputMethodService() {
                     }
                 }
                 val itemLabel = TextView(this).apply {
-                    text = if (item.length > 60) item.substring(0, 60) + "…" else item
+                    text = if (item.length > 60) item.substring(0, 60) + "\u2026" else item
                     setTextColor(textColor())
                     layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 }
                 val delete = TextView(this).apply {
-                    text = "✕"
+                    text = "\u2715"
                     setTextColor(textColor())
                     alpha = 0.6f
                     setPadding(dp(10), 0, dp(4), 0)
@@ -2151,7 +2151,7 @@ class CustomKeyboardService : InputMethodService() {
                 // Target Mode Chips (Formula Total vs Specific Line)
                 panel.addView(buildOptionChipsRow(
                     label = "Target Calculation Mode",
-                    options = listOf("total" to "∑ Total Formula", "line" to "🎯 Specific Line"),
+                    options = listOf("total" to "\u2211 Total Formula", "line" to "\u1f3af Specific Line"),
                     selectedKey = covertManager.mathTargetMode
                 ) { newMode ->
                     covertManager.mathTargetMode = newMode
@@ -2194,7 +2194,7 @@ class CustomKeyboardService : InputMethodService() {
                     options = listOf(
                         "L1+L2" to "L1 + L2",
                         "L1-L2" to "L1 - L2",
-                        "L1*L2" to "L1 × L2",
+                        "L1*L2" to "L1 \u00d7 L2",
                         "L1+L2+L3" to "L1+L2+L3"
                     ),
                     selectedKey = covertManager.mathEquation
@@ -2212,7 +2212,7 @@ class CustomKeyboardService : InputMethodService() {
                     options = listOf(
                         "all" to "All Text",
                         "cursor_line" to "Cursor Line",
-                        "line" to "🎯 Line Number"
+                        "line" to "\u1f3af Line Number"
                     ),
                     selectedKey = covertManager.textPeekMode
                 ) { newScope ->
@@ -2256,8 +2256,8 @@ class CustomKeyboardService : InputMethodService() {
                 panel.addView(buildOptionChipsRow(
                     label = "Covert Typing Effect Mode",
                     options = listOf(
-                        "standard" to "🎭 Standard Covert",
-                        "reveal" to "✨ Covert Reveal"
+                        "standard" to "\u1f3ad Standard Covert",
+                        "reveal" to "\u2728 Covert Reveal"
                     ),
                     selectedKey = covertManager.covertMode
                 ) { newMode ->
@@ -2275,7 +2275,7 @@ class CustomKeyboardService : InputMethodService() {
                     val prog = if (isDone) "Finished (appended .)" else "${covertManager.revealIndex}/${apiInfo.length} chars typed"
 
                     panel.addView(TextView(this).apply {
-                        text = "API Info: \"$apiInfo\"\nProgress: $prog\n• Type ANY key to reveal API data character-by-character.\n• Automatically adds (.) and stealth vibrates when done."
+                        text = "API Info: \"$apiInfo\"\nProgress: $prog\n\u2022 Type ANY key to reveal API data character-by-character.\n\u2022 Automatically adds (.) and stealth vibrates when done."
                         setTextColor(textColor())
                         textSize = 11.5f
                         setPadding(0, dp(2), 0, dp(4))
@@ -2297,7 +2297,7 @@ class CustomKeyboardService : InputMethodService() {
                     val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
                     revealButtonsRow.addView(TextView(this).apply {
-                        text = "🔄 Fetch API Now"
+                        text = "\u1f504 Fetch API Now"
                         textSize = 11f
                         setTextColor(textColor())
                         background = actionBtnBg()
@@ -2314,7 +2314,7 @@ class CustomKeyboardService : InputMethodService() {
                         }
                     })
                     revealButtonsRow.addView(TextView(this).apply {
-                        text = "↺ Reset Reveal"
+                        text = "\u21ba Reset Reveal"
                         textSize = 11f
                         setTextColor(textColor())
                         background = actionBtnBg()
@@ -2334,16 +2334,4 @@ class CustomKeyboardService : InputMethodService() {
                         1 to "2nd Letter",
                         2 to "3rd Letter",
                         -1 to "Last Letter"
-                    )
-                    panel.addView(buildPositionSelectorWheel(
-                        currentPos = covertManager.revealLetterPosition,
-                        options = posLabels,
-                        label = "Secret Reveal Letter Position",
-                        subtitle = "Which character embeds the secret word on line 2"
-                    ) { newPos ->
-                        covertManager.revealLetterPosition = newPos
-                        render()
-                    })
-
-                    panel.addView(buildSubEffectToggleRow(
-                        title = "Send to Inje
+                
