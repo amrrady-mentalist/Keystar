@@ -15,7 +15,7 @@ import kotlin.math.min
 /**
  * Intelligent bilingual suggestion & correction engine:
  * Priority 1: Full word completion while writing (e.g., "foo" -> "food", "football", "foot", "footage")
- * Priority 2: Next-word prediction after space (e.g., "foot " -> "and", "it", "prints", "ball", "\u1f9b6", "\u1f463")
+ * Priority 2: Next-word prediction after space (e.g., "foot " -> "and", "it", "prints", "ball", "\uD83E\uDDB6", "\uD83D\uDC63")
  * Priority 3: Typo detection & spell-correction with auto-replace (e.g., "fot" -> "foot", "for", "fit")
  * Priority 4: Contraction & punctuation formatting (e.g., "lets" -> "let's", "dont" -> "don't", "cant" -> "can't")
  * Plus: Morphological expansion (past/present/future/plurals) and offline contextual emojis.
@@ -510,19 +510,19 @@ object Dictionary {
                 }
 
                 if (tempEmojiMap.isEmpty()) {
-                    tempEmojiMap["love"] = listOf("\u2764\ufe0f", "\u1f60d", "\u1f495", "\u1f970")
-                    tempEmojiMap["happy"] = listOf("\u1f60a", "\u1f603", "\u1f389", "\u1f973")
-                    tempEmojiMap["sad"] = listOf("\u1f622", "\u1f62d", "\u1f61e", "\u1f494")
-                    tempEmojiMap["fire"] = listOf("\u1f525", "\u26a1", "\u1f4a5")
-                    tempEmojiMap["magic"] = listOf("\u1fa84", "\u1f52e", "\u2728", "\u1f3a9")
-                    tempEmojiMap["test"] = listOf("\u1f9ea", "\u1f4dd", "\u1f52c")
-                    tempEmojiMap["foot"] = listOf("\u1f9b6", "\u1f463", "\u1f45f", "\u26bd")
-                    tempEmojiMap["food"] = listOf("\u1f355", "\u1f354", "\u1f35f", "\u1f372")
-                    tempEmojiMap["coffee"] = listOf("\u2615", "\u1f375", "\u1f9cb")
-                    tempEmojiMap["\u062d\u0628"] = listOf("\u2764\ufe0f", "\u1f60d", "\u1f970")
-                    tempEmojiMap["\u0633\u0639\u064a\u062f"] = listOf("\u1f603", "\u1f60a", "\u1f389")
-                    tempEmojiMap["\u062d\u0632\u064a\u0646"] = listOf("\u1f622", "\u1f62d", "\u1f61e")
-                    tempEmojiMap["\u0634\u0643\u0631\u0627"] = listOf("\u1f64f", "\u1f339", "\u2764\ufe0f")
+                    tempEmojiMap["love"] = listOf("\u2764\ufe0f", "\uD83D\uDE0D", "\uD83D\uDC95", "\uD83E\uDD70")
+                    tempEmojiMap["happy"] = listOf("\uD83D\uDE0A", "\uD83D\uDE03", "\uD83C\uDF89", "\uD83E\uDD73")
+                    tempEmojiMap["sad"] = listOf("\uD83D\uDE22", "\uD83D\uDE2D", "\uD83D\uDE1E", "\uD83D\uDC94")
+                    tempEmojiMap["fire"] = listOf("\uD83D\uDD25", "\u26a1", "\uD83D\uDCA5")
+                    tempEmojiMap["magic"] = listOf("\uD83E\uDE84", "\uD83D\uDD2E", "\u2728", "\uD83C\uDFA9")
+                    tempEmojiMap["test"] = listOf("\uD83E\uDDEA", "\uD83D\uDCDD", "\uD83D\uDD2C")
+                    tempEmojiMap["foot"] = listOf("\uD83E\uDDB6", "\uD83D\uDC63", "\uD83D\uDC5F", "\u26bd")
+                    tempEmojiMap["food"] = listOf("\uD83C\uDF55", "\uD83C\uDF54", "\uD83C\uDF5F", "\uD83C\uDF72")
+                    tempEmojiMap["coffee"] = listOf("\u2615", "\uD83C\uDF75", "\uD83E\uDDCB")
+                    tempEmojiMap["\u062d\u0628"] = listOf("\u2764\ufe0f", "\uD83D\uDE0D", "\uD83E\uDD70")
+                    tempEmojiMap["\u0633\u0639\u064a\u062f"] = listOf("\uD83D\uDE03", "\uD83D\uDE0A", "\uD83C\uDF89")
+                    tempEmojiMap["\u062d\u0632\u064a\u0646"] = listOf("\uD83D\uDE22", "\uD83D\uDE2D", "\uD83D\uDE1E")
+                    tempEmojiMap["\u0634\u0643\u0631\u0627"] = listOf("\uD83D\uDE4F", "\uD83C\uDF39", "\u2764\ufe0f")
                 }
 
                 // 4. Load Next-Word transitions map
@@ -650,7 +650,7 @@ object Dictionary {
         val semanticMatches = lookupSemanticEmojis(clean, norm)
         results.addAll(semanticMatches)
 
-        // 3. Keyword / prefix search in emojiMap for partial words (e.g., "foo" -> matches "food" -> \u1f355, \u1f354)
+        // 3. Keyword / prefix search in emojiMap for partial words (e.g., "foo" -> matches "food" -> \uD83C\uDF55, \uD83C\uDF54)
         if (results.size < limit && clean.length >= 3) {
             for ((k, list) in emojiMap) {
                 if (k.startsWith(clean) || clean.startsWith(k)) {
@@ -667,109 +667,109 @@ object Dictionary {
         return when {
             // Foot / Feet / Steps / Shoes
             clean in listOf("foot", "feet", "toe", "step", "walk", "walking", "runner", "shoe", "shoes") ->
-                listOf("\u1f9b6", "\u1f463", "\u1f45f", "\u1f9e6")
+                listOf("\uD83E\uDDB6", "\uD83D\uDC63", "\uD83D\uDC5F", "\uD83E\uDDE6")
             norm in listOf("\u0642\u062f\u0645", "\u0631\u062c\u0644", "\u062e\u0637\u0648\u0629", "\u0627\u0631\u062c\u0644", "\u0643\u0639\u0628", "\u062d\u0630\u0627\u0621", "\u0645\u0634\u0649", "\u064a\u0645\u0634\u064a") ->
-                listOf("\u1f9b6", "\u1f463", "\u1f45f", "\u1f9e6")
+                listOf("\uD83E\uDDB6", "\uD83D\uDC63", "\uD83D\uDC5F", "\uD83E\uDDE6")
 
             // Food / Eating / Snacks / Cooking
             clean in listOf("foo", "food", "eat", "eating", "eaten", "cook", "cooking", "snack", "dinner", "lunch", "meal", "pizza", "burger") ->
-                listOf("\u1f355", "\u1f354", "\u1f35f", "\u1f372", "\u1f957")
+                listOf("\uD83C\uDF55", "\uD83C\uDF54", "\uD83C\uDF5F", "\uD83C\uDF72", "\uD83E\uDD57")
             norm in listOf("\u0637\u0639\u0627\u0645", "\u0627\u0643\u0644", "\u064a\u0627\u0643\u0644", "\u0648\u062c\u0628\u0629", "\u0628\u064a\u062a\u0632\u0627", "\u0628\u0631\u062c\u0631", "\u063a\u062f\u0627\u0621", "\u0639\u0634\u0627\u0621", "\u0637\u0628\u062e") ->
-                listOf("\u1f355", "\u1f354", "\u1f35f", "\u1f372", "\u1f957")
+                listOf("\uD83C\uDF55", "\uD83C\uDF54", "\uD83C\uDF5F", "\uD83C\uDF72", "\uD83E\uDD57")
 
             // Football / Soccer / Sports
             clean in listOf("football", "soccer", "ball", "match", "game", "goal", "fifa") ->
-                listOf("\u26bd", "\u1f3c8", "\u1f3df\ufe0f", "\u1f3c6")
+                listOf("\u26bd", "\uD83C\uDFC8", "\uD83C\uDFDF\ufe0f", "\uD83C\uDFC6")
             norm in listOf("\u0643\u0648\u0631\u0629", "\u0643\u0631\u0629", "\u0642\u062f\u0645", "\u0645\u0628\u0627\u0631\u0627\u0629", "\u0645\u0644\u0639\u0628", "\u0647\u062f\u0641", "\u0643\u0627\u0633") ->
-                listOf("\u26bd", "\u1f3df\ufe0f", "\u1f3c6")
+                listOf("\u26bd", "\uD83C\uDFDF\ufe0f", "\uD83C\uDFC6")
 
             // Sad / Crying / Tears / Heartbreak
             clean in listOf("sad", "sadness", "sadly", "cry", "crying", "tears", "depressed", "unhappy", "sorrow", "grief") ->
-                listOf("\u1f622", "\u1f62d", "\u1f494", "\u1f61e", "\u1f97a")
+                listOf("\uD83D\uDE22", "\uD83D\uDE2D", "\uD83D\uDC94", "\uD83D\uDE1E", "\uD83E\uDD7A")
             norm in listOf("\u062d\u0632\u0646", "\u062d\u0632\u064a\u0646", "\u0632\u0639\u0644\u0627\u0646", "\u062f\u0645\u0648\u0639", "\u0628\u0643\u0649", "\u062a\u0639\u0628\u0627\u0646", "\u0645\u0642\u0647\u0648\u0631", "\u0642\u0644\u0628\u064a") ->
-                listOf("\u1f622", "\u1f62d", "\u1f494", "\u1f61e", "\u1f97a")
+                listOf("\uD83D\uDE22", "\uD83D\uDE2D", "\uD83D\uDC94", "\uD83D\uDE1E", "\uD83E\uDD7A")
 
             // Happy / Joy / Smile / Laugh
             clean in listOf("happy", "happiness", "joy", "smile", "smiling", "glad", "cheerful", "excited") ->
-                listOf("\u1f60a", "\u1f604", "\u1f603", "\u1f389", "\u2728")
+                listOf("\uD83D\uDE0A", "\uD83D\uDE04", "\uD83D\uDE03", "\uD83C\uDF89", "\u2728")
             norm in listOf("\u0641\u0631\u062d", "\u0633\u0639\u064a\u062f", "\u0645\u0628\u0633\u0648\u0637", "\u0641\u0631\u062d\u0627\u0646", "\u0636\u062d\u0643", "\u0631\u0648\u0639\u0629", "\u0645\u0628\u062a\u0633\u0645") ->
-                listOf("\u1f603", "\u1f60a", "\u1f389", "\u2728")
+                listOf("\uD83D\uDE03", "\uD83D\uDE0A", "\uD83C\uDF89", "\u2728")
 
             // Love / Heart / Romantic
             clean in listOf("love", "loving", "loved", "heart", "crush", "sweetheart", "kiss", "kisses", "romance") ->
-                listOf("\u2764\ufe0f", "\u1f60d", "\u1f970", "\u1f495", "\u1f496", "\u1f618")
+                listOf("\u2764\ufe0f", "\uD83D\uDE0D", "\uD83E\uDD70", "\uD83D\uDC95", "\uD83D\uDC96", "\uD83D\uDE18")
             norm in listOf("\u062d\u0628", "\u0628\u062d\u0628\u0643", "\u0642\u0644\u0628\u064a", "\u062d\u0628\u064a\u0628\u064a", "\u062d\u0628\u064a\u0628\u062a\u064a", "\u0639\u0634\u0642\u064a", "\u063a\u0631\u0627\u0645", "\u0628\u0648\u0633\u0629") ->
-                listOf("\u2764\ufe0f", "\u1f60d", "\u1f970", "\u1f495", "\u1f618")
+                listOf("\u2764\ufe0f", "\uD83D\uDE0D", "\uD83E\uDD70", "\uD83D\uDC95", "\uD83D\uDE18")
 
             // Fire / Flame / Lit / Hot
             clean in listOf("fire", "flame", "lit", "hot", "burn", "burning", "spicy") ->
-                listOf("\u1f525", "\u26a1", "\u1f4a5")
+                listOf("\uD83D\uDD25", "\u26a1", "\uD83D\uDCA5")
             norm in listOf("\u0646\u0627\u0631", "\u0648\u0644\u0639\u0629", "\u062d\u0631\u064a\u0642\u0629", "\u0645\u0648\u0644\u0639", "\u0634\u0639\u0644\u0629") ->
-                listOf("\u1f525", "\u26a1", "\u1f4a5")
+                listOf("\uD83D\uDD25", "\u26a1", "\uD83D\uDCA5")
 
             // Test / Chemistry / Science / Quiz
             clean in listOf("test", "testing", "tested", "tests", "exam", "quiz", "check", "lab") ->
-                listOf("\u1f9ea", "\u1f4dd", "\u1f52c", "\u2705")
+                listOf("\uD83E\uDDEA", "\uD83D\uDCDD", "\uD83D\uDD2C", "\u2705")
             norm in listOf("\u062a\u0633\u062a", "\u0627\u062e\u062a\u0628\u0627\u0631", "\u0627\u0645\u062a\u062d\u0627\u0646", "\u0641\u062d\u0635", "\u062a\u062c\u0631\u0628\u0629", "\u0645\u0639\u0645\u0644") ->
-                listOf("\u1f9ea", "\u1f4dd", "\u1f52c", "\u2705")
+                listOf("\uD83E\uDDEA", "\uD83D\uDCDD", "\uD83D\uDD2C", "\u2705")
 
             // Thank / Thanks / Gratitude
             clean in listOf("thank", "thanks", "grateful", "appreciate", "blessed") ->
-                listOf("\u1f64f", "\u1f339", "\u2764\ufe0f", "\u2728")
+                listOf("\uD83D\uDE4F", "\uD83C\uDF39", "\u2764\ufe0f", "\u2728")
             norm in listOf("\u0634\u0643\u0631\u0627", "\u062a\u0633\u0644\u0645", "\u0645\u0634\u0643\u0648\u0631", "\u064a\u0633\u0644\u0645\u0648", "\u0627\u0644\u0641 \u0634\u0643\u0631", "\u0628\u0627\u0631\u0643 \u0627\u0644\u0644\u0647") ->
-                listOf("\u1f64f", "\u1f339", "\u2764\ufe0f", "\u2728")
+                listOf("\uD83D\uDE4F", "\uD83C\uDF39", "\u2764\ufe0f", "\u2728")
 
             // Good morning / Good night
             clean in listOf("morning", "sun", "sunrise") ->
-                listOf("\u2600\ufe0f", "\u1f305", "\u2615")
+                listOf("\u2600\ufe0f", "\uD83C\uDF05", "\u2615")
             clean in listOf("night", "sleep", "dream", "moon") ->
-                listOf("\u1f319", "\u2b50", "\u1f634", "\u2728")
+                listOf("\uD83C\uDF19", "\u2b50", "\uD83D\uDE34", "\u2728")
             norm in listOf("\u0635\u0628\u0627\u062d", "\u0634\u0645\u0633") ->
-                listOf("\u2600\ufe0f", "\u1f338", "\u2615")
+                listOf("\u2600\ufe0f", "\uD83C\uDF38", "\u2615")
             norm in listOf("\u0645\u0633\u0627\u0621", "\u0644\u064a\u0644", "\u0646\u0648\u0645", "\u0642\u0645\u0631") ->
-                listOf("\u1f319", "\u2728", "\u1f339")
+                listOf("\uD83C\uDF19", "\u2728", "\uD83C\uDF39")
 
             // Money / Cash / Rich
             clean in listOf("money", "cash", "dollar", "rich", "wealth", "pay", "payment") ->
-                listOf("\u1f4b0", "\u1f4b5", "\u1f911", "\u1f4b3")
+                listOf("\uD83D\uDCB0", "\uD83D\uDCB5", "\uD83E\uDD11", "\uD83D\uDCB3")
             norm in listOf("\u0641\u0644\u0648\u0633", "\u0645\u0635\u0627\u0631\u064a", "\u0645\u0627\u0644", "\u062f\u0648\u0644\u0627\u0631", "\u063a\u0646\u064a") ->
-                listOf("\u1f4b0", "\u1f4b5", "\u1f911")
+                listOf("\uD83D\uDCB0", "\uD83D\uDCB5", "\uD83E\uDD11")
 
             // Car / Driving / Vehicle
             clean in listOf("car", "drive", "driving", "auto", "vehicle", "ride") ->
-                listOf("\u1f697", "\u1f698", "\u1f3ce\ufe0f")
+                listOf("\uD83D\uDE97", "\uD83D\uDE98", "\uD83C\uDFCE\ufe0f")
             norm in listOf("\u0639\u0631\u0628\u064a\u0629", "\u0633\u064a\u0627\u0631\u0629", "\u0633\u0648\u0627\u0642\u0629", "\u0639\u0631\u0628\u064a\u0627\u062a") ->
-                listOf("\u1f697", "\u1f698")
+                listOf("\uD83D\uDE97", "\uD83D\uDE98")
 
             // Coffee / Tea / Drinks
             clean in listOf("coffee", "tea", "drink", "cafe", "espresso", "latte", "cup") ->
-                listOf("\u2615", "\u1f375", "\u1f9cb", "\u1f964")
+                listOf("\u2615", "\uD83C\uDF75", "\uD83E\uDDCB", "\uD83E\uDD64")
             norm in listOf("\u0642\u0647\u0648\u0629", "\u0634\u0627\u064a", "\u0643\u0627\u0641\u064a\u0647", "\u0645\u0634\u0631\u0648\u0628", "\u0639\u0635\u064a\u0631") ->
-                listOf("\u2615", "\u1f375", "\u1f9cb")
+                listOf("\u2615", "\uD83C\uDF75", "\uD83E\uDDCB")
 
             // Party / Celebration / Birthday
             clean in listOf("party", "celebrate", "birthday", "cheers", "festival", "dance") ->
-                listOf("\u1f389", "\u1f973", "\u1f37e", "\u1f382", "\u1f388")
+                listOf("\uD83C\uDF89", "\uD83E\uDD73", "\uD83C\uDF7E", "\uD83C\uDF82", "\uD83C\uDF88")
             norm in listOf("\u062d\u0641\u0644\u0629", "\u0639\u064a\u062f \u0645\u064a\u0644\u0627\u062f", "\u0645\u0628\u0631\u0648\u0643", "\u062a\u0647\u0627\u0646\u064a\u0646\u0627", "\u0627\u062d\u062a\u0641\u0627\u0644") ->
-                listOf("\u1f389", "\u1f973", "\u1f382", "\u1f388")
+                listOf("\uD83C\uDF89", "\uD83E\uDD73", "\uD83C\uDF82", "\uD83C\uDF88")
 
             // Magic / Mystery / Trick
             clean in listOf("magic", "magical", "trick", "wizard", "illusion", "secret") ->
-                listOf("\u1fa84", "\u1f52e", "\u2728", "\u1f3a9", "\u1f92b")
+                listOf("\uD83E\uDE84", "\uD83D\uDD2E", "\u2728", "\uD83C\uDFA9", "\uD83E\uDD2B")
             norm in listOf("\u0633\u062d\u0631", "\u062e\u062f\u0639\u0629", "\u0633\u0627\u062d\u0631", "\u0633\u0631\u064a", "\u062e\u0641\u064a") ->
-                listOf("\u1fa84", "\u1f52e", "\u2728", "\u1f3a9", "\u1f92b")
+                listOf("\uD83E\uDE84", "\uD83D\uDD2E", "\u2728", "\uD83C\uDFA9", "\uD83E\uDD2B")
 
             // Affirmation / OK / Yes / Done
             clean in listOf("ok", "okay", "yes", "done", "good", "great", "nice", "perfect", "cool") ->
-                listOf("\u1f44d", "\u1f44c", "\u2705", "\u1f60e", "\u1f4af")
+                listOf("\uD83D\uDC4D", "\uD83D\uDC4C", "\u2705", "\uD83D\uDE0E", "\uD83D\uDCAF")
             norm in listOf("\u062a\u0645\u0627\u0645", "\u0635\u062d", "\u0645\u0627\u0634\u064a", "\u0627\u0648\u0643\u064a", "\u0645\u0636\u0628\u0648\u0637", "\u062d\u0644\u0648", "\u062c\u0645\u064a\u0644") ->
-                listOf("\u1f44d", "\u1f44c", "\u2705", "\u1f4af")
+                listOf("\uD83D\uDC4D", "\uD83D\uDC4C", "\u2705", "\uD83D\uDCAF")
 
             // Laugh / LOL / Funny
             clean in listOf("lol", "haha", "hahaha", "laugh", "funny", "hilarious", "joke") ->
-                listOf("\u1f602", "\u1f923", "\u1f606")
+                listOf("\uD83D\uDE02", "\uD83E\uDD23", "\uD83D\uDE06")
             norm in listOf("\u0647\u0647\u0647\u0647", "\u0647\u0647\u0647\u0647\u0647", "\u0636\u062d\u0643", "\u0646\u0643\u062a\u0647", "\u0645\u0633\u062e\u0631\u0629") ->
-                listOf("\u1f602", "\u1f923", "\u1f606")
+                listOf("\uD83D\uDE02", "\uD83E\uDD23", "\uD83D\uDE06")
 
             else -> emptyList()
         }
