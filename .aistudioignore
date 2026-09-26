@@ -1,0 +1,5 @@
+# Ignore web generation
+*.html
+*.jsx
+*.tsx
+package.json
