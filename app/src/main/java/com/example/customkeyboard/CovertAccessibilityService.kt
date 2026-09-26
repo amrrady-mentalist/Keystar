@@ -5,6 +5,7 @@ import android.accessibilityservice.GestureDescription
 import android.content.Context
 import android.graphics.Path
 import android.graphics.Rect
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
@@ -41,6 +42,41 @@ class CovertAccessibilityService : AccessibilityService() {
             } catch (_: Exception) {
                 false
             }
+        }
+
+        /**
+         * Directly replaces the full text in the currently active input field via
+         * AccessibilityNodeInfo.ACTION_SET_TEXT.
+         * Useful for calculator apps, custom text fields, and views where InputConnection
+         * deleteSurroundingText is ignored.
+         */
+        fun replaceActiveInputText(replacement: String): Boolean {
+            val s = instance ?: return false
+            val root = s.rootInActiveWindow ?: return false
+            val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: return false
+            return try {
+                val args = Bundle().apply {
+                    putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, replacement)
+                }
+                val result = focused.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+                if (result) {
+                    Log.d(TAG, "Successfully replaced input text via ACTION_SET_TEXT")
+                }
+                result
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to replace text via ACTION_SET_TEXT: ${e.message}")
+                false
+            }
+        }
+
+        /**
+         * Reads the text currently displayed in the focused input node if available.
+         */
+        fun getActiveInputText(): String? {
+            val s = instance ?: return null
+            val root = s.rootInActiveWindow ?: return null
+            val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: return null
+            return focused.text?.toString()
         }
 
         fun clickActiveConfirmationButton(): Boolean {

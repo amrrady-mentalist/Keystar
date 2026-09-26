@@ -5063,11 +5063,96 @@ class CustomKeyboardService : InputMethodService() {
     }
 
     /**
+     * Reliably deletes text surrounding the cursor, with fallbacks for calculator apps,
+     * web views, and custom input connections where deleteSurroundingText is ignored.
+     */
+    private fun reliableDeleteSurrounding(
+        ic: android.view.inputmethod.InputConnection,
+        charsBefore: Int,
+        charsAfter: Int,
+        isAllText: Boolean = false
+    ) {
+        if (charsBefore <= 0 && charsAfter <= 0 && !isAllText) return
+
+        // 1. If text is currently selected, clear selection first
+        try {
+            val sel = ic.getSelectedText(0)
+            if (!sel.isNullOrEmpty()) {
+                ic.commitText("", 1)
+            }
+        } catch (_: Exception) {}
+
+        // 2. If clearing all text (e.g. calculator display, full field replacement):
+        if (isAllText) {
+            // Try select-all via context menu action
+            try {
+                ic.performContextMenuAction(android.R.id.selectAll)
+                ic.commitText("", 1)
+            } catch (_: Exception) {}
+
+            // Try KEYCODE_CLEAR (which specifically clears formula displays in Calculator apps)
+            try {
+                ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_CLEAR))
+                ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_CLEAR))
+            } catch (_: Exception) {}
+        }
+
+        // 3. Attempt standard deleteSurroundingText (separately before and after for buggy wrappers)
+        try {
+            if (charsBefore > 0) {
+                ic.deleteSurroundingText(charsBefore, 0)
+            }
+            if (charsAfter > 0) {
+                ic.deleteSurroundingText(0, charsAfter)
+            }
+        } catch (_: Exception) {}
+
+        // 4. Verification: Did deleteSurroundingText actually remove the text?
+        // In many Calculator apps (Google Calculator, Samsung Calculator, etc.), deleteSurroundingText is a no-op!
+        var remainingBefore = try {
+            ic.getTextBeforeCursor(maxOf(charsBefore, 20), 0)?.toString() ?: ""
+        } catch (_: Exception) { "" }
+        var remainingAfter = try {
+            ic.getTextAfterCursor(maxOf(charsAfter, 20), 0)?.toString() ?: ""
+        } catch (_: Exception) { "" }
+
+        // If characters still exist, send physical KEYCODE_DEL (Backspace) / KEYCODE_FORWARD_DEL
+        if (remainingBefore.isNotEmpty() || (isAllText && remainingAfter.isNotEmpty())) {
+            // Re-attempt KEYCODE_CLEAR for calculators
+            if (isAllText) {
+                try {
+                    ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_CLEAR))
+                    ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_CLEAR))
+                } catch (_: Exception) {}
+            }
+
+            val curBefore = try {
+                ic.getTextBeforeCursor(100, 0)?.toString() ?: ""
+            } catch (_: Exception) { "" }
+
+            val delCount = if (isAllText && curBefore.isEmpty()) 25 else curBefore.length
+            for (i in 0 until delCount.coerceAtMost(120)) {
+                ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL))
+                ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DEL))
+            }
+
+            val curAfter = try {
+                ic.getTextAfterCursor(100, 0)?.toString() ?: ""
+            } catch (_: Exception) { "" }
+            for (i in 0 until curAfter.length.coerceAtMost(120)) {
+                ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_FORWARD_DEL))
+                ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_FORWARD_DEL))
+            }
+        }
+    }
+
+    /**
      * Replaces the configured placeholder (e.g. "--value--") in the active text field
      * with the remote data received from the API or pre-saved custom text.
      * If the placeholder is empty/blank, replaces ALL text in the writing area.
      * When triggered repeatedly, updates the previous replacement with the new value
      * instead of clearing or reversing the field.
+     * Fully compatible with Calculator apps and custom fields where deleteSurroundingText is ignored.
      */
     private fun executeRemoteTextReplacement(cm: CovertManager): Boolean {
         val ic = currentInputConnection ?: return false
@@ -5075,83 +5160,185 @@ class CustomKeyboardService : InputMethodService() {
         val replacement = cm.getEffectiveReplacementValue().trim()
         if (replacement.isEmpty()) return false
 
-        val before = ic.getTextBeforeCursor(4000, 0)?.toString() ?: ""
-        val after = ic.getTextAfterCursor(1000, 0)?.toString() ?: ""
+        val editorInfo = currentInputEditorInfo
+        val pkg = (editorInfo?.packageName ?: "").lowercase()
+        val isCalculator = pkg.contains("calculator") || pkg.contains("calc")
+        val isNumericField = editorInfo != null && (
+            ((editorInfo.inputType and InputType.TYPE_MASK_CLASS) == InputType.TYPE_CLASS_NUMBER) ||
+            ((editorInfo.inputType and InputType.TYPE_MASK_CLASS) == InputType.TYPE_CLASS_PHONE) ||
+            (editorInfo.inputType == InputType.TYPE_NULL && isCalculator)
+        )
 
-        ic.beginBatchEdit()
-        try {
-            // Case 0: Option to replace current cursor line
-            // Replaces the entire line that the cursor is on now after any trigger is activated
-            if (cm.replaceCurrentLine) {
-                val lastNewlineBefore = before.lastIndexOfAny(charArrayOf('\n', '\r'))
-                val charsToDeleteBefore = if (lastNewlineBefore != -1) {
-                    before.length - (lastNewlineBefore + 1)
-                } else {
-                    before.length
-                }
+        var before = ic.getTextBeforeCursor(4000, 0)?.toString() ?: ""
+        var after = ic.getTextAfterCursor(1000, 0)?.toString() ?: ""
 
-                val firstNewlineAfter = after.indexOfAny(charArrayOf('\n', '\r'))
-                val charsToDeleteAfter = if (firstNewlineAfter != -1) {
-                    firstNewlineAfter
-                } else {
-                    after.length
+        // Fallback text extraction for apps like Calculator where getTextBeforeCursor returns empty
+        if (before.isEmpty() && after.isEmpty()) {
+            try {
+                val req = ExtractedTextRequest().apply {
+                    token = 0
+                    flags = 0
+                    hintMaxLines = 10
+                    hintMaxChars = 10000
                 }
+                val ext = ic.getExtractedText(req, 0)
+                if (ext != null && ext.text != null && ext.text.isNotEmpty()) {
+                    before = ext.text.toString()
+                }
+            } catch (_: Exception) {}
+        }
 
-                if (charsToDeleteBefore > 0 || charsToDeleteAfter > 0) {
-                    ic.deleteSurroundingText(charsToDeleteBefore, charsToDeleteAfter)
+        if (before.isEmpty() && after.isEmpty() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && editorInfo != null) {
+            try {
+                val initBefore = editorInfo.getInitialTextBeforeCursor(4000, 0)?.toString() ?: ""
+                val initAfter = editorInfo.getInitialTextAfterCursor(1000, 0)?.toString() ?: ""
+                if (initBefore.isNotEmpty() || initAfter.isNotEmpty()) {
+                    before = initBefore
+                    after = initAfter
                 }
+            } catch (_: Exception) {}
+        }
+
+        if (before.isEmpty() && after.isEmpty() && CovertAccessibilityService.isAccessibilityServiceEnabled(this)) {
+            val accessText = CovertAccessibilityService.getActiveInputText() ?: ""
+            if (accessText.isNotEmpty()) {
+                before = accessText
+            }
+        }
+
+        // Fast path for full replacement via AccessibilityService if available
+        val isAllTextTarget = placeholder.isEmpty() || isCalculator || isNumericField
+        if (isAllTextTarget && CovertAccessibilityService.isAccessibilityServiceEnabled(this)) {
+            if (CovertAccessibilityService.replaceActiveInputText(replacement)) {
+                lastReplacedValue = replacement
+                wordBuffer.clear()
+                refreshTopBar()
+                return true
+            }
+        }
+
+        // Case 0: Calculator or Numeric Field Override
+        // In calculator apps, placeholders do not exist; replacing text always replaces the calculator formula/value.
+        if (isCalculator || isNumericField) {
+            val totalBefore = before.length
+            val totalAfter = after.length
+            reliableDeleteSurrounding(ic, totalBefore, totalAfter, isAllText = true)
+            ic.commitText(replacement, 1)
+            lastReplacedValue = replacement
+            wordBuffer.clear()
+            refreshTopBar()
+            return true
+        }
+
+        // Case 1: Option to replace current cursor line
+        if (cm.replaceCurrentLine) {
+            val lastNewlineBefore = before.lastIndexOfAny(charArrayOf('\n', '\r'))
+            val charsToDeleteBefore = if (lastNewlineBefore != -1) {
+                before.length - (lastNewlineBefore + 1)
+            } else {
+                before.length
+            }
+
+            val firstNewlineAfter = after.indexOfAny(charArrayOf('\n', '\r'))
+            val charsToDeleteAfter = if (firstNewlineAfter != -1) {
+                firstNewlineAfter
+            } else {
+                after.length
+            }
+
+            val isSingleLine = (lastNewlineBefore == -1 && firstNewlineAfter == -1)
+            reliableDeleteSurrounding(ic, charsToDeleteBefore, charsToDeleteAfter, isAllText = isSingleLine)
+            ic.commitText(replacement, 1)
+            lastReplacedValue = replacement
+            wordBuffer.clear()
+            refreshTopBar()
+            return true
+        }
+
+        // Case 2: If placeholder field was left empty, replace ALL text in the writing area
+        if (placeholder.isEmpty()) {
+            val totalBefore = before.length
+            val totalAfter = after.length
+            reliableDeleteSurrounding(ic, totalBefore, totalAfter, isAllText = true)
+            ic.commitText(replacement, 1)
+            lastReplacedValue = replacement
+            wordBuffer.clear()
+            refreshTopBar()
+            return true
+        }
+
+        // Case 3: Standard placeholder match
+        if (before.contains(placeholder)) {
+            val idx = before.lastIndexOf(placeholder)
+            val charsToStartOfPlaceholder = before.length - idx
+            val suffix = before.substring(idx + placeholder.length)
+
+            reliableDeleteSurrounding(ic, charsToStartOfPlaceholder, 0, isAllText = false)
+            ic.commitText(replacement + suffix, 1)
+            lastReplacedValue = replacement
+            wordBuffer.clear()
+            refreshTopBar()
+            return true
+        } else if (after.contains(placeholder)) {
+            val idx = after.indexOf(placeholder)
+            val charsToDeleteAfter = idx + placeholder.length
+            val prefixAfterMatch = after.substring(0, idx)
+            val suffixAfterMatch = after.substring(idx + placeholder.length)
+
+            reliableDeleteSurrounding(ic, 0, charsToDeleteAfter, isAllText = false)
+            ic.commitText(prefixAfterMatch + replacement + suffixAfterMatch, 1)
+            lastReplacedValue = replacement
+            wordBuffer.clear()
+            refreshTopBar()
+            return true
+        } else if ((before + after).contains(placeholder)) {
+            val combined = before + after
+            val idx = combined.indexOf(placeholder)
+            if (idx != -1) {
+                val deleteBefore = (before.length - idx).coerceAtLeast(0)
+                val deleteAfter = ((idx + placeholder.length) - before.length).coerceAtLeast(0)
+                reliableDeleteSurrounding(ic, deleteBefore, deleteAfter, isAllText = false)
                 ic.commitText(replacement, 1)
                 lastReplacedValue = replacement
                 wordBuffer.clear()
                 refreshTopBar()
                 return true
             }
+        }
 
-            // Case 1: If placeholder field was left empty, replace ALL text in the writing area
-            if (placeholder.isEmpty()) {
-                val totalBefore = before.length
-                val totalAfter = after.length
-                if (totalBefore > 0 || totalAfter > 0) {
-                    ic.deleteSurroundingText(totalBefore, totalAfter)
-                }
-                ic.commitText(replacement, 1)
-                lastReplacedValue = replacement
-                wordBuffer.clear()
-                refreshTopBar()
-                return true
-            }
+        // Case 4: REPEAT TRIGGER SUPPORT
+        // If placeholder is not found, but a previous replacement was made, replace the previous replacement with the new value
+        if (lastReplacedValue.isNotEmpty()) {
+            if (before.contains(lastReplacedValue)) {
+                val idx = before.lastIndexOf(lastReplacedValue)
+                val charsToStartOfVal = before.length - idx
+                val suffix = before.substring(idx + lastReplacedValue.length)
 
-            // Case 2: Standard placeholder match
-            if (before.contains(placeholder)) {
-                val idx = before.lastIndexOf(placeholder)
-                val charsToStartOfPlaceholder = before.length - idx
-                val suffix = before.substring(idx + placeholder.length)
-
-                ic.deleteSurroundingText(charsToStartOfPlaceholder, 0)
+                reliableDeleteSurrounding(ic, charsToStartOfVal, 0, isAllText = false)
                 ic.commitText(replacement + suffix, 1)
                 lastReplacedValue = replacement
                 wordBuffer.clear()
                 refreshTopBar()
                 return true
-            } else if (after.contains(placeholder)) {
-                val idx = after.indexOf(placeholder)
-                val charsToDeleteAfter = idx + placeholder.length
+            } else if (after.contains(lastReplacedValue)) {
+                val idx = after.indexOf(lastReplacedValue)
+                val charsToDeleteAfter = idx + lastReplacedValue.length
                 val prefixAfterMatch = after.substring(0, idx)
-                val suffixAfterMatch = after.substring(idx + placeholder.length)
+                val suffixAfterMatch = after.substring(idx + lastReplacedValue.length)
 
-                ic.deleteSurroundingText(0, charsToDeleteAfter)
+                reliableDeleteSurrounding(ic, 0, charsToDeleteAfter, isAllText = false)
                 ic.commitText(prefixAfterMatch + replacement + suffixAfterMatch, 1)
                 lastReplacedValue = replacement
                 wordBuffer.clear()
                 refreshTopBar()
                 return true
-            } else if ((before + after).contains(placeholder)) {
+            } else if ((before + after).contains(lastReplacedValue)) {
                 val combined = before + after
-                val idx = combined.indexOf(placeholder)
+                val idx = combined.indexOf(lastReplacedValue)
                 if (idx != -1) {
                     val deleteBefore = (before.length - idx).coerceAtLeast(0)
-                    val deleteAfter = ((idx + placeholder.length) - before.length).coerceAtLeast(0)
-                    ic.deleteSurroundingText(deleteBefore, deleteAfter)
+                    val deleteAfter = ((idx + lastReplacedValue.length) - before.length).coerceAtLeast(0)
+                    reliableDeleteSurrounding(ic, deleteBefore, deleteAfter, isAllText = false)
                     ic.commitText(replacement, 1)
                     lastReplacedValue = replacement
                     wordBuffer.clear()
@@ -5159,62 +5346,20 @@ class CustomKeyboardService : InputMethodService() {
                     return true
                 }
             }
-
-            // Case 3: REPEAT TRIGGER SUPPORT
-            // If placeholder is not found, but a previous replacement was made, replace the previous replacement with the new value
-            if (lastReplacedValue.isNotEmpty()) {
-                if (before.contains(lastReplacedValue)) {
-                    val idx = before.lastIndexOf(lastReplacedValue)
-                    val charsToStartOfVal = before.length - idx
-                    val suffix = before.substring(idx + lastReplacedValue.length)
-
-                    ic.deleteSurroundingText(charsToStartOfVal, 0)
-                    ic.commitText(replacement + suffix, 1)
-                    lastReplacedValue = replacement
-                    wordBuffer.clear()
-                    refreshTopBar()
-                    return true
-                } else if (after.contains(lastReplacedValue)) {
-                    val idx = after.indexOf(lastReplacedValue)
-                    val charsToDeleteAfter = idx + lastReplacedValue.length
-                    val prefixAfterMatch = after.substring(0, idx)
-                    val suffixAfterMatch = after.substring(idx + lastReplacedValue.length)
-
-                    ic.deleteSurroundingText(0, charsToDeleteAfter)
-                    ic.commitText(prefixAfterMatch + replacement + suffixAfterMatch, 1)
-                    lastReplacedValue = replacement
-                    wordBuffer.clear()
-                    refreshTopBar()
-                    return true
-                } else if ((before + after).contains(lastReplacedValue)) {
-                    val combined = before + after
-                    val idx = combined.indexOf(lastReplacedValue)
-                    if (idx != -1) {
-                        val deleteBefore = (before.length - idx).coerceAtLeast(0)
-                        val deleteAfter = ((idx + lastReplacedValue.length) - before.length).coerceAtLeast(0)
-                        ic.deleteSurroundingText(deleteBefore, deleteAfter)
-                        ic.commitText(replacement, 1)
-                        lastReplacedValue = replacement
-                        wordBuffer.clear()
-                        refreshTopBar()
-                        return true
-                    }
-                }
-            }
-
-            // Case 4: Field is empty, insert the replacement
-            if (before.isEmpty() && after.isEmpty()) {
-                ic.commitText(replacement, 1)
-                lastReplacedValue = replacement
-                wordBuffer.clear()
-                refreshTopBar()
-                return true
-            }
-
-            return false
-        } finally {
-            ic.endBatchEdit()
         }
+
+        // Case 5: Field is empty, or single-line field where placeholder wasn't found
+        // Ensure any hidden selection/content is cleared before inserting
+        if (before.isEmpty() && after.isEmpty()) {
+            reliableDeleteSurrounding(ic, 0, 0, isAllText = true)
+            ic.commitText(replacement, 1)
+            lastReplacedValue = replacement
+            wordBuffer.clear()
+            refreshTopBar()
+            return true
+        }
+
+        return false
     }
 
     /**
