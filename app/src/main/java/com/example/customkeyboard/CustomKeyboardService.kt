@@ -528,6 +528,9 @@ class CustomKeyboardService : InputMethodService() {
     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
         currentActiveEditorInfo = attribute
+        if (isInputViewShown) {
+            refreshEnterKey(attribute)
+        }
         // Avoid redundant render() during input initialization
     }
 
@@ -4132,18 +4135,41 @@ class CustomKeyboardService : InputMethodService() {
         val isSearchVariation = typeVariation == android.text.InputType.TYPE_TEXT_VARIATION_FILTER ||
                 typeVariation == 0xa0 // TYPE_TEXT_VARIATION_WEB_SEARCH_QUERY
 
-        val isSearchTextMatch = actionLabel.contains("search") || actionLabel.contains("بحث") ||
-                hintText.contains("search") || hintText.contains("بحث") ||
-                hintText.contains("find") || hintText.contains("ابحث") ||
+        val isAskMatch = hintText.contains("ask") || hintText.contains("\u0627\u0633\u0623\u0644") ||
+                hintText.contains("\u0627\u0633\u0627\u0644") ||
+                actionLabel.contains("ask") || actionLabel.contains("\u0627\u0633\u0623\u0644") ||
+                actionLabel.contains("\u0627\u0633\u0627\u0644")
+
+        val isUrlOrWebMatch = hintText.contains("type a url") || hintText.contains("type url") ||
+                hintText.contains("type web address") || hintText.contains("enter url") ||
+                hintText.contains("\u0639\u0646\u0648\u0627\u0646 url") ||
+                hintText.contains("\u0639\u0646\u0648\u0627\u0646 \u0648\u064a\u0628") ||
+                fieldName.contains("omnibox") || fieldName.contains("url_bar")
+
+        val isSearchTextMatch = actionLabel.contains("search") || actionLabel.contains("\u0628\u062d\u062b") ||
+                actionLabel.contains("find") ||
+                hintText.contains("search") || hintText.contains("\u0628\u062d\u062b") ||
+                hintText.contains("find") || hintText.contains("\u0627\u0628\u062d\u062b") ||
+                hintText.contains("query") || hintText.contains("explore") ||
                 fieldName.contains("search") || fieldName.contains("query") ||
-                fieldName.contains("find") || privateIme.contains("search")
+                fieldName.contains("find") || privateIme.contains("search") ||
+                isAskMatch || isUrlOrWebMatch
 
-        val isSearchApp = (packageName.contains("search") || packageName.contains("googlequicksearchbox")) &&
-                (rawAction == EditorInfo.IME_ACTION_SEARCH || rawAction == EditorInfo.IME_ACTION_GO ||
-                 rawAction == EditorInfo.IME_ACTION_UNSPECIFIED || rawAction == EditorInfo.IME_ACTION_NONE ||
-                 isSearchTextMatch)
+        val isGoogleSearchApp = packageName.contains("googlequicksearchbox") ||
+                packageName.contains(".apps.search") ||
+                packageName.contains("searchwidget") ||
+                packageName.contains("nexuslauncher") ||
+                packageName.contains("pixelsearch")
 
-        val isSearch = isExplicitSearchAction || isSearchVariation || isSearchTextMatch || isSearchApp
+        val isBrowserSearch = (packageName.contains("chrome") ||
+                packageName.contains("browser") ||
+                packageName.contains("firefox") ||
+                packageName.contains("opera") ||
+                packageName.contains("edge")) && (isAskMatch || isUrlOrWebMatch ||
+                fieldName.contains("url") || fieldName.contains("omnibox") ||
+                fieldName.contains("search") || isSearchTextMatch)
+
+        val isSearch = isExplicitSearchAction || isSearchVariation || isSearchTextMatch || isGoogleSearchApp || isBrowserSearch
         if (isSearch) {
             return EnterActionType.SEARCH
         }
@@ -5031,12 +5057,21 @@ class CustomKeyboardService : InputMethodService() {
                 }
             }
             EnterActionType.SEARCH -> {
+                val rawAction = info?.imeOptions?.and(EditorInfo.IME_MASK_ACTION) ?: EditorInfo.IME_ACTION_NONE
                 val action = if (info?.actionId != null && info.actionId != 0) {
                     info.actionId
+                } else if (rawAction == EditorInfo.IME_ACTION_SEARCH || rawAction == EditorInfo.IME_ACTION_GO) {
+                    rawAction
                 } else {
                     EditorInfo.IME_ACTION_SEARCH
                 }
-                val performed = ic?.performEditorAction(action) ?: false
+                var performed = ic?.performEditorAction(action) ?: false
+                if (!performed && action != EditorInfo.IME_ACTION_SEARCH) {
+                    performed = ic?.performEditorAction(EditorInfo.IME_ACTION_SEARCH) ?: false
+                }
+                if (!performed && action != EditorInfo.IME_ACTION_GO) {
+                    performed = ic?.performEditorAction(EditorInfo.IME_ACTION_GO) ?: false
+                }
                 if (!performed) {
                     sendHardwareEnter(ic)
                 }
@@ -5211,17 +5246,16 @@ class CustomKeyboardService : InputMethodService() {
     private fun commitTextReliably(ic: android.view.inputmethod.InputConnection, text: String, isCalculator: Boolean) {
         if (text.isEmpty()) return
         if (isCalculator) {
-            // First attempt character-by-character commitment
-            for (ch in text) {
-                try {
-                    ic.commitText(ch.toString(), 1)
-                } catch (_: Exception) {}
-            }
-            // Check if characters were accepted or if view is a raw key listener
-            val check = try { ic.getTextBeforeCursor(text.length, 0)?.toString() ?: "" } catch (_: Exception) { "" }
-            if (check.isEmpty() || check != text) {
+            // Commit text cleanly once to calculator display without duplicate keystrokes
+            var committed = false
+            try {
+                committed = ic.commitText(text, 1)
+            } catch (_: Exception) {}
+            if (!committed) {
                 for (ch in text) {
-                    sendCharToInput(ic, ch)
+                    try {
+                        ic.commitText(ch.toString(), 1)
+                    } catch (_: Exception) {}
                 }
             }
         } else {
