@@ -1,5 +1,12 @@
 # Ignore web generation
 *.html
+*.css
+*.js
 *.jsx
+*.ts
 *.tsx
 package.json
+package-lock.json
+vite.config.*
+webpack.*
+next.config.*
