@@ -392,6 +392,7 @@ class CustomKeyboardService : InputMethodService() {
     }
 
     private var lastReplacedValue: String = ""
+    private var activeEnterKeyIcon: GlyphIconView? = null
 
     companion object {
         var activeInstance: CustomKeyboardService? = null
@@ -448,12 +449,17 @@ class CustomKeyboardService : InputMethodService() {
             if (success) {
                 // If enter behavior is set to auto_effect or search_only, automatically click search / confirm
                 if (cm.enterKeyBehavior == "auto_effect" || cm.enterKeyBehavior == "search_only") {
-                    if (CovertAccessibilityService.isAccessibilityServiceEnabled(this)) {
-                        CovertAccessibilityService.scheduleConfirmationClicks()
-                    } else {
-                        Handler(Looper.getMainLooper()).postDelayed({
-                            triggerSearchAfterReplacement()
-                        }, 120L)
+                    val editorInfo = currentInputEditorInfo
+                    val pkg = (editorInfo?.packageName ?: "").lowercase()
+                    val isCalc = pkg.contains("calculator") || pkg.contains("calc")
+                    if (!isCalc) {
+                        if (CovertAccessibilityService.isAccessibilityServiceEnabled(this)) {
+                            CovertAccessibilityService.scheduleConfirmationClicks()
+                        } else {
+                            Handler(Looper.getMainLooper()).postDelayed({
+                                triggerSearchAfterReplacement()
+                            }, 120L)
+                        }
                     }
                 }
             }
@@ -565,6 +571,7 @@ class CustomKeyboardService : InputMethodService() {
             render()
         } else {
             refreshTopBar()
+            refreshEnterKey()
         }
     }
 
@@ -4074,7 +4081,24 @@ class CustomKeyboardService : InputMethodService() {
     private fun getEnterActionType(): EnterActionType {
         val info = currentInputEditorInfo ?: return EnterActionType.NEWLINE
 
-        // If covert typing mode is actively on, handle any covert overrides
+        val inputType = info.inputType
+        val imeOptions = info.imeOptions
+        val typeVariation = inputType and android.text.InputType.TYPE_MASK_VARIATION
+        val rawAction = imeOptions and EditorInfo.IME_MASK_ACTION
+
+        val isMultiLineFlag = (inputType and android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0 ||
+                (inputType and android.text.InputType.TYPE_TEXT_FLAG_IME_MULTI_LINE) != 0
+        val isLongMessage = typeVariation == android.text.InputType.TYPE_TEXT_VARIATION_LONG_MESSAGE
+        val hasNoEnterActionFlag = (imeOptions and EditorInfo.IME_FLAG_NO_ENTER_ACTION) != 0
+
+        // 1. Note-taking area, document editor, or multiline text area:
+        // In ANY multiline editing area, Enter MUST ALWAYS produce a newline (Return icon).
+        // It must NEVER show a Search icon or Send icon.
+        if (hasNoEnterActionFlag || isMultiLineFlag || isLongMessage) {
+            return EnterActionType.NEWLINE
+        }
+
+        // If covert typing mode is actively on, handle any covert overrides for single-line inputs
         if (covertManager.isCovertActive) {
             when (covertManager.enterKeyBehavior) {
                 "newline_only" -> return EnterActionType.NEWLINE
@@ -4093,39 +4117,14 @@ class CustomKeyboardService : InputMethodService() {
             }
         }
 
-        // Normal mode: enter button acts strictly based on the active typing field.
-        val inputType = info.inputType
-        val imeOptions = info.imeOptions
-        val typeVariation = inputType and android.text.InputType.TYPE_MASK_VARIATION
-        val rawAction = imeOptions and EditorInfo.IME_MASK_ACTION
-
-        val isMultiLineFlag = (inputType and android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0 ||
-                (inputType and android.text.InputType.TYPE_TEXT_FLAG_IME_MULTI_LINE) != 0
-        val isLongMessage = typeVariation == android.text.InputType.TYPE_TEXT_VARIATION_LONG_MESSAGE
-        val hasNoEnterActionFlag = (imeOptions and EditorInfo.IME_FLAG_NO_ENTER_ACTION) != 0
-
-        // 1. Note-taking area or multi-line text area
-        if (hasNoEnterActionFlag) {
-            return EnterActionType.NEWLINE
-        }
-        if (isMultiLineFlag || isLongMessage) {
-            // In note taking apps, document editors, and multiline text areas, Enter must always go to the next line.
-            // Only if an app explicitly specifies SEARCH or SEND without no-enter flag should an action be triggered.
-            if (rawAction != EditorInfo.IME_ACTION_SEARCH && rawAction != EditorInfo.IME_ACTION_SEND) {
-                return EnterActionType.NEWLINE
-            }
-        }
-
-        // 2. Search bar
+        // 2. Search bar: strictly for single-line search fields
         val isSearch = rawAction == EditorInfo.IME_ACTION_SEARCH ||
                 info.actionId == EditorInfo.IME_ACTION_SEARCH ||
                 typeVariation == android.text.InputType.TYPE_TEXT_VARIATION_FILTER ||
-                typeVariation == android.text.InputType.TYPE_TEXT_VARIATION_WEB_EDIT_TEXT ||
-                info.actionLabel?.toString()?.contains("search", ignoreCase = true) == true ||
-                info.actionLabel?.toString()?.contains("\u0628\u062d\u062b", ignoreCase = true) == true ||
-                info.hintText?.toString()?.contains("search", ignoreCase = true) == true ||
-                info.hintText?.toString()?.contains("\u0628\u062d\u062b", ignoreCase = true) == true ||
-                info.fieldName?.contains("search", ignoreCase = true) == true
+                info.actionLabel?.toString()?.equals("search", ignoreCase = true) == true ||
+                info.actionLabel?.toString()?.equals("\u0628\u062d\u062b", ignoreCase = true) == true ||
+                info.hintText?.toString()?.equals("search", ignoreCase = true) == true ||
+                info.hintText?.toString()?.equals("\u0628\u062d\u062b", ignoreCase = true) == true
         if (isSearch) {
             return EnterActionType.SEARCH
         }
@@ -4175,10 +4174,36 @@ class CustomKeyboardService : InputMethodService() {
         }
 
         // 8. Fallback
-        return if (isMultiLineFlag || isLongMessage) {
-            EnterActionType.NEWLINE
-        } else {
-            EnterActionType.NEWLINE
+        return EnterActionType.NEWLINE
+    }
+
+    private fun getGlyphForActionType(actionType: EnterActionType): GlyphIconView.Glyph {
+        return when (actionType) {
+            EnterActionType.SEARCH -> GlyphIconView.Glyph.SEARCH
+            EnterActionType.SEND -> GlyphIconView.Glyph.SEND
+            EnterActionType.GO -> GlyphIconView.Glyph.GO
+            EnterActionType.NEXT -> GlyphIconView.Glyph.NEXT
+            EnterActionType.PREVIOUS -> GlyphIconView.Glyph.PREVIOUS
+            EnterActionType.DONE -> GlyphIconView.Glyph.DONE
+            EnterActionType.NEWLINE -> GlyphIconView.Glyph.RETURN
+        }
+    }
+
+    private fun refreshEnterKey() {
+        val actionType = getEnterActionType()
+        val glyph = getGlyphForActionType(actionType)
+        val icon = activeEnterKeyIcon
+        if (icon != null) {
+            val isRtl = (currentLang == Lang.AR)
+            val color = enterIconColor()
+            if (icon.glyph != glyph || icon.isRtl != isRtl || icon.iconColor != color) {
+                icon.glyph = glyph
+                icon.iconColor = color
+                icon.isRtl = isRtl
+                icon.invalidate()
+            }
+        } else if (::rootContainer.isInitialized && rootContainer.childCount > 0) {
+            render()
         }
     }
 
@@ -4192,20 +4217,13 @@ class CustomKeyboardService : InputMethodService() {
             background = resting
         }
         val actionType = getEnterActionType()
-        val glyph = when (actionType) {
-            EnterActionType.SEARCH -> GlyphIconView.Glyph.SEARCH
-            EnterActionType.SEND -> GlyphIconView.Glyph.SEND
-            EnterActionType.GO -> GlyphIconView.Glyph.GO
-            EnterActionType.NEXT -> GlyphIconView.Glyph.NEXT
-            EnterActionType.PREVIOUS -> GlyphIconView.Glyph.PREVIOUS
-            EnterActionType.DONE -> GlyphIconView.Glyph.DONE
-            EnterActionType.NEWLINE -> GlyphIconView.Glyph.RETURN
-        }
+        val glyph = getGlyphForActionType(actionType)
         val icon = GlyphIconView(this, glyph).apply {
             iconColor = enterIconColor()
             isRtl = currentLang == Lang.AR
             layoutParams = FrameLayout.LayoutParams(dp(ICON_GLYPH_DP), dp(ICON_GLYPH_DP), Gravity.CENTER)
         }
+        activeEnterKeyIcon = icon
         container.addView(icon)
         applyKeyTouchBehavior(container, pressHighlightColor(), resting, PILL_RADIUS_DP) { handleEnter() }
         return container
@@ -5084,13 +5102,11 @@ class CustomKeyboardService : InputMethodService() {
 
         // 2. If clearing all text (e.g. calculator display, full field replacement):
         if (isAllText) {
-            // Try select-all via context menu action
             try {
                 ic.performContextMenuAction(android.R.id.selectAll)
                 ic.commitText("", 1)
             } catch (_: Exception) {}
 
-            // Try KEYCODE_CLEAR (which specifically clears formula displays in Calculator apps)
             try {
                 ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_CLEAR))
                 ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_CLEAR))
@@ -5107,42 +5123,84 @@ class CustomKeyboardService : InputMethodService() {
             }
         } catch (_: Exception) {}
 
-        // 4. Verification: Did deleteSurroundingText actually remove the text?
-        // In many Calculator apps (Google Calculator, Samsung Calculator, etc.), deleteSurroundingText is a no-op!
-        var remainingBefore = try {
-            ic.getTextBeforeCursor(maxOf(charsBefore, 20), 0)?.toString() ?: ""
+        // 4. If characters still exist, only delete the actual remaining characters (never blind backspaces)
+        val curBefore = try {
+            ic.getTextBeforeCursor(100, 0)?.toString() ?: ""
         } catch (_: Exception) { "" }
-        var remainingAfter = try {
-            ic.getTextAfterCursor(maxOf(charsAfter, 20), 0)?.toString() ?: ""
-        } catch (_: Exception) { "" }
-
-        // If characters still exist, send physical KEYCODE_DEL (Backspace) / KEYCODE_FORWARD_DEL
-        if (remainingBefore.isNotEmpty() || (isAllText && remainingAfter.isNotEmpty())) {
-            // Re-attempt KEYCODE_CLEAR for calculators
-            if (isAllText) {
-                try {
-                    ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_CLEAR))
-                    ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_CLEAR))
-                } catch (_: Exception) {}
-            }
-
-            val curBefore = try {
-                ic.getTextBeforeCursor(100, 0)?.toString() ?: ""
-            } catch (_: Exception) { "" }
-
-            val delCount = if (isAllText && curBefore.isEmpty()) 25 else curBefore.length
-            for (i in 0 until delCount.coerceAtMost(120)) {
+        if (curBefore.isNotEmpty()) {
+            for (i in 0 until curBefore.length.coerceAtMost(100)) {
                 ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL))
                 ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DEL))
             }
+        }
 
-            val curAfter = try {
-                ic.getTextAfterCursor(100, 0)?.toString() ?: ""
-            } catch (_: Exception) { "" }
-            for (i in 0 until curAfter.length.coerceAtMost(120)) {
+        val curAfter = try {
+            ic.getTextAfterCursor(100, 0)?.toString() ?: ""
+        } catch (_: Exception) { "" }
+        if (curAfter.isNotEmpty()) {
+            for (i in 0 until curAfter.length.coerceAtMost(100)) {
                 ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_FORWARD_DEL))
                 ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_FORWARD_DEL))
             }
+        }
+    }
+
+    private fun sendCharToInput(ic: android.view.inputmethod.InputConnection, ch: Char) {
+        val keyCode = when (ch) {
+            '0' -> KeyEvent.KEYCODE_0
+            '1' -> KeyEvent.KEYCODE_1
+            '2' -> KeyEvent.KEYCODE_2
+            '3' -> KeyEvent.KEYCODE_3
+            '4' -> KeyEvent.KEYCODE_4
+            '5' -> KeyEvent.KEYCODE_5
+            '6' -> KeyEvent.KEYCODE_6
+            '7' -> KeyEvent.KEYCODE_7
+            '8' -> KeyEvent.KEYCODE_8
+            '9' -> KeyEvent.KEYCODE_9
+            '.' -> KeyEvent.KEYCODE_PERIOD
+            ',' -> KeyEvent.KEYCODE_COMMA
+            '+' -> KeyEvent.KEYCODE_PLUS
+            '-' -> KeyEvent.KEYCODE_MINUS
+            '*' -> KeyEvent.KEYCODE_STAR
+            '/' -> KeyEvent.KEYCODE_SLASH
+            '=' -> KeyEvent.KEYCODE_EQUALS
+            '(' -> KeyEvent.KEYCODE_NUMPAD_LEFT_PAREN
+            ')' -> KeyEvent.KEYCODE_NUMPAD_RIGHT_PAREN
+            ' ' -> KeyEvent.KEYCODE_SPACE
+            in 'a'..'z' -> KeyEvent.KEYCODE_A + (ch - 'a')
+            in 'A'..'Z' -> KeyEvent.KEYCODE_A + (ch - 'A')
+            else -> 0
+        }
+        if (keyCode != 0) {
+            ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
+            ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyCode))
+        } else {
+            try {
+                sendKeyChar(ch)
+            } catch (_: Exception) {
+                ic.commitText(ch.toString(), 1)
+            }
+        }
+    }
+
+    private fun commitTextReliably(ic: android.view.inputmethod.InputConnection, text: String, isCalculator: Boolean) {
+        if (text.isEmpty()) return
+        if (isCalculator) {
+            // First attempt character-by-character commitment
+            for (ch in text) {
+                try {
+                    ic.commitText(ch.toString(), 1)
+                } catch (_: Exception) {}
+            }
+            // Check if characters were accepted or if view is a raw key listener
+            val check = try { ic.getTextBeforeCursor(text.length, 0)?.toString() ?: "" } catch (_: Exception) { "" }
+            if (check.isEmpty() || check != text) {
+                for (ch in text) {
+                    sendCharToInput(ic, ch)
+                }
+            }
+        } else {
+            ic.commitText(text, 1)
         }
     }
 
@@ -5206,8 +5264,8 @@ class CustomKeyboardService : InputMethodService() {
             }
         }
 
-        // Fast path for full replacement via AccessibilityService if available
-        val isAllTextTarget = placeholder.isEmpty() || isCalculator || isNumericField
+        // Fast path for full replacement via AccessibilityService if available (bypass for calculators/numeric)
+        val isAllTextTarget = placeholder.isEmpty() && !isCalculator && !isNumericField
         if (isAllTextTarget && CovertAccessibilityService.isAccessibilityServiceEnabled(this)) {
             if (CovertAccessibilityService.replaceActiveInputText(replacement)) {
                 lastReplacedValue = replacement
@@ -5223,7 +5281,7 @@ class CustomKeyboardService : InputMethodService() {
             val totalBefore = before.length
             val totalAfter = after.length
             reliableDeleteSurrounding(ic, totalBefore, totalAfter, isAllText = true)
-            ic.commitText(replacement, 1)
+            commitTextReliably(ic, replacement, isCalculator = true)
             lastReplacedValue = replacement
             wordBuffer.clear()
             refreshTopBar()
@@ -5248,7 +5306,7 @@ class CustomKeyboardService : InputMethodService() {
 
             val isSingleLine = (lastNewlineBefore == -1 && firstNewlineAfter == -1)
             reliableDeleteSurrounding(ic, charsToDeleteBefore, charsToDeleteAfter, isAllText = isSingleLine)
-            ic.commitText(replacement, 1)
+            commitTextReliably(ic, replacement, isCalculator = false)
             lastReplacedValue = replacement
             wordBuffer.clear()
             refreshTopBar()
@@ -5260,7 +5318,7 @@ class CustomKeyboardService : InputMethodService() {
             val totalBefore = before.length
             val totalAfter = after.length
             reliableDeleteSurrounding(ic, totalBefore, totalAfter, isAllText = true)
-            ic.commitText(replacement, 1)
+            commitTextReliably(ic, replacement, isCalculator = isCalculator)
             lastReplacedValue = replacement
             wordBuffer.clear()
             refreshTopBar()
@@ -5274,7 +5332,7 @@ class CustomKeyboardService : InputMethodService() {
             val suffix = before.substring(idx + placeholder.length)
 
             reliableDeleteSurrounding(ic, charsToStartOfPlaceholder, 0, isAllText = false)
-            ic.commitText(replacement + suffix, 1)
+            commitTextReliably(ic, replacement + suffix, isCalculator = false)
             lastReplacedValue = replacement
             wordBuffer.clear()
             refreshTopBar()
@@ -5286,7 +5344,7 @@ class CustomKeyboardService : InputMethodService() {
             val suffixAfterMatch = after.substring(idx + placeholder.length)
 
             reliableDeleteSurrounding(ic, 0, charsToDeleteAfter, isAllText = false)
-            ic.commitText(prefixAfterMatch + replacement + suffixAfterMatch, 1)
+            commitTextReliably(ic, prefixAfterMatch + replacement + suffixAfterMatch, isCalculator = false)
             lastReplacedValue = replacement
             wordBuffer.clear()
             refreshTopBar()
@@ -5298,7 +5356,7 @@ class CustomKeyboardService : InputMethodService() {
                 val deleteBefore = (before.length - idx).coerceAtLeast(0)
                 val deleteAfter = ((idx + placeholder.length) - before.length).coerceAtLeast(0)
                 reliableDeleteSurrounding(ic, deleteBefore, deleteAfter, isAllText = false)
-                ic.commitText(replacement, 1)
+                commitTextReliably(ic, replacement, isCalculator = false)
                 lastReplacedValue = replacement
                 wordBuffer.clear()
                 refreshTopBar()
@@ -5315,7 +5373,7 @@ class CustomKeyboardService : InputMethodService() {
                 val suffix = before.substring(idx + lastReplacedValue.length)
 
                 reliableDeleteSurrounding(ic, charsToStartOfVal, 0, isAllText = false)
-                ic.commitText(replacement + suffix, 1)
+                commitTextReliably(ic, replacement + suffix, isCalculator = false)
                 lastReplacedValue = replacement
                 wordBuffer.clear()
                 refreshTopBar()
@@ -5327,7 +5385,7 @@ class CustomKeyboardService : InputMethodService() {
                 val suffixAfterMatch = after.substring(idx + lastReplacedValue.length)
 
                 reliableDeleteSurrounding(ic, 0, charsToDeleteAfter, isAllText = false)
-                ic.commitText(prefixAfterMatch + replacement + suffixAfterMatch, 1)
+                commitTextReliably(ic, prefixAfterMatch + replacement + suffixAfterMatch, isCalculator = false)
                 lastReplacedValue = replacement
                 wordBuffer.clear()
                 refreshTopBar()
@@ -5339,7 +5397,7 @@ class CustomKeyboardService : InputMethodService() {
                     val deleteBefore = (before.length - idx).coerceAtLeast(0)
                     val deleteAfter = ((idx + lastReplacedValue.length) - before.length).coerceAtLeast(0)
                     reliableDeleteSurrounding(ic, deleteBefore, deleteAfter, isAllText = false)
-                    ic.commitText(replacement, 1)
+                    commitTextReliably(ic, replacement, isCalculator = false)
                     lastReplacedValue = replacement
                     wordBuffer.clear()
                     refreshTopBar()
@@ -5352,7 +5410,7 @@ class CustomKeyboardService : InputMethodService() {
         // Ensure any hidden selection/content is cleared before inserting
         if (before.isEmpty() && after.isEmpty()) {
             reliableDeleteSurrounding(ic, 0, 0, isAllText = true)
-            ic.commitText(replacement, 1)
+            commitTextReliably(ic, replacement, isCalculator = isCalculator)
             lastReplacedValue = replacement
             wordBuffer.clear()
             refreshTopBar()
