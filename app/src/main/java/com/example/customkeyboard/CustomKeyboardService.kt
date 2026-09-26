@@ -393,6 +393,7 @@ class CustomKeyboardService : InputMethodService() {
 
     private var lastReplacedValue: String = ""
     private var activeEnterKeyIcon: GlyphIconView? = null
+    private var currentActiveEditorInfo: EditorInfo? = null
 
     companion object {
         var activeInstance: CustomKeyboardService? = null
@@ -526,11 +527,13 @@ class CustomKeyboardService : InputMethodService() {
 
     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
+        currentActiveEditorInfo = attribute
         // Avoid redundant render() during input initialization
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
+        currentActiveEditorInfo = info
         if (!restarting) {
             userStartedTyping = false
             checkPrimaryClipOnInputStart()
@@ -571,7 +574,7 @@ class CustomKeyboardService : InputMethodService() {
             render()
         } else {
             refreshTopBar()
-            refreshEnterKey()
+            refreshEnterKey(info)
         }
     }
 
@@ -4078,8 +4081,8 @@ class CustomKeyboardService : InputMethodService() {
      * - Form next field -> Next (next arrow)
      * - Form done field -> Done (checkmark)
      */
-    private fun getEnterActionType(): EnterActionType {
-        val info = currentInputEditorInfo ?: return EnterActionType.NEWLINE
+    private fun getEnterActionType(editorInfo: EditorInfo? = null): EnterActionType {
+        val info = editorInfo ?: currentActiveEditorInfo ?: currentInputEditorInfo ?: return EnterActionType.NEWLINE
 
         val inputType = info.inputType
         val imeOptions = info.imeOptions
@@ -4089,12 +4092,11 @@ class CustomKeyboardService : InputMethodService() {
         val isMultiLineFlag = (inputType and android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0 ||
                 (inputType and android.text.InputType.TYPE_TEXT_FLAG_IME_MULTI_LINE) != 0
         val isLongMessage = typeVariation == android.text.InputType.TYPE_TEXT_VARIATION_LONG_MESSAGE
-        val hasNoEnterActionFlag = (imeOptions and EditorInfo.IME_FLAG_NO_ENTER_ACTION) != 0
 
         // 1. Note-taking area, document editor, or multiline text area:
         // In ANY multiline editing area, Enter MUST ALWAYS produce a newline (Return icon).
         // It must NEVER show a Search icon or Send icon.
-        if (hasNoEnterActionFlag || isMultiLineFlag || isLongMessage) {
+        if (isMultiLineFlag || isLongMessage) {
             return EnterActionType.NEWLINE
         }
 
@@ -4117,24 +4119,46 @@ class CustomKeyboardService : InputMethodService() {
             }
         }
 
-        // 2. Search bar: strictly for single-line search fields
-        val isSearch = rawAction == EditorInfo.IME_ACTION_SEARCH ||
-                info.actionId == EditorInfo.IME_ACTION_SEARCH ||
-                typeVariation == android.text.InputType.TYPE_TEXT_VARIATION_FILTER ||
-                info.actionLabel?.toString()?.equals("search", ignoreCase = true) == true ||
-                info.actionLabel?.toString()?.equals("\u0628\u062d\u062b", ignoreCase = true) == true ||
-                info.hintText?.toString()?.equals("search", ignoreCase = true) == true ||
-                info.hintText?.toString()?.equals("\u0628\u062d\u062b", ignoreCase = true) == true
+        // 2. Search bar: comprehensive detection for single-line search fields
+        val hintText = (info.hintText ?: "").toString().lowercase()
+        val actionLabel = (info.actionLabel ?: "").toString().lowercase()
+        val fieldName = (info.fieldName ?: "").lowercase()
+        val privateIme = (info.privateImeOptions ?: "").lowercase()
+        val packageName = (info.packageName ?: "").lowercase()
+
+        val isExplicitSearchAction = rawAction == EditorInfo.IME_ACTION_SEARCH ||
+                info.actionId == EditorInfo.IME_ACTION_SEARCH
+
+        val isSearchVariation = typeVariation == android.text.InputType.TYPE_TEXT_VARIATION_FILTER ||
+                typeVariation == 0xa0 // TYPE_TEXT_VARIATION_WEB_SEARCH_QUERY
+
+        val isSearchTextMatch = actionLabel.contains("search") || actionLabel.contains("بحث") ||
+                hintText.contains("search") || hintText.contains("بحث") ||
+                hintText.contains("find") || hintText.contains("ابحث") ||
+                fieldName.contains("search") || fieldName.contains("query") ||
+                fieldName.contains("find") || privateIme.contains("search")
+
+        val isSearchApp = (packageName.contains("search") || packageName.contains("googlequicksearchbox")) &&
+                (rawAction == EditorInfo.IME_ACTION_SEARCH || rawAction == EditorInfo.IME_ACTION_GO ||
+                 rawAction == EditorInfo.IME_ACTION_UNSPECIFIED || rawAction == EditorInfo.IME_ACTION_NONE ||
+                 isSearchTextMatch)
+
+        val isSearch = isExplicitSearchAction || isSearchVariation || isSearchTextMatch || isSearchApp
         if (isSearch) {
             return EnterActionType.SEARCH
+        }
+
+        val hasNoEnterActionFlag = (imeOptions and EditorInfo.IME_FLAG_NO_ENTER_ACTION) != 0
+        if (hasNoEnterActionFlag) {
+            return EnterActionType.NEWLINE
         }
 
         // 3. Send action (e.g. Chat apps)
         val isSend = rawAction == EditorInfo.IME_ACTION_SEND ||
                 info.actionId == EditorInfo.IME_ACTION_SEND ||
                 typeVariation == android.text.InputType.TYPE_TEXT_VARIATION_SHORT_MESSAGE ||
-                info.actionLabel?.toString()?.contains("send", ignoreCase = true) == true ||
-                info.actionLabel?.toString()?.contains("\u0625\u0631\u0633\u0627\u0644", ignoreCase = true) == true
+                actionLabel.contains("send") ||
+                actionLabel.contains("\u0625\u0631\u0633\u0627\u0644")
         if (isSend) {
             return EnterActionType.SEND
         }
@@ -4143,7 +4167,8 @@ class CustomKeyboardService : InputMethodService() {
         val isGo = rawAction == EditorInfo.IME_ACTION_GO ||
                 info.actionId == EditorInfo.IME_ACTION_GO ||
                 typeVariation == android.text.InputType.TYPE_TEXT_VARIATION_URI ||
-                info.actionLabel?.toString()?.contains("go", ignoreCase = true) == true
+                actionLabel.contains("go") ||
+                actionLabel.contains("\u0627\u0630\u0647\u0628")
         if (isGo) {
             return EnterActionType.GO
         }
@@ -4151,8 +4176,8 @@ class CustomKeyboardService : InputMethodService() {
         // 5. Next action (e.g. Form input field)
         val isNext = rawAction == EditorInfo.IME_ACTION_NEXT ||
                 info.actionId == EditorInfo.IME_ACTION_NEXT ||
-                info.actionLabel?.toString()?.contains("next", ignoreCase = true) == true ||
-                info.actionLabel?.toString()?.contains("\u0627\u0644\u062a\u0627\u0644\u064a", ignoreCase = true) == true
+                actionLabel.contains("next") ||
+                actionLabel.contains("\u0627\u0644\u062a\u0627\u0644\u064a")
         if (isNext) {
             return EnterActionType.NEXT
         }
@@ -4167,8 +4192,8 @@ class CustomKeyboardService : InputMethodService() {
         // 7. Done action (e.g. Single-line form finish)
         val isDone = rawAction == EditorInfo.IME_ACTION_DONE ||
                 info.actionId == EditorInfo.IME_ACTION_DONE ||
-                info.actionLabel?.toString()?.contains("done", ignoreCase = true) == true ||
-                info.actionLabel?.toString()?.contains("\u062a\u0645", ignoreCase = true) == true
+                actionLabel.contains("done") ||
+                actionLabel.contains("\u062a\u0645")
         if (isDone) {
             return EnterActionType.DONE
         }
@@ -4189,8 +4214,8 @@ class CustomKeyboardService : InputMethodService() {
         }
     }
 
-    private fun refreshEnterKey() {
-        val actionType = getEnterActionType()
+    private fun refreshEnterKey(info: EditorInfo? = null) {
+        val actionType = getEnterActionType(info)
         val glyph = getGlyphForActionType(actionType)
         val icon = activeEnterKeyIcon
         if (icon != null) {
@@ -4216,7 +4241,7 @@ class CustomKeyboardService : InputMethodService() {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
             background = resting
         }
-        val actionType = getEnterActionType()
+        val actionType = getEnterActionType(currentActiveEditorInfo ?: currentInputEditorInfo)
         val glyph = getGlyphForActionType(actionType)
         val icon = GlyphIconView(this, glyph).apply {
             iconColor = enterIconColor()
