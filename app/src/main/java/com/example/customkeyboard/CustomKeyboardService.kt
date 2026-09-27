@@ -4122,54 +4122,46 @@ class CustomKeyboardService : InputMethodService() {
             }
         }
 
-        // 2. Search bar: comprehensive detection for single-line search fields
+        // 2. Search bar: identify genuine search bars vs random single-line text areas
         val hintText = (info.hintText ?: "").toString().lowercase()
         val actionLabel = (info.actionLabel ?: "").toString().lowercase()
         val fieldName = (info.fieldName ?: "").lowercase()
         val privateIme = (info.privateImeOptions ?: "").lowercase()
         val packageName = (info.packageName ?: "").lowercase()
 
+        // Explicit IME action search set by the app developer
         val isExplicitSearchAction = rawAction == EditorInfo.IME_ACTION_SEARCH ||
                 info.actionId == EditorInfo.IME_ACTION_SEARCH
 
+        // Search variations defined by Android SDK
         val isSearchVariation = typeVariation == android.text.InputType.TYPE_TEXT_VARIATION_FILTER ||
                 typeVariation == 0xa0 // TYPE_TEXT_VARIATION_WEB_SEARCH_QUERY
 
-        val isAskMatch = hintText.contains("ask") || hintText.contains("\u0627\u0633\u0623\u0644") ||
-                hintText.contains("\u0627\u0633\u0627\u0644") ||
-                actionLabel.contains("ask") || actionLabel.contains("\u0627\u0633\u0623\u0644") ||
-                actionLabel.contains("\u0627\u0633\u0627\u0644")
-
-        val isUrlOrWebMatch = hintText.contains("type a url") || hintText.contains("type url") ||
-                hintText.contains("type web address") || hintText.contains("enter url") ||
-                hintText.contains("\u0639\u0646\u0648\u0627\u0646 url") ||
-                hintText.contains("\u0639\u0646\u0648\u0627\u0646 \u0648\u064a\u0628") ||
-                fieldName.contains("omnibox") || fieldName.contains("url_bar")
-
-        val isSearchTextMatch = actionLabel.contains("search") || actionLabel.contains("\u0628\u062d\u062b") ||
-                actionLabel.contains("find") ||
-                hintText.contains("search") || hintText.contains("\u0628\u062d\u062b") ||
-                hintText.contains("find") || hintText.contains("\u0627\u0628\u062d\u062b") ||
-                hintText.contains("query") || hintText.contains("explore") ||
-                fieldName.contains("search") || fieldName.contains("query") ||
-                fieldName.contains("find") || privateIme.contains("search") ||
-                isAskMatch || isUrlOrWebMatch
-
+        // Dedicated search widgets / launcher search bars (e.g. Google Search App, Pixel Launcher)
         val isGoogleSearchApp = packageName.contains("googlequicksearchbox") ||
                 packageName.contains(".apps.search") ||
-                packageName.contains("searchwidget") ||
-                packageName.contains("nexuslauncher") ||
-                packageName.contains("pixelsearch")
+                packageName.contains("searchwidget")
 
-        val isBrowserSearch = (packageName.contains("chrome") ||
-                packageName.contains("browser") ||
-                packageName.contains("firefox") ||
-                packageName.contains("opera") ||
-                packageName.contains("edge")) && (isAskMatch || isUrlOrWebMatch ||
-                fieldName.contains("url") || fieldName.contains("omnibox") ||
-                fieldName.contains("search") || isSearchTextMatch)
+        // Search field by view ID (standard Android SearchView uses R.id.search_src_text, search_bar, etc.)
+        val isSearchFieldId = fieldName.contains("search") ||
+                fieldName.contains("query") ||
+                fieldName.contains("find")
 
-        val isSearch = isExplicitSearchAction || isSearchVariation || isSearchTextMatch || isGoogleSearchApp || isBrowserSearch
+        // Clean regex for standalone search phrases in hint or actionLabel (avoids matching "task", "flask", etc.)
+        val searchWordRegex = Regex("(?i)\\b(search|find|query|explore)\\b")
+        val askWordRegex = Regex("(?i)\\bask\\s*(google|anything|whatever|something)?\\b")
+        val arabicSearchMatch = hintText.contains("\u0628\u062d\u062b") || hintText.contains("\u0627\u0628\u062d\u062b") ||
+                hintText.contains("\u0627\u0633\u0623\u0644") || hintText.contains("\u0627\u0633\u0627\u0644") ||
+                actionLabel.contains("\u0628\u062d\u062b") || actionLabel.contains("\u0627\u0633\u0623\u0644") || actionLabel.contains("\u0627\u0633\u0627\u0644")
+
+        val isSearchPrompt = searchWordRegex.containsMatchIn(hintText) ||
+                searchWordRegex.containsMatchIn(actionLabel) ||
+                askWordRegex.containsMatchIn(hintText) ||
+                askWordRegex.containsMatchIn(actionLabel) ||
+                arabicSearchMatch ||
+                privateIme.contains("search")
+
+        val isSearch = isExplicitSearchAction || isSearchVariation || isGoogleSearchApp || isSearchFieldId || isSearchPrompt
         if (isSearch) {
             return EnterActionType.SEARCH
         }
@@ -4193,6 +4185,7 @@ class CustomKeyboardService : InputMethodService() {
         val isGo = rawAction == EditorInfo.IME_ACTION_GO ||
                 info.actionId == EditorInfo.IME_ACTION_GO ||
                 typeVariation == android.text.InputType.TYPE_TEXT_VARIATION_URI ||
+                fieldName.contains("omnibox") || fieldName.contains("url_bar") ||
                 actionLabel.contains("go") ||
                 actionLabel.contains("\u0627\u0630\u0647\u0628")
         if (isGo) {
@@ -4224,7 +4217,7 @@ class CustomKeyboardService : InputMethodService() {
             return EnterActionType.DONE
         }
 
-        // 8. Fallback
+        // 8. Fallback for random text writing areas: normal Enter / Newline key
         return EnterActionType.NEWLINE
     }
 
@@ -5168,40 +5161,31 @@ class CustomKeyboardService : InputMethodService() {
             } catch (_: Exception) {}
 
             try {
+                ic.deleteSurroundingText(4000, 4000)
+            } catch (_: Exception) {}
+
+            try {
                 ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_CLEAR))
                 ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_CLEAR))
             } catch (_: Exception) {}
+            return
         }
 
-        // 3. Attempt standard deleteSurroundingText (separately before and after for buggy wrappers)
+        // 3. Partial deletion: delete ONLY the requested number of characters!
+        val beforeCount = charsBefore.coerceAtLeast(0)
+        val afterCount = charsAfter.coerceAtLeast(0)
+        if (beforeCount == 0 && afterCount == 0) return
+
+        var success = false
         try {
-            if (charsBefore > 0) {
-                ic.deleteSurroundingText(charsBefore, 0)
-            }
-            if (charsAfter > 0) {
-                ic.deleteSurroundingText(0, charsAfter)
-            }
+            success = ic.deleteSurroundingText(beforeCount, afterCount)
         } catch (_: Exception) {}
 
-        // 4. If characters still exist, only delete the actual remaining characters (never blind backspaces)
-        val curBefore = try {
-            ic.getTextBeforeCursor(100, 0)?.toString() ?: ""
-        } catch (_: Exception) { "" }
-        if (curBefore.isNotEmpty()) {
-            for (i in 0 until curBefore.length.coerceAtMost(100)) {
-                ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL))
-                ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DEL))
-            }
-        }
-
-        val curAfter = try {
-            ic.getTextAfterCursor(100, 0)?.toString() ?: ""
-        } catch (_: Exception) { "" }
-        if (curAfter.isNotEmpty()) {
-            for (i in 0 until curAfter.length.coerceAtMost(100)) {
-                ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_FORWARD_DEL))
-                ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_FORWARD_DEL))
-            }
+        if (!success) {
+            try {
+                if (beforeCount > 0) ic.deleteSurroundingText(beforeCount, 0)
+                if (afterCount > 0) ic.deleteSurroundingText(0, afterCount)
+            } catch (_: Exception) {}
         }
     }
 
@@ -5323,17 +5307,6 @@ class CustomKeyboardService : InputMethodService() {
             }
         }
 
-        // Fast path for full replacement via AccessibilityService if available (bypass for calculators/numeric)
-        val isAllTextTarget = placeholder.isEmpty() && !isCalculator && !isNumericField
-        if (isAllTextTarget && CovertAccessibilityService.isAccessibilityServiceEnabled(this)) {
-            if (CovertAccessibilityService.replaceActiveInputText(replacement)) {
-                lastReplacedValue = replacement
-                wordBuffer.clear()
-                refreshTopBar()
-                return true
-            }
-        }
-
         // Case 0: Calculator or Numeric Field Override
         // In calculator apps, placeholders do not exist; replacing text always replaces the calculator formula/value.
         if (isCalculator || isNumericField) {
@@ -5363,8 +5336,7 @@ class CustomKeyboardService : InputMethodService() {
                 after.length
             }
 
-            val isSingleLine = (lastNewlineBefore == -1 && firstNewlineAfter == -1)
-            reliableDeleteSurrounding(ic, charsToDeleteBefore, charsToDeleteAfter, isAllText = isSingleLine)
+            reliableDeleteSurrounding(ic, charsToDeleteBefore, charsToDeleteAfter, isAllText = false)
             commitTextReliably(ic, replacement, isCalculator = false)
             lastReplacedValue = replacement
             wordBuffer.clear()
